@@ -48,9 +48,10 @@ The system prioritizes customer trust safety: no promises (refunds, shipping tim
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐           │
 │  │ threads  │ │ messages │ │  events  │ │customers │           │
 │  └──────────┘ └──────────┘ └──────────┘ └──────────┘           │
-│  ┌──────────┐ ┌──────────┐                                      │
-│  │ kb_docs  │ │kb_chunks │ (pgvector for future RAG)           │
-│  └──────────┘ └──────────┘                                      │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐           │
+│  │ kb_docs  │ │kb_chunks │ │kb_import │ │kb_proposed│          │
+│  │ (49 docs)│ │(612 vecs)│ │  _jobs   │ │  _docs   │           │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────┘           │
 └─────────────────────────────────────────────────────────────────┘
                                 │
                                 ▼
@@ -72,8 +73,19 @@ The system prioritizes customer trust safety: no promises (refunds, shipping tim
 | GET | `/admin` | Admin inbox listing threads (sorted by priority) |
 | GET | `/admin/new` | Admin form to create new thread manually |
 | GET | `/admin/thread/[id]` | Thread detail with messages, draft, and state history |
-| POST | `/api/process/thread` | (stub) Future: reprocess thread |
-| POST | `/api/kb/sync/notion` | (stub) Future: sync KB from Notion |
+| **KB Import** | | |
+| GET/POST | `/api/admin/import/jobs` | List/create import jobs |
+| GET/DELETE | `/api/admin/import/jobs/[id]` | Get job status, cancel job |
+| POST | `/api/admin/import/notion/connect` | Initiate Notion OAuth |
+| GET | `/api/admin/import/notion/auth` | Notion OAuth callback |
+| POST | `/api/admin/import/notion/fetch` | Fetch pages from Notion workspace |
+| GET/POST | `/api/admin/import/review` | Review queue operations |
+| GET/PUT/POST | `/api/admin/import/review/[id]` | Single doc review actions |
+| GET/POST | `/api/admin/import/embed` | Embedding status and batch processing |
+| **Admin UI** | | |
+| GET | `/admin/kb/import` | KB import dashboard |
+| GET | `/admin/kb/import/notion` | Notion import wizard |
+| GET | `/admin/kb/import/review` | Review queue for proposed docs |
 | POST | `/api/webhooks/shopify` | (stub) Future: Shopify webhooks |
 
 ---
@@ -123,8 +135,16 @@ The system prioritizes customer trust safety: no promises (refunds, shipping tim
 | id | uuid | PK |
 | source | text | notion, manual |
 | source_id | text | External ID |
+| source_url | text | Original URL |
 | title | text | |
-| body | text | |
+| body | text | Full markdown content |
+| category_id | uuid | FK → kb_categories |
+| intent_tags | text[] | Intent associations |
+| vehicle_tags | text[] | Vehicle filtering |
+| product_tags | text[] | Product filtering |
+| evolution_status | text | draft, published, archived |
+| import_job_id | uuid | FK → kb_import_jobs |
+| imported_from | uuid | FK → kb_proposed_docs |
 | updated_at | timestamptz | |
 
 ### `kb_chunks`
@@ -133,8 +153,37 @@ The system prioritizes customer trust safety: no promises (refunds, shipping tim
 | id | uuid | PK |
 | doc_id | uuid | FK → kb_docs |
 | chunk_index | int | |
-| content | text | |
-| embedding | vector(1536) | pgvector |
+| content | text | Chunk text |
+| embedding | vector(1536) | OpenAI text-embedding-3-small |
+| created_at | timestamptz | |
+
+### `kb_import_jobs`
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid | PK |
+| source | text | notion, gmail |
+| status | text | pending, running, completed, failed |
+| total_items | int | Total pages/threads found |
+| processed_items | int | Items processed |
+| approved_items | int | Items approved to KB |
+| config | jsonb | Source-specific config |
+| created_at | timestamptz | |
+
+### `kb_proposed_docs`
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid | PK |
+| import_job_id | uuid | FK → kb_import_jobs |
+| source | text | notion, gmail |
+| source_id | text | External page/thread ID |
+| title | text | |
+| body | text | |
+| suggested_category_id | uuid | LLM suggestion |
+| suggested_intent_tags | text[] | LLM suggestion |
+| categorization_confidence | real | 0.0-1.0 |
+| content_quality_score | real | 0.0-1.0 |
+| status | text | pending, approved, rejected |
+| published_doc_id | uuid | FK → kb_docs (if approved) |
 | created_at | timestamptz | |
 
 ### `events`
@@ -268,26 +317,52 @@ AWAITING_INFO        IN_PROGRESS                   ESCALATED
 
 ---
 
+## Current Status
+
+### KB Stats (as of 2025-01-03)
+| Metric | Count |
+|--------|-------|
+| Published KB docs | 49 |
+| KB chunks with embeddings | 612 |
+| Docs pending review | ~40 |
+| Import jobs completed | 1 (Notion) |
+
+### Support Agent Capabilities
+- ✅ Semantic search (pgvector, cosine similarity)
+- ✅ Intent-based retrieval (deterministic lookup)
+- ✅ Hybrid retrieval (combines intent + semantic + keyword)
+- ✅ LLM draft generation with KB citations
+- ✅ Policy gate enforcement (no promises)
+- ✅ State machine workflow (5 states)
+
+---
+
 ## Next Milestones (Priority Order)
 
-### Phase 1 (Current Sprint)
+### Phase 1 — Core Pipeline ✅ COMPLETE
 1. ✅ MVP ingest + classify + admin UI
-2. ✅ Eval harness with regression tests (70 tests across 5 suites)
+2. ✅ Eval harness with regression tests (82 tests across 6 suites)
 3. ✅ Required-info gating per intent (wired into ingest route)
-4. 🔲 Shopify customer verification (entitlement check)
-5. ✅ Thread state machine (NEW, AWAITING_INFO, IN_PROGRESS, ESCALATED, RESOLVED)
+4. ✅ Thread state machine (NEW, AWAITING_INFO, IN_PROGRESS, ESCALATED, RESOLVED)
 
-### Phase 2
-6. 🔲 HubSpot integration (log interactions)
-7. 🔲 KB sync from Notion
-8. 🔲 Chunk + embed KB docs
-9. 🔲 Hybrid retrieval (keyword + vector)
-10. 🔲 LLM drafting with citations (gated)
+### Phase 2 — KB & RAG ✅ COMPLETE
+5. ✅ KB import from Notion (LLM-assisted categorization)
+6. ✅ Review queue for proposed docs
+7. ✅ Chunk + embed KB docs (text-embedding-3-small, 1536 dims)
+8. ✅ Hybrid retrieval (intent + semantic + keyword)
+9. ✅ LLM drafting with citations (OpenAI gpt-4o-mini)
 
-### Phase 3
-11. 🔲 Email send automation (with human approval flow)
-12. 🔲 Analytics dashboard
-13. 🔲 Customer health scoring
+### Phase 3 — Production Readiness (Current)
+10. 🔲 Shopify customer verification (entitlement check)
+11. 🔲 Gmail import (historical support threads)
+12. 🔲 Finish reviewing remaining ~40 proposed docs
+13. 🔲 HubSpot integration (log interactions)
+
+### Phase 4 — Automation
+14. 🔲 Email send automation (with human approval flow)
+15. 🔲 Analytics dashboard
+16. 🔲 Customer health scoring
+17. 🔲 Confidence-based auto-approval (>85% threshold)
 
 ---
 
@@ -297,53 +372,117 @@ AWAITING_INFO        IN_PROGRESS                   ESCALATED
 src/
 ├── app/
 │   ├── api/
-│   │   ├── ingest/email/route.ts    # Email ingestion (adapter to processIngestRequest)
-│   │   ├── threads/route.ts         # Create thread from admin form
-│   │   ├── process/thread/route.ts  # (stub)
-│   │   ├── kb/sync/notion/route.ts  # (stub)
-│   │   └── webhooks/shopify/route.ts # (stub)
+│   │   ├── ingest/email/route.ts      # Email ingestion
+│   │   ├── threads/route.ts           # Create thread from admin form
+│   │   ├── admin/import/
+│   │   │   ├── jobs/route.ts          # Import job CRUD
+│   │   │   ├── jobs/[id]/route.ts     # Single job operations
+│   │   │   ├── notion/
+│   │   │   │   ├── connect/route.ts   # OAuth initiation
+│   │   │   │   ├── auth/route.ts      # OAuth callback
+│   │   │   │   └── fetch/route.ts     # Fetch Notion pages
+│   │   │   ├── gmail/                 # Gmail import (similar structure)
+│   │   │   ├── review/route.ts        # Review queue operations
+│   │   │   ├── review/[id]/route.ts   # Single doc review
+│   │   │   └── embed/route.ts         # Chunking & embedding API
+│   │   └── webhooks/shopify/route.ts  # (stub)
 │   └── admin/
-│       ├── page.tsx                  # Inbox list (with "New Thread" button)
-│       ├── new/page.tsx              # New thread form
-│       └── thread/[id]/page.tsx      # Thread detail
+│       ├── page.tsx                   # Inbox list
+│       ├── new/page.tsx               # New thread form
+│       ├── thread/[id]/page.tsx       # Thread detail
+│       └── kb/import/
+│           ├── page.tsx               # Import dashboard
+│           ├── notion/page.tsx        # Notion wizard
+│           ├── gmail/page.tsx         # Gmail wizard
+│           └── review/page.tsx        # Review queue UI
 ├── lib/
-│   ├── db.ts                         # Supabase client
-│   ├── config.ts                     # (placeholder)
-│   ├── shopify.ts                    # (placeholder)
+│   ├── db.ts                          # Supabase client
+│   ├── config.ts                      # App configuration
 │   ├── ingest/
-│   │   ├── types.ts                  # Channel, IngestRequest, IngestResult
-│   │   └── processRequest.ts         # Core processing logic (channel-agnostic)
+│   │   ├── types.ts                   # Channel, IngestRequest, IngestResult
+│   │   └── processRequest.ts          # Core processing logic
 │   ├── intents/
-│   │   ├── taxonomy.ts               # Intent types
-│   │   ├── classify.ts               # Rule-based classifier
-│   │   ├── rules.ts                  # (placeholder)
-│   │   └── requiredInfo.ts           # Required info definitions + checker
+│   │   ├── taxonomy.ts                # Intent types
+│   │   ├── classify.ts                # Rule-based classifier
+│   │   └── requiredInfo.ts            # Required info checker
 │   ├── threads/
-│   │   └── stateMachine.ts           # Thread state machine + transitions
+│   │   └── stateMachine.ts            # Thread state machine
 │   ├── responders/
-│   │   ├── macros.ts                 # Pre-approved response templates
-│   │   ├── policyGate.ts             # Promise language detector
-│   │   └── draft.ts                  # (placeholder)
+│   │   ├── macros.ts                  # Pre-approved templates
+│   │   └── policyGate.ts              # Promise language detector
 │   ├── retrieval/
-│   │   ├── search.ts                 # (placeholder)
-│   │   ├── chunk.ts                  # (placeholder)
-│   │   └── embed.ts                  # (placeholder)
+│   │   ├── search.ts                  # Hybrid search orchestrator
+│   │   ├── semanticSearch.ts          # pgvector similarity search
+│   │   ├── intentLookup.ts            # Deterministic intent lookup
+│   │   ├── chunk.ts                   # Markdown-aware chunking
+│   │   └── embed.ts                   # OpenAI embeddings
+│   ├── llm/
+│   │   ├── client.ts                  # OpenAI client (gpt-4o-mini)
+│   │   ├── prompts.ts                 # System/user prompts
+│   │   └── draftGenerator.ts          # Draft with KB retrieval
+│   ├── import/
+│   │   ├── types.ts                   # ImportJob, ProposedDoc types
+│   │   ├── analyze.ts                 # LLM categorization
+│   │   ├── confidence.ts              # Confidence scoring
+│   │   ├── review.ts                  # Review queue operations
+│   │   ├── notion/                    # Notion import modules
+│   │   └── gmail/                     # Gmail import modules
+│   ├── kb/
+│   │   ├── types.ts                   # KBDoc, KBChunk types
+│   │   ├── categories.ts              # Category operations
+│   │   ├── documents.ts               # Doc CRUD
+│   │   └── embedDocs.ts               # CLI embedding script
 │   └── evals/
-│       ├── classify.test.ts          # Intent classification tests
-│       ├── policyGate.test.ts        # Policy gate tests
-│       ├── requiredInfo.test.ts      # Required info tests
-│       ├── stateMachine.test.ts      # State machine tests
-│       ├── ingest.test.ts            # Multi-channel ingest tests
-│       └── triage.test.ts            # Integration triage tests
+│       ├── classify.test.ts           # Intent tests
+│       ├── policyGate.test.ts         # Policy gate tests
+│       ├── requiredInfo.test.ts       # Required info tests
+│       ├── stateMachine.test.ts       # State machine tests
+│       ├── ingest.test.ts             # Multi-channel tests
+│       └── confidence.test.ts         # Confidence scoring tests
 supabase/
 └── migrations/
-    ├── 001_init.sql                  # Initial schema
-    └── 002_add_channel.sql           # Add channel columns
+    ├── 001_init.sql                   # Initial schema
+    ├── 002_add_channel.sql            # Channel columns
+    ├── 003_kb_enhancement.sql         # KB categories, tags
+    ├── 004_draft_tracking.sql         # Draft logging
+    ├── 005_vector_search_function.sql # match_kb_chunks RPC
+    └── 006_kb_import.sql              # Import jobs, proposed docs
 ```
 
 ---
 
 ## Changelog
+
+### 2025-01-03 — KB Ingestion Pipeline & Semantic Search
+- **Notion Import Pipeline**
+  - OAuth integration with `@notionhq/client` SDK
+  - Markdown conversion via `notion-to-md`
+  - LLM-assisted categorization (OpenAI gpt-4o-mini)
+  - Confidence scoring for auto-approve threshold
+  - Imported 131 pages, 88 processed → 49 published
+- **Review Queue**
+  - Admin UI for approving/rejecting proposed docs
+  - Edit title, body, category, tags before publishing
+  - Bulk approve/reject operations
+- **Chunking & Embedding**
+  - Markdown-aware chunking with section preservation (1000 char max, 200 overlap)
+  - Fixed infinite loop bug in chunker that caused OOM
+  - OpenAI text-embedding-3-small (1536 dimensions)
+  - API endpoint for batch processing (`/api/admin/import/embed`)
+  - 612 chunks created from 49 published docs
+- **Semantic Search**
+  - pgvector extension for cosine similarity
+  - `match_kb_chunks` RPC function for vector search
+  - Hybrid retrieval combining intent + semantic + keyword
+- **LLM Draft Generation**
+  - KB-grounded responses with `[KB: Article Title]` citations
+  - Policy gate enforcement (no promises)
+  - Tested with warranty, troubleshooting, installation queries
+- **Database Migrations**
+  - `003_kb_enhancement.sql` - Categories, tags, evolution status
+  - `004_draft_tracking.sql` - Draft logging for audit
+  - `005_vector_search_function.sql` - match_kb_chunks RPC
+  - `006_kb_import.sql` - Import jobs, proposed docs tables
 
 ### 2025-01-03 — Initial MVP
 - Created Next.js App Router project with TypeScript
