@@ -5,6 +5,7 @@ import { classifyIntent } from "@/lib/intents/classify";
 import { checkRequiredInfo, generateMissingInfoPrompt } from "@/lib/intents/requiredInfo";
 import { policyGate } from "@/lib/responders/policyGate";
 import { macroDocsVideoMismatch, macroFirmwareAccessClarify } from "@/lib/responders/macros";
+import { getNextState, getTransitionReason, type ThreadState, type Action } from "@/lib/threads/stateMachine";
 
 const IngestSchema = z.object({
   external_thread_id: z.string().optional(),
@@ -21,15 +22,19 @@ export async function POST(req: Request) {
 
   // Upsert thread
   let threadId: string | null = null;
+  let currentState: ThreadState = "NEW";
 
   if (payload.external_thread_id) {
     const { data: existing } = await supabase
       .from("threads")
-      .select("id")
+      .select("id, state")
       .eq("external_thread_id", payload.external_thread_id)
       .maybeSingle();
 
-    if (existing?.id) threadId = existing.id;
+    if (existing?.id) {
+      threadId = existing.id;
+      currentState = (existing.state as ThreadState) || "NEW";
+    }
   }
 
   if (!threadId) {
@@ -44,6 +49,7 @@ export async function POST(req: Request) {
       .single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     threadId = created.id;
+    currentState = "NEW";
   }
 
   // Insert message
@@ -64,12 +70,12 @@ export async function POST(req: Request) {
   const requiredInfoCheck = checkRequiredInfo(intent, fullText);
 
   // Decide action (MVP)
-  let action: string = "ASK_CLARIFYING_QUESTIONS";
+  let action: Action = "ASK_CLARIFYING_QUESTIONS";
   let draft: string | null = null;
+  let policyBlocked = false;
 
   if (intent === "THANK_YOU_CLOSE") {
     action = "NO_REPLY";
-    await supabase.from("threads").update({ state: "RESOLVED", last_intent: intent }).eq("id", threadId);
   } else if (intent === "CHARGEBACK_THREAT") {
     // Always escalate chargebacks, regardless of required info
     action = "ESCALATE_WITH_DRAFT";
@@ -97,13 +103,26 @@ export async function POST(req: Request) {
     action = "ASK_CLARIFYING_QUESTIONS";
   }
 
+  // Policy gate check
   if (draft) {
     const gate = policyGate(draft);
     if (!gate.ok) {
       action = "ESCALATE_WITH_DRAFT";
+      policyBlocked = true;
       draft = `Policy gate blocked draft due to banned language: ${gate.reasons.join(", ")}`;
     }
   }
+
+  // Calculate next state using state machine
+  const transitionContext = {
+    currentState,
+    action,
+    intent,
+    policyBlocked,
+    missingRequiredInfo: !requiredInfoCheck.allRequiredPresent,
+  };
+  const nextState = getNextState(transitionContext);
+  const stateChangeReason = currentState !== nextState ? getTransitionReason(transitionContext, nextState) : null;
 
   await supabase.from("events").insert({
     thread_id: threadId,
@@ -118,10 +137,31 @@ export async function POST(req: Request) {
         missingFields: requiredInfoCheck.missingRequired.map((f) => f.id),
         presentFields: requiredInfoCheck.presentFields.map((f) => f.id),
       },
+      stateTransition: {
+        from: currentState,
+        to: nextState,
+        reason: stateChangeReason,
+      },
     },
   });
 
-  await supabase.from("threads").update({ last_intent: intent, updated_at: new Date().toISOString() }).eq("id", threadId);
+  // Update thread with new state and intent
+  await supabase
+    .from("threads")
+    .update({
+      state: nextState,
+      last_intent: intent,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", threadId);
 
-  return NextResponse.json({ thread_id: threadId, intent, confidence, action, draft });
+  return NextResponse.json({
+    thread_id: threadId,
+    intent,
+    confidence,
+    action,
+    draft,
+    state: nextState,
+    previous_state: currentState,
+  });
 }

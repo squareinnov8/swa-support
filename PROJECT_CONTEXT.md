@@ -188,6 +188,50 @@ If any pattern matches, action becomes `ESCALATE_WITH_DRAFT` and reasons are log
 
 ---
 
+## Thread State Machine
+
+Threads progress through defined states based on actions and intents:
+
+| State | Description | Entry Condition |
+|-------|-------------|-----------------|
+| `NEW` | Fresh inbound message | Thread created |
+| `AWAITING_INFO` | Waiting on customer | Required info missing |
+| `IN_PROGRESS` | Draft ready for review | Draft generated successfully |
+| `ESCALATED` | Needs human intervention | Chargeback, legal risk, or policy block |
+| `RESOLVED` | Issue closed | Thank you message or manual close |
+
+### State Transitions
+
+```
+NEW ──────────────────────┬─────────────────────────────────────────────
+                          │
+    ┌─────────────────────┼─────────────────────────────┐
+    │                     │                             │
+    ▼                     ▼                             ▼
+AWAITING_INFO        IN_PROGRESS                   ESCALATED
+(missing info)       (draft ready)              (chargeback/legal)
+    │                     │                             │
+    │ customer            │                             │
+    │ replies             │                             │
+    └──────────────► IN_PROGRESS ──────────────────────►│
+                          │                             │
+                          │ THANK_YOU_CLOSE             │ admin resolves
+                          ▼                             ▼
+                      RESOLVED ◄────────────────────────┘
+```
+
+### Transition Rules
+
+- `THANK_YOU_CLOSE` intent → always `RESOLVED`
+- `CHARGEBACK_THREAT` or `LEGAL_SAFETY_RISK` → always `ESCALATED`
+- Policy gate blocked → `ESCALATED`
+- Missing required info → `AWAITING_INFO`
+- Draft generated → `IN_PROGRESS`
+- Customer replies to `AWAITING_INFO` → re-evaluate
+- `ESCALATED` stays `ESCALATED` until manual resolution
+
+---
+
 ## "Do Not Break" Contract (MVP Invariants)
 
 1. **Inbound email ingestion MUST create/update thread and store message**
@@ -214,10 +258,10 @@ If any pattern matches, action becomes `ESCALATE_WITH_DRAFT` and reasons are log
 
 ### Phase 1 (Current Sprint)
 1. ✅ MVP ingest + classify + admin UI
-2. ✅ Eval harness with regression tests (43 tests across 4 suites)
+2. ✅ Eval harness with regression tests (70 tests across 5 suites)
 3. ✅ Required-info gating per intent (wired into ingest route)
 4. 🔲 Shopify customer verification (entitlement check)
-5. 🔲 Thread state machine (WAITING_ON_CUSTOMER, ESCALATED, etc.)
+5. ✅ Thread state machine (NEW, AWAITING_INFO, IN_PROGRESS, ESCALATED, RESOLVED)
 
 ### Phase 2
 6. 🔲 HubSpot integration (log interactions)
@@ -254,7 +298,9 @@ src/
 │   │   ├── taxonomy.ts               # Intent types
 │   │   ├── classify.ts               # Rule-based classifier
 │   │   ├── rules.ts                  # (placeholder)
-│   │   └── requiredInfo.ts           # (placeholder)
+│   │   └── requiredInfo.ts           # Required info definitions + checker
+│   ├── threads/
+│   │   └── stateMachine.ts           # Thread state machine + transitions
 │   ├── responders/
 │   │   ├── macros.ts                 # Pre-approved response templates
 │   │   ├── policyGate.ts             # Promise language detector
@@ -264,8 +310,11 @@ src/
 │   │   ├── chunk.ts                  # (placeholder)
 │   │   └── embed.ts                  # (placeholder)
 │   └── evals/
-│       ├── dataset.jsonl             # (empty)
-│       └── runEvals.ts               # (placeholder)
+│       ├── classify.test.ts          # Intent classification tests
+│       ├── policyGate.test.ts        # Policy gate tests
+│       ├── requiredInfo.test.ts      # Required info tests
+│       ├── stateMachine.test.ts      # State machine tests
+│       └── triage.test.ts            # Integration triage tests
 supabase/
 └── migrations/
     └── 001_init.sql                  # DB schema
@@ -308,3 +357,18 @@ supabase/
   - `missingFields`: array of field IDs
   - `presentFields`: array of field IDs
 - Chargebacks always escalate regardless of required info (safety)
+
+### 2025-01-03 — Thread State Machine
+- Created `src/lib/threads/stateMachine.ts` with 5 states:
+  - NEW, AWAITING_INFO, IN_PROGRESS, ESCALATED, RESOLVED
+- Added 27 state machine tests (`stateMachine.test.ts`)
+- Wired state machine into ingest route:
+  - `getNextState()` determines next state from context
+  - `getTransitionReason()` provides human-readable explanation
+  - Event payload includes `stateTransition` object (from, to, reason)
+- Updated admin UI with state badges:
+  - Color-coded badges in inbox and thread detail
+  - Inbox sorted by priority (ESCALATED first)
+  - Thread detail shows state history
+- Fixed Next.js 16 params bug in thread detail page
+- Total test count: 70 tests across 5 suites
