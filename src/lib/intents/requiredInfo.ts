@@ -1,0 +1,1 @@
+// Required info for intents
