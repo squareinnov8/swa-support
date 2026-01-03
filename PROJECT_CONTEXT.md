@@ -13,21 +13,30 @@ The system prioritizes customer trust safety: no promises (refunds, shipping tim
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        INBOUND EMAIL                            │
-│                    (webhook/API payload)                        │
+│                      INBOUND CHANNELS                            │
+├─────────────┬─────────────┬─────────────┬───────────────────────┤
+│ Admin Form  │ Email API   │ Chat API    │ Voice API (future)    │
+│ /admin/new  │ /api/ingest │ (future)    │                       │
+│             │ /email      │             │                       │
+└──────┬──────┴──────┬──────┴──────┬──────┴───────────┬───────────┘
+       │             │             │                  │
+       ▼             ▼             ▼                  ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                 NORMALIZE TO IngestRequest                       │
+│  { channel, subject, body_text, from_identifier, metadata }     │
 └─────────────────────────────────────────────────────────────────┘
                                 │
                                 ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│              POST /api/ingest/email                             │
+│                    processIngestRequest()                        │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │ 1. Validate payload (Zod)                               │   │
-│  │ 2. Upsert thread (by external_thread_id)                │   │
-│  │ 3. Insert message (direction: inbound)                  │   │
-│  │ 4. classifyIntent(subject, body) → {intent, confidence} │   │
-│  │ 5. Decide action based on intent                        │   │
-│  │ 6. Generate draft (macro) if applicable                 │   │
-│  │ 7. policyGate(draft) → block if promises detected       │   │
+│  │ 1. Upsert thread (with channel)                         │   │
+│  │ 2. Insert message (with channel + metadata)             │   │
+│  │ 3. classifyIntent(subject, body) → {intent, confidence} │   │
+│  │ 4. Check required info for intent                       │   │
+│  │ 5. Decide action + generate draft                       │   │
+│  │ 6. policyGate(draft) → block if promises detected       │   │
+│  │ 7. Calculate next state (state machine)                 │   │
 │  │ 8. Log event (auto_triage)                              │   │
 │  │ 9. Update thread state/intent                           │   │
 │  └─────────────────────────────────────────────────────────┘   │
@@ -58,9 +67,11 @@ The system prioritizes customer trust safety: no promises (refunds, shipping tim
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/ingest/email` | Ingest inbound email, create/update thread, classify, decide action, generate draft |
-| GET | `/admin` | Admin inbox listing threads |
-| GET | `/admin/thread/[id]` | Thread detail with messages and draft |
+| POST | `/api/ingest/email` | Ingest inbound email (normalizes to IngestRequest) |
+| POST | `/api/threads` | Create thread via admin form (channel: web_form) |
+| GET | `/admin` | Admin inbox listing threads (sorted by priority) |
+| GET | `/admin/new` | Admin form to create new thread manually |
+| GET | `/admin/thread/[id]` | Thread detail with messages, draft, and state history |
 | POST | `/api/process/thread` | (stub) Future: reprocess thread |
 | POST | `/api/kb/sync/notion` | (stub) Future: sync KB from Notion |
 | POST | `/api/webhooks/shopify` | (stub) Future: Shopify webhooks |
@@ -85,8 +96,9 @@ The system prioritizes customer trust safety: no promises (refunds, shipping tim
 | external_thread_id | text | Email thread ID from provider |
 | customer_id | uuid | FK → customers |
 | subject | text | |
-| state | text | NEW, RESOLVED, etc. |
+| state | text | NEW, AWAITING_INFO, IN_PROGRESS, ESCALATED, RESOLVED |
 | last_intent | text | Last classified intent |
+| channel | text | Primary channel: email, web_form, chat, voice |
 | created_at | timestamptz | |
 | updated_at | timestamptz | |
 
@@ -101,6 +113,8 @@ The system prioritizes customer trust safety: no promises (refunds, shipping tim
 | body_text | text | |
 | body_html | text | |
 | raw | jsonb | Original payload |
+| channel | text | Channel this message came from |
+| channel_metadata | jsonb | Channel-specific data (headers, session info, etc.) |
 | created_at | timestamptz | |
 
 ### `kb_docs`
@@ -283,17 +297,22 @@ AWAITING_INFO        IN_PROGRESS                   ESCALATED
 src/
 ├── app/
 │   ├── api/
-│   │   ├── ingest/email/route.ts    # Email ingestion endpoint
+│   │   ├── ingest/email/route.ts    # Email ingestion (adapter to processIngestRequest)
+│   │   ├── threads/route.ts         # Create thread from admin form
 │   │   ├── process/thread/route.ts  # (stub)
 │   │   ├── kb/sync/notion/route.ts  # (stub)
 │   │   └── webhooks/shopify/route.ts # (stub)
 │   └── admin/
-│       ├── page.tsx                  # Inbox list
+│       ├── page.tsx                  # Inbox list (with "New Thread" button)
+│       ├── new/page.tsx              # New thread form
 │       └── thread/[id]/page.tsx      # Thread detail
 ├── lib/
 │   ├── db.ts                         # Supabase client
 │   ├── config.ts                     # (placeholder)
 │   ├── shopify.ts                    # (placeholder)
+│   ├── ingest/
+│   │   ├── types.ts                  # Channel, IngestRequest, IngestResult
+│   │   └── processRequest.ts         # Core processing logic (channel-agnostic)
 │   ├── intents/
 │   │   ├── taxonomy.ts               # Intent types
 │   │   ├── classify.ts               # Rule-based classifier
@@ -314,10 +333,12 @@ src/
 │       ├── policyGate.test.ts        # Policy gate tests
 │       ├── requiredInfo.test.ts      # Required info tests
 │       ├── stateMachine.test.ts      # State machine tests
+│       ├── ingest.test.ts            # Multi-channel ingest tests
 │       └── triage.test.ts            # Integration triage tests
 supabase/
 └── migrations/
-    └── 001_init.sql                  # DB schema
+    ├── 001_init.sql                  # Initial schema
+    └── 002_add_channel.sql           # Add channel columns
 ```
 
 ---
@@ -372,3 +393,20 @@ supabase/
   - Thread detail shows state history
 - Fixed Next.js 16 params bug in thread detail page
 - Total test count: 70 tests across 5 suites
+
+### 2025-01-03 — Multi-Channel Ingestion System
+- Created channel-agnostic ingestion architecture:
+  - `src/lib/ingest/types.ts` - Channel, IngestRequest, IngestResult types
+  - `src/lib/ingest/processRequest.ts` - Core processing logic
+- Added database migration `002_add_channel.sql`:
+  - `threads.channel` - Primary channel for thread
+  - `messages.channel` - Channel per message
+  - `messages.channel_metadata` - JSONB for channel-specific data
+- Refactored `/api/ingest/email` to use shared `processIngestRequest()`
+- Created admin form for manual thread creation:
+  - `/admin/new` - Form page (client component)
+  - `POST /api/threads` - API endpoint (channel: web_form)
+  - "New Thread" button added to inbox
+- Supported channels: email, web_form, chat (future), voice (future)
+- Added 12 ingest tests (`ingest.test.ts`)
+- Total test count: 82 tests across 6 suites

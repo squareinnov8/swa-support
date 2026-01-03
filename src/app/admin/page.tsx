@@ -46,7 +46,23 @@ export default async function AdminPage() {
 
   return (
     <div style={{ padding: 24, fontFamily: "system-ui", maxWidth: 900 }}>
-      <h1>Support Inbox</h1>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h1>Support Inbox</h1>
+        <a
+          href="/admin/new"
+          style={{
+            padding: "8px 16px",
+            backgroundColor: "#1e40af",
+            color: "white",
+            borderRadius: 6,
+            textDecoration: "none",
+            fontSize: 14,
+            fontWeight: 500,
+          }}
+        >
+          + New Thread
+        </a>
+      </div>
       <p style={{ opacity: 0.6, marginBottom: 24 }}>
         {threads?.length || 0} threads (sorted by priority)
       </p>
