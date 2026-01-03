@@ -214,8 +214,8 @@ If any pattern matches, action becomes `ESCALATE_WITH_DRAFT` and reasons are log
 
 ### Phase 1 (Current Sprint)
 1. ✅ MVP ingest + classify + admin UI
-2. 🔲 Eval harness with regression tests
-3. 🔲 Required-info gating per intent
+2. ✅ Eval harness with regression tests (43 tests across 4 suites)
+3. ✅ Required-info gating per intent (wired into ingest route)
 4. 🔲 Shopify customer verification (entitlement check)
 5. 🔲 Thread state machine (WAITING_ON_CUSTOMER, ESCALATED, etc.)
 
