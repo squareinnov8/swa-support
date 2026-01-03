@@ -299,3 +299,12 @@ supabase/
   - `checkRequiredInfo()` validates presence of required fields
   - `generateMissingInfoPrompt()` creates clarifying questions
 - Tests run via `npm run test` (watch) or `npm run test:run` (CI)
+
+### 2025-01-03 — Wired Required-Info Gating into Ingest Route
+- Ingest route now checks for required info after intent classification
+- If required info is missing, generates clarifying question (uses macro if available)
+- Event payload now includes `requiredInfo` object with:
+  - `allPresent`: boolean
+  - `missingFields`: array of field IDs
+  - `presentFields`: array of field IDs
+- Chargebacks always escalate regardless of required info (safety)

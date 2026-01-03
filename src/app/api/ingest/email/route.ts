@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabase } from "@/lib/db";
 import { classifyIntent } from "@/lib/intents/classify";
+import { checkRequiredInfo, generateMissingInfoPrompt } from "@/lib/intents/requiredInfo";
 import { policyGate } from "@/lib/responders/policyGate";
 import { macroDocsVideoMismatch, macroFirmwareAccessClarify } from "@/lib/responders/macros";
 
@@ -58,6 +59,10 @@ export async function POST(req: Request) {
 
   const { intent, confidence } = classifyIntent(payload.subject, payload.body_text);
 
+  // Check required info for this intent
+  const fullText = `${payload.subject}\n${payload.body_text}`;
+  const requiredInfoCheck = checkRequiredInfo(intent, fullText);
+
   // Decide action (MVP)
   let action: string = "ASK_CLARIFYING_QUESTIONS";
   let draft: string | null = null;
@@ -65,17 +70,31 @@ export async function POST(req: Request) {
   if (intent === "THANK_YOU_CLOSE") {
     action = "NO_REPLY";
     await supabase.from("threads").update({ state: "RESOLVED", last_intent: intent }).eq("id", threadId);
+  } else if (intent === "CHARGEBACK_THREAT") {
+    // Always escalate chargebacks, regardless of required info
+    action = "ESCALATE_WITH_DRAFT";
+    draft = `Draft only (escalate): Customer mentions chargeback/dispute. Do not promise. Ask for order # + summarize situation.`;
+  } else if (!requiredInfoCheck.allRequiredPresent) {
+    // Missing required info - ask for it
+    action = "ASK_CLARIFYING_QUESTIONS";
+    // Use specific macro if available, otherwise generate from missing fields
+    if (intent === "FIRMWARE_ACCESS_ISSUE") {
+      draft = macroFirmwareAccessClarify();
+    } else if (intent === "DOCS_VIDEO_MISMATCH") {
+      draft = macroDocsVideoMismatch();
+    } else {
+      draft = generateMissingInfoPrompt(requiredInfoCheck.missingRequired);
+    }
   } else if (intent === "DOCS_VIDEO_MISMATCH") {
     action = "SEND_PREAPPROVED_MACRO";
     draft = macroDocsVideoMismatch();
   } else if (intent === "FIRMWARE_ACCESS_ISSUE") {
+    // Has required info - could proceed with more specific help
     action = "ASK_CLARIFYING_QUESTIONS";
     draft = macroFirmwareAccessClarify();
-  } else if (intent === "CHARGEBACK_THREAT") {
-    action = "ESCALATE_WITH_DRAFT";
-    draft = `Draft only (escalate): Customer mentions chargeback/dispute. Do not promise. Ask for order # + summarize situation.`;
   } else {
-    action = confidence >= 0.6 ? "ASK_CLARIFYING_QUESTIONS" : "ASK_CLARIFYING_QUESTIONS";
+    // Default: ask clarifying questions
+    action = "ASK_CLARIFYING_QUESTIONS";
   }
 
   if (draft) {
@@ -89,7 +108,17 @@ export async function POST(req: Request) {
   await supabase.from("events").insert({
     thread_id: threadId,
     type: "auto_triage",
-    payload: { intent, confidence, action, draft },
+    payload: {
+      intent,
+      confidence,
+      action,
+      draft,
+      requiredInfo: {
+        allPresent: requiredInfoCheck.allRequiredPresent,
+        missingFields: requiredInfoCheck.missingRequired.map((f) => f.id),
+        presentFields: requiredInfoCheck.presentFields.map((f) => f.id),
+      },
+    },
   });
 
   await supabase.from("threads").update({ last_intent: intent, updated_at: new Date().toISOString() }).eq("id", threadId);
