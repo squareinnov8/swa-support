@@ -11,7 +11,7 @@ import { classifyIntent } from "@/lib/intents/classify";
 import { checkRequiredInfo, generateMissingInfoPrompt } from "@/lib/intents/requiredInfo";
 import { policyGate } from "@/lib/responders/policyGate";
 import { macroDocsVideoMismatch, macroFirmwareAccessClarify } from "@/lib/responders/macros";
-import { generateDraft, type DraftResult } from "@/lib/llm/draftGenerator";
+import { generateDraft, getConversationHistory, type DraftResult } from "@/lib/llm/draftGenerator";
 import { isLLMConfigured } from "@/lib/llm/client";
 import {
   getNextState,
@@ -19,7 +19,14 @@ import {
   type ThreadState,
   type Action,
 } from "@/lib/threads/stateMachine";
+import {
+  isProtectedIntent,
+  verifyCustomer,
+  getVerificationPrompt,
+  type VerificationResult,
+} from "@/lib/verification";
 import type { IngestRequest, IngestResult } from "./types";
+import { syncInteractionToHubSpot, isHubSpotConfigured } from "@/lib/hubspot";
 
 /**
  * Process an ingest request from any channel.
@@ -37,7 +44,7 @@ import type { IngestRequest, IngestResult } from "./types";
  */
 export async function processIngestRequest(req: IngestRequest): Promise<IngestResult> {
   // 1. Upsert thread
-  let threadId: string | null = null;
+  let threadId: string;
   let currentState: ThreadState = "NEW";
 
   if (req.external_id) {
@@ -50,14 +57,30 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
     if (existing?.id) {
       threadId = existing.id;
       currentState = (existing.state as ThreadState) || "NEW";
-    }
-  }
+    } else {
+      // Create new thread since external_id lookup found nothing
+      const { data: created, error } = await supabase
+        .from("threads")
+        .insert({
+          external_thread_id: req.external_id,
+          subject: req.subject,
+          state: "NEW",
+          channel: req.channel,
+        })
+        .select("id")
+        .single();
 
-  if (!threadId) {
+      if (error) {
+        throw new Error(`Failed to create thread: ${error.message}`);
+      }
+      threadId = created.id;
+    }
+  } else {
+    // No external_id, create new thread
     const { data: created, error } = await supabase
       .from("threads")
       .insert({
-        external_thread_id: req.external_id ?? null,
+        external_thread_id: null,
         subject: req.subject,
         state: "NEW",
         channel: req.channel,
@@ -69,7 +92,6 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
       throw new Error(`Failed to create thread: ${error.message}`);
     }
     threadId = created.id;
-    currentState = "NEW";
   }
 
   // 2. Insert message with channel info
@@ -89,6 +111,123 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
 
   // 3. Classify intent
   const { intent, confidence } = classifyIntent(req.subject, req.body_text);
+
+  // 3.5. Customer verification for protected intents
+  let verification: VerificationResult | null = null;
+  if (isProtectedIntent(intent)) {
+    verification = await verifyCustomer({
+      threadId,
+      email: req.from_identifier,
+      messageText: req.body_text,
+    });
+
+    // Handle verification outcomes before continuing
+    if (verification.status === "pending") {
+      // Need order number - ask for it
+      const nextState = getNextState({
+        currentState,
+        action: "ASK_CLARIFYING_QUESTIONS",
+        intent,
+        policyBlocked: false,
+        missingRequiredInfo: true,
+      });
+
+      await logEvent(threadId, {
+        intent,
+        confidence,
+        action: "ASK_CLARIFYING_QUESTIONS",
+        draft: getVerificationPrompt("pending"),
+        channel: req.channel,
+        verification: { status: "pending", reason: "Order number required" },
+        stateTransition: { from: currentState, to: nextState, reason: "awaiting_verification" },
+      });
+
+      await updateThreadState(threadId, nextState, intent);
+
+      return {
+        thread_id: threadId,
+        message_id: threadId,
+        intent,
+        confidence,
+        action: "ASK_CLARIFYING_QUESTIONS",
+        draft: getVerificationPrompt("pending"),
+        state: nextState,
+        previous_state: currentState,
+      };
+    }
+
+    if (verification.status === "flagged") {
+      // Customer has negative flags - escalate
+      const nextState = "ESCALATED";
+
+      await logEvent(threadId, {
+        intent,
+        confidence,
+        action: "ESCALATE",
+        draft: getVerificationPrompt("flagged"),
+        channel: req.channel,
+        verification: {
+          status: "flagged",
+          flags: verification.flags,
+          reason: `Customer flagged: ${verification.flags.join(", ")}`,
+        },
+        stateTransition: { from: currentState, to: nextState, reason: "customer_flagged" },
+      });
+
+      await updateThreadState(threadId, nextState, intent);
+
+      return {
+        thread_id: threadId,
+        message_id: threadId,
+        intent,
+        confidence,
+        action: "ESCALATE",
+        draft: getVerificationPrompt("flagged"),
+        state: nextState,
+        previous_state: currentState,
+      };
+    }
+
+    if (verification.status === "not_found") {
+      // Order not found - ask for correct info
+      const nextState = getNextState({
+        currentState,
+        action: "ASK_CLARIFYING_QUESTIONS",
+        intent,
+        policyBlocked: false,
+        missingRequiredInfo: true,
+      });
+
+      await logEvent(threadId, {
+        intent,
+        confidence,
+        action: "ASK_CLARIFYING_QUESTIONS",
+        draft: getVerificationPrompt("not_found"),
+        channel: req.channel,
+        verification: { status: "not_found", reason: "Order not found in Shopify" },
+        stateTransition: { from: currentState, to: nextState, reason: "verification_failed" },
+      });
+
+      await updateThreadState(threadId, nextState, intent);
+
+      return {
+        thread_id: threadId,
+        message_id: threadId,
+        intent,
+        confidence,
+        action: "ASK_CLARIFYING_QUESTIONS",
+        draft: getVerificationPrompt("not_found"),
+        state: nextState,
+        previous_state: currentState,
+      };
+    }
+
+    // If verified, continue with normal flow
+    // verification.status === "verified"
+    console.log(
+      `Customer verified for thread ${threadId}: order ${verification.order?.number}`
+    );
+  }
 
   // 4. Check required info for this intent
   const fullText = `${req.subject}\n${req.body_text}`;
@@ -127,12 +266,22 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
   } else if (isLLMConfigured()) {
     // Use LLM to generate KB-powered draft
     action = "ASK_CLARIFYING_QUESTIONS";
+
+    // Fetch conversation history for context
+    const conversationHistory = await getConversationHistory(threadId);
+
     draftResult = await generateDraft({
       threadId,
       customerMessage: fullText,
       intent,
+      previousMessages: conversationHistory,
       customerInfo: {
         email: req.from_identifier,
+        // Pass verified customer info if available
+        ...(verification?.customer && {
+          name: verification.customer.name,
+          orderNumber: verification.order?.number,
+        }),
       },
     });
 
@@ -219,6 +368,32 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
     })
     .eq("id", threadId);
 
+  // 10. Sync to HubSpot CRM (async, non-blocking)
+  if (isHubSpotConfigured() && req.from_identifier) {
+    // Map verification status to CRM-compatible values
+    const crmVerificationStatus =
+      verification?.status === "verified" ||
+      verification?.status === "flagged" ||
+      verification?.status === "pending"
+        ? verification.status
+        : null;
+
+    syncInteractionToHubSpot({
+      email: req.from_identifier,
+      threadId,
+      intent,
+      customerName: verification?.customer?.name,
+      subject: req.subject,
+      messageSnippet: req.body_text.slice(0, 200),
+      state: nextState,
+      verificationStatus: crmVerificationStatus,
+      shopifyCustomerId: verification?.customer?.shopifyId,
+    }).catch((err) => {
+      // Log but don't fail the request
+      console.error("HubSpot sync failed:", err);
+    });
+  }
+
   return {
     thread_id: threadId,
     message_id: threadId, // Note: we should return actual message_id once we select it
@@ -229,4 +404,36 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
     state: nextState,
     previous_state: currentState,
   };
+}
+
+/**
+ * Helper: Log event to database
+ */
+async function logEvent(
+  threadId: string,
+  payload: Record<string, unknown>
+): Promise<void> {
+  await supabase.from("events").insert({
+    thread_id: threadId,
+    type: "auto_triage",
+    payload,
+  });
+}
+
+/**
+ * Helper: Update thread state
+ */
+async function updateThreadState(
+  threadId: string,
+  state: ThreadState,
+  intent: string
+): Promise<void> {
+  await supabase
+    .from("threads")
+    .update({
+      state,
+      last_intent: intent,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", threadId);
 }

@@ -97,7 +97,7 @@ export default function ImportDashboard() {
       )}
 
       {/* Import sources */}
-      <div className="grid grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-3 gap-6 mb-8">
         <ImportSourceCard
           title="Import from Notion"
           description="Import 500+ docs from your Notion workspace. Pages will be analyzed and categorized automatically."
@@ -109,6 +109,12 @@ export default function ImportDashboard() {
           description="Extract knowledge from resolved support threads. Select threads manually for best quality."
           href="/admin/kb/import/gmail"
           icon="📧"
+        />
+        <ImportSourceCard
+          title="Import from Website"
+          description="Scrape website pages to extract product info, FAQs, and troubleshooting content."
+          href="/admin/kb/import/website"
+          icon="🌐"
         />
       </div>
 
@@ -123,7 +129,8 @@ export default function ImportDashboard() {
           </p>
           <Link
             href="/admin/kb/import/review"
-            className="inline-block bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            className="inline-block bg-blue-600 px-4 py-2 rounded hover:bg-blue-700"
+            style={{ color: "#ffffff" }}
           >
             Go to Review Queue →
           </Link>
@@ -137,50 +144,45 @@ export default function ImportDashboard() {
         </div>
 
         {jobs.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
+          <div className="p-8 text-center text-gray-700">
             No import jobs yet. Start by importing from Notion or Gmail.
           </div>
         ) : (
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Source</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Status</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Progress</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Approved</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Created</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Actions</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Source</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Status</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Progress</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">KB Extracted</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Created</th>
               </tr>
             </thead>
             <tbody>
               {jobs.map((job) => (
-                <tr key={job.id} className="border-t">
-                  <td className="px-4 py-3">
-                    <span className="capitalize">{job.source}</span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={job.status} />
-                  </td>
-                  <td className="px-4 py-3">
-                    {job.processed_items} / {job.total_items}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="text-green-600">{job.approved_items}</span>
-                    {" / "}
-                    <span className="text-red-600">{job.rejected_items}</span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-500">
-                    {new Date(job.created_at).toLocaleDateString()}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Link
-                      href={`/admin/kb/import/review?job_id=${job.id}`}
-                      className="text-blue-600 hover:underline text-sm"
-                    >
-                      View docs
-                    </Link>
-                  </td>
-                </tr>
+                <Link
+                  key={job.id}
+                  href={`/admin/kb/import/jobs/${job.id}`}
+                  className="contents"
+                >
+                  <tr className="border-t hover:bg-blue-50 cursor-pointer">
+                    <td className="px-4 py-3 text-gray-900">
+                      <span className="capitalize">{job.source}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={job.status} />
+                    </td>
+                    <td className="px-4 py-3 text-gray-900">
+                      {job.processed_items} / {job.total_items}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-green-700 font-medium">{job.approved_items}</span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">
+                      {new Date(job.created_at).toLocaleDateString()}
+                    </td>
+                  </tr>
+                </Link>
               ))}
             </tbody>
           </table>
@@ -215,8 +217,8 @@ function StatCard({
         highlight ? "border-blue-500 ring-1 ring-blue-500" : ""
       }`}
     >
-      <div className="text-sm text-gray-600 mb-1">{label}</div>
-      <div className={`text-2xl font-bold ${color ? colorClasses[color] : ""}`}>
+      <div className="text-sm text-gray-700 mb-1">{label}</div>
+      <div className={`text-2xl font-bold ${color ? colorClasses[color] : "text-gray-900"}`}>
         {value}
       </div>
     </div>
@@ -245,8 +247,8 @@ function ImportSourceCard({
       className="block bg-white border rounded-lg p-6 hover:border-blue-500 hover:shadow-md transition"
     >
       <div className="text-3xl mb-3">{icon}</div>
-      <h3 className="text-lg font-semibold mb-2">{title}</h3>
-      <p className="text-gray-600 text-sm">{description}</p>
+      <h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
+      <p className="text-gray-700 text-sm">{description}</p>
     </Link>
   );
 }

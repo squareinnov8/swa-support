@@ -26,6 +26,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({
       job,
+      docs,
       stats: {
         ...stats,
         pending: docs.filter((d) => d.status === "pending").length,

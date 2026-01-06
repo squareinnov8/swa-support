@@ -2,16 +2,18 @@
  * LLM Prompts
  *
  * System and user prompts for draft generation.
- * Safety-first approach with explicit constraints.
+ * Loads dynamic instructions from database with fallback to static defaults.
  */
 
 import type { Intent } from "@/lib/intents/taxonomy";
 import type { KBDoc, KBChunk } from "@/lib/kb/types";
+import type { ProductWithFitment } from "@/lib/catalog/types";
+import { getInstructionsAsPrompt, getIntentInstructions } from "@/lib/instructions";
 
 /**
- * System prompt - Safety-first customer support agent
+ * Static fallback system prompt (used if database unavailable)
  */
-export const SYSTEM_PROMPT = `You are a helpful customer support agent for SquareWheels, a hardware company that makes automotive tuning products like APEX.
+export const SYSTEM_PROMPT_FALLBACK = `You are a helpful customer support agent for SquareWheels, a hardware company that makes automotive tuning products like APEX.
 
 ## CRITICAL RULES - NEVER VIOLATE:
 1. NEVER promise refunds, replacements, or specific shipping times
@@ -32,14 +34,45 @@ export const SYSTEM_PROMPT = `You are a helpful customer support agent for Squar
 When using information from the knowledge base, cite it inline like this: [KB: Document Title]
 Always cite your sources when providing specific instructions or policies.
 
-## INTENT HANDLING:
-- For firmware issues: Provide step-by-step instructions from KB
-- For return/refund requests: Explain the process, never promise approval
-- For order status: Ask for order number if not provided
-- For installation help: Direct to KB docs, offer to clarify
-- For chargebacks: Acknowledge concern, escalate to human
-
 If you cannot fully answer based on the provided context, acknowledge the limitation and suggest the customer contact support for further assistance.`;
+
+// Cache for dynamic instructions (refresh every 5 minutes)
+let cachedInstructions: string | null = null;
+let cacheTimestamp = 0;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Get system prompt - loads from database with caching
+ */
+export async function getSystemPrompt(): Promise<string> {
+  const now = Date.now();
+
+  // Return cached if fresh
+  if (cachedInstructions && now - cacheTimestamp < CACHE_TTL) {
+    return cachedInstructions;
+  }
+
+  // Load from database
+  try {
+    cachedInstructions = await getInstructionsAsPrompt();
+    cacheTimestamp = now;
+    return cachedInstructions;
+  } catch (error) {
+    console.warn("Failed to load instructions from database:", error);
+    return SYSTEM_PROMPT_FALLBACK;
+  }
+}
+
+/**
+ * Clear instruction cache (call after updates)
+ */
+export function clearInstructionCache(): void {
+  cachedInstructions = null;
+  cacheTimestamp = 0;
+}
+
+// Keep SYSTEM_PROMPT for backwards compatibility
+export const SYSTEM_PROMPT = SYSTEM_PROMPT_FALLBACK;
 
 /**
  * Build user prompt with KB context
@@ -56,8 +89,9 @@ export function buildUserPrompt(params: {
     vehicle?: string;
     product?: string;
   };
+  catalogProducts?: ProductWithFitment[];
 }): string {
-  const { customerMessage, intent, kbDocs, previousMessages, customerInfo } = params;
+  const { customerMessage, intent, kbDocs, previousMessages, customerInfo, catalogProducts } = params;
 
   let prompt = "";
 
@@ -91,14 +125,31 @@ export function buildUserPrompt(params: {
     prompt += "## Note: No relevant KB articles found for this query.\n\n";
   }
 
+  // Add catalog products if available
+  if (catalogProducts && catalogProducts.length > 0) {
+    prompt += "## Compatible Products from Catalog:\n\n";
+    for (const product of catalogProducts) {
+      const priceStr =
+        product.price_min === product.price_max
+          ? `$${product.price_min}`
+          : `$${product.price_min}-$${product.price_max}`;
+      prompt += `### ${product.title}\n`;
+      prompt += `- Fitment: ${product.fitment_make} ${product.fitment_model ?? ""} (${product.fitment_years})\n`;
+      prompt += `- Price: ${priceStr}\n`;
+      prompt += `- URL: https://squarewheelsauto.com/products/${product.handle}\n\n`;
+    }
+    prompt += "When recommending products, include the product URL so the customer can view/purchase directly.\n\n";
+  }
+
   // Add conversation history if available
   if (previousMessages && previousMessages.length > 0) {
-    prompt += "## Previous Messages:\n";
-    for (const msg of previousMessages.slice(-3)) {
-      // Last 3 messages
-      prompt += `- ${msg}\n`;
+    prompt += "## Conversation History:\n";
+    prompt += "(Review this to understand context and adapt your response)\n\n";
+    for (const msg of previousMessages.slice(-5)) {
+      // Last 5 messages for better context
+      prompt += `${msg}\n\n`;
     }
-    prompt += "\n";
+    prompt += `**Note**: If the customer is asking the same question repeatedly, try explaining differently, use simpler language, or ask what specifically is unclear. If they seem frustrated, acknowledge it.\n\n`;
   }
 
   // Add the customer message
@@ -130,16 +181,10 @@ The customer is having trouble accessing firmware updates.
 Common causes: expired license, wrong account, connectivity issues.
 Ask for their email and APEX serial number to verify access.`,
 
-  RETURN_REQUEST: `
-Acknowledge their return request professionally.
-Explain the return process from the KB.
-NEVER promise the return will be approved - that's for the returns team to decide.
-Ask for their order number if not provided.`,
-
-  REFUND_REQUEST: `
-Acknowledge their refund request professionally.
-Explain the general refund policy from the KB.
-NEVER promise a refund - that's for the finance team to decide.
+  RETURN_REFUND_REQUEST: `
+Acknowledge their return or refund request professionally.
+Explain the return/refund process from the KB.
+NEVER promise the return/refund will be approved - that's for the returns/finance team to decide.
 Ask for their order number if not provided.`,
 
   CHARGEBACK_THREAT: `
@@ -160,7 +205,7 @@ Thank them for bringing it to attention.
 Provide the correct current information from KB.
 Mention that documentation will be reviewed.`,
 
-  GENERAL_INQUIRY: `
+  UNKNOWN: `
 This is a general question without a specific category.
 Use the KB context to provide helpful information.
 If the question is outside our scope, politely redirect.`,
@@ -174,7 +219,22 @@ export function getIntentPromptAddition(intent: Intent): string {
 }
 
 /**
- * Build complete system prompt with intent context
+ * Build complete system prompt with intent context (async - loads from database)
+ */
+export async function buildSystemPromptAsync(intent: Intent): Promise<string> {
+  const basePrompt = await getSystemPrompt();
+  const intentAddition = await getIntentInstructions(intent);
+
+  if (intentAddition) {
+    return `${basePrompt}\n\n## Intent-Specific Guidance:\n${intentAddition}`;
+  }
+
+  return basePrompt;
+}
+
+/**
+ * Build complete system prompt with intent context (sync fallback)
+ * @deprecated Use buildSystemPromptAsync for dynamic instructions
  */
 export function buildSystemPrompt(intent: Intent): string {
   const intentAddition = getIntentPromptAddition(intent);

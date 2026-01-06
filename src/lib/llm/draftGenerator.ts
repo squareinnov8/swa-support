@@ -7,11 +7,23 @@
 
 import { supabase } from "@/lib/db";
 import { generate, isLLMConfigured, type GenerateResult } from "./client";
-import { buildUserPrompt, buildSystemPrompt, NO_KB_FALLBACK_PROMPT } from "./prompts";
+import { buildUserPrompt, buildSystemPromptAsync, NO_KB_FALLBACK_PROMPT } from "./prompts";
 import { hybridSearch, type SearchResult } from "@/lib/retrieval/search";
 import { policyGate } from "@/lib/responders/policyGate";
+import { detectVehicle, isProductQuestion, canDoProductLookup } from "@/lib/catalog/vehicleDetector";
+import { findProductsByVehicle } from "@/lib/catalog/lookup";
+import type { ProductWithFitment } from "@/lib/catalog/types";
 import type { Intent } from "@/lib/intents/taxonomy";
 import type { Citation, DraftGeneration } from "@/lib/kb/types";
+
+/**
+ * Message from conversation history
+ */
+export type ConversationMessage = {
+  direction: "inbound" | "outbound";
+  body: string;
+  created_at: string;
+};
 
 /**
  * Draft generation input
@@ -23,6 +35,7 @@ export type DraftInput = {
   intent: Intent;
   vehicleTag?: string;
   productTag?: string;
+  previousMessages?: ConversationMessage[];
   customerInfo?: {
     name?: string;
     email?: string;
@@ -60,6 +73,7 @@ export async function generateDraft(input: DraftInput): Promise<DraftResult> {
     intent,
     vehicleTag,
     productTag,
+    previousMessages,
     customerInfo,
   } = input;
 
@@ -92,13 +106,40 @@ export async function generateDraft(input: DraftInput): Promise<DraftResult> {
       { limit: 5, minScore: 0.3 }
     );
 
-    // 2. Build prompts
-    const systemPrompt = buildSystemPrompt(intent);
+    // 2. Check for vehicle-specific product questions and do catalog lookup
+    let catalogProducts: ProductWithFitment[] = [];
+    if (isProductQuestion(customerMessage)) {
+      const detectedVehicle = detectVehicle(customerMessage);
+      if (canDoProductLookup(detectedVehicle)) {
+        catalogProducts = await findProductsByVehicle(
+          detectedVehicle.year ?? new Date().getFullYear(),
+          detectedVehicle.make!,
+          detectedVehicle.model ?? undefined
+        );
+        console.log(
+          `Catalog lookup: Found ${catalogProducts.length} products for ${detectedVehicle.year ?? "any year"} ${detectedVehicle.make} ${detectedVehicle.model ?? ""}`
+        );
+      }
+    }
+
+    // 3. Build prompts (load dynamic instructions from database)
+    const systemPrompt = await buildSystemPromptAsync(intent);
+
+    // Format previous messages for context
+    const formattedHistory = previousMessages?.map((msg) => {
+      const role = msg.direction === "inbound" ? "Customer" : "Agent (Rob)";
+      // Truncate long messages to keep prompt manageable
+      const body = msg.body.length > 500 ? msg.body.slice(0, 500) + "..." : msg.body;
+      return `${role}: ${body}`;
+    });
+
     let userPrompt = buildUserPrompt({
       customerMessage,
       intent,
       kbDocs: searchResults,
+      previousMessages: formattedHistory,
       customerInfo,
+      catalogProducts: catalogProducts.length > 0 ? catalogProducts : undefined,
     });
 
     // Add fallback note if no KB content found
@@ -106,7 +147,7 @@ export async function generateDraft(input: DraftInput): Promise<DraftResult> {
       userPrompt += "\n\n" + NO_KB_FALLBACK_PROMPT;
     }
 
-    // 3. Generate draft with Claude
+    // 4. Generate draft with Claude
     const result = await generate(userPrompt, {
       systemPrompt,
       temperature: 0.7,
@@ -115,16 +156,16 @@ export async function generateDraft(input: DraftInput): Promise<DraftResult> {
 
     const rawDraft = result.content;
 
-    // 4. Extract citations from the draft
+    // 5. Extract citations from the draft
     const citations = extractCitations(rawDraft, searchResults);
 
-    // 5. Run policy gate check
+    // 6. Run policy gate check
     const gate = policyGate(rawDraft);
 
-    // 6. Prepare final draft (null if blocked)
+    // 7. Prepare final draft (null if blocked)
     const finalDraft = gate.ok ? rawDraft : null;
 
-    // 7. Record to database
+    // 8. Record to database
     const kbDocsUsed = searchResults.map((r) => r.doc.id);
     const kbChunksUsed = searchResults
       .filter((r) => r.chunk)
@@ -248,6 +289,42 @@ async function recordDraftGeneration(params: {
   if (error) {
     console.error("Failed to record draft generation:", error.message);
   }
+}
+
+/**
+ * Get conversation history for a thread
+ * Returns the most recent messages (excluding the current one being processed)
+ */
+export async function getConversationHistory(
+  threadId: string,
+  limit: number = 6
+): Promise<ConversationMessage[]> {
+  const { data, error } = await supabase
+    .from("messages")
+    .select("direction, body_text, created_at")
+    .eq("thread_id", threadId)
+    .order("created_at", { ascending: false })
+    .limit(limit + 1); // Get one extra since we'll exclude the latest inbound
+
+  if (error) {
+    console.error("Failed to fetch conversation history:", error.message);
+    return [];
+  }
+
+  if (!data || data.length <= 1) {
+    return []; // No history (only current message)
+  }
+
+  // Skip the most recent message (it's the current one being processed)
+  // and reverse to chronological order
+  return data
+    .slice(1)
+    .reverse()
+    .map((msg) => ({
+      direction: msg.direction as "inbound" | "outbound",
+      body: msg.body_text || "",
+      created_at: msg.created_at,
+    }));
 }
 
 /**

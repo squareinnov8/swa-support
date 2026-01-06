@@ -48,20 +48,52 @@ export default async function AdminPage() {
     <div style={{ padding: 24, fontFamily: "system-ui", maxWidth: 900 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h1>Support Inbox</h1>
-        <a
-          href="/admin/new"
-          style={{
-            padding: "8px 16px",
-            backgroundColor: "#1e40af",
-            color: "white",
-            borderRadius: 6,
-            textDecoration: "none",
-            fontSize: 14,
-            fontWeight: 500,
-          }}
-        >
-          + New Thread
-        </a>
+        <div style={{ display: "flex", gap: 12 }}>
+          <a
+            href="/admin/kb"
+            style={{
+              padding: "8px 16px",
+              backgroundColor: "#f3f4f6",
+              color: "#374151",
+              borderRadius: 6,
+              textDecoration: "none",
+              fontSize: 14,
+              fontWeight: 500,
+              border: "1px solid #d1d5db",
+            }}
+          >
+            Knowledge Base
+          </a>
+          <a
+            href="/admin/instructions"
+            style={{
+              padding: "8px 16px",
+              backgroundColor: "#f3f4f6",
+              color: "#374151",
+              borderRadius: 6,
+              textDecoration: "none",
+              fontSize: 14,
+              fontWeight: 500,
+              border: "1px solid #d1d5db",
+            }}
+          >
+            Agent Instructions
+          </a>
+          <a
+            href="/admin/new"
+            style={{
+              padding: "8px 16px",
+              backgroundColor: "#1e40af",
+              color: "white",
+              borderRadius: 6,
+              textDecoration: "none",
+              fontSize: 14,
+              fontWeight: 500,
+            }}
+          >
+            + New Thread
+          </a>
+        </div>
       </div>
       <p style={{ opacity: 0.6, marginBottom: 24 }}>
         {threads?.length || 0} threads (sorted by priority)

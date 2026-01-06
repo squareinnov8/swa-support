@@ -10,7 +10,7 @@ import type { Intent } from "@/lib/intents/taxonomy";
 /**
  * Import sources
  */
-export type ImportSource = "notion" | "gmail";
+export type ImportSource = "notion" | "gmail" | "website";
 
 /**
  * Import job status
@@ -43,7 +43,7 @@ export type ImportJob = {
 /**
  * Import job configuration (source-specific)
  */
-export type ImportJobConfig = NotionImportConfig | GmailImportConfig | Record<string, unknown>;
+export type ImportJobConfig = NotionImportConfig | GmailImportConfig | WebsiteImportConfig | Record<string, unknown>;
 
 /**
  * Notion-specific import config
@@ -68,6 +68,18 @@ export type GmailImportConfig = {
     before?: string;
   };
   query?: string; // Gmail search query
+};
+
+/**
+ * Website-specific import config
+ */
+export type WebsiteImportConfig = {
+  sitemap_url?: string; // e.g., "https://squarewheelsauto.com/sitemap.xml"
+  base_url?: string; // e.g., "https://squarewheelsauto.com"
+  urls?: string[]; // Manual URL list (alternative to sitemap)
+  content_selector?: string; // CSS selector for main content (default: "main, article")
+  exclude_patterns?: string[]; // URL patterns to skip (e.g., "/cart", "/checkout")
+  max_pages?: number; // Limit per run (default: 100)
 };
 
 /**

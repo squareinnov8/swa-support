@@ -19,6 +19,21 @@ export type SemanticSearchResult = {
 };
 
 /**
+ * Sanitize query for safe use in SQL ILIKE patterns
+ * Removes/escapes characters that break PostgREST queries
+ */
+function sanitizeQueryForSearch(query: string): string {
+  // Remove HTML tags
+  let clean = query.replace(/<[^>]*>/g, " ");
+  // Remove special characters that break PostgREST or patterns
+  clean = clean.replace(/[()%_\\'"<>]/g, " ");
+  // Collapse multiple spaces
+  clean = clean.replace(/\s+/g, " ").trim();
+  // Limit length
+  return clean.slice(0, 100);
+}
+
+/**
  * Search chunks by semantic similarity to query
  * Uses pgvector's <=> operator (cosine distance)
  */
@@ -126,6 +141,12 @@ async function fallbackSemanticSearch(
 ): Promise<SemanticSearchResult[]> {
   const { limit = 10, vehicleTags, productTags } = options;
 
+  // Sanitize query for safe text search
+  const safeQuery = sanitizeQueryForSearch(query);
+  if (safeQuery.length < 3) {
+    return [];
+  }
+
   // Simple text search on chunks
   let queryBuilder = supabase
     .from("kb_chunks")
@@ -135,7 +156,7 @@ async function fallbackSemanticSearch(
       doc:kb_docs(*)
     `
     )
-    .ilike("content", `%${query}%`)
+    .ilike("content", `%${safeQuery}%`)
     .limit(limit);
 
   const { data, error } = await queryBuilder;
@@ -197,11 +218,19 @@ export async function searchDocsByText(
 ): Promise<{ doc: KBDoc; score: number }[]> {
   const { limit = 10, vehicleTags, productTags } = options;
 
+  // Sanitize query to prevent SQL injection and pattern errors
+  const safeQuery = sanitizeQueryForSearch(query);
+
+  // If query is too short after sanitization, return empty
+  if (safeQuery.length < 3) {
+    return [];
+  }
+
   let queryBuilder = supabase
     .from("kb_docs")
     .select("*")
     .eq("evolution_status", "published")
-    .or(`title.ilike.%${query}%,body.ilike.%${query}%`)
+    .or(`title.ilike.%${safeQuery}%,body.ilike.%${safeQuery}%`)
     .limit(limit);
 
   const { data, error } = await queryBuilder;

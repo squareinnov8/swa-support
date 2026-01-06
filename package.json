@@ -10,12 +10,15 @@
     "test": "vitest",
     "test:run": "vitest run",
     "seed:kb": "tsx src/lib/kb/seed.ts",
-    "embed:kb": "NODE_OPTIONS='--max-old-space-size=4096' tsx src/lib/kb/embedDocs.ts"
+    "embed:kb": "NODE_OPTIONS='--max-old-space-size=4096' tsx src/lib/kb/embedDocs.ts",
+    "sync:catalog": "tsx src/lib/catalog/sync.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
     "@notionhq/client": "^5.6.0",
     "@supabase/supabase-js": "^2.89.0",
+    "axios": "^1.13.2",
+    "cheerio": "^1.1.2",
     "googleapis": "^169.0.0",
     "next": "16.1.1",
     "notion-to-md": "^3.1.9",

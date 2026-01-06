@@ -28,10 +28,12 @@ export type GmailTokens = {
 };
 
 /**
- * Gmail scopes needed for reading messages
+ * Gmail scopes needed for reading messages and managing labels
  */
 export const GMAIL_SCOPES = [
   "https://www.googleapis.com/auth/gmail.readonly",
+  "https://www.googleapis.com/auth/gmail.labels",
+  "https://www.googleapis.com/auth/gmail.modify", // For adding labels to processed messages
   "https://www.googleapis.com/auth/userinfo.email",
 ];
 

@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/db";
 import { type ThreadState } from "@/lib/threads/stateMachine";
+import { ThreadActions } from "./ThreadActions";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,9 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
     .order("created_at", { ascending: false })
     .limit(10);
 
-  const latestDraft = events?.find((e) => e.type === "auto_triage")?.payload?.draft;
+  const latestTriageEvent = events?.find((e) => e.type === "auto_triage");
+  const latestDraft = latestTriageEvent?.payload?.draft;
+  const latestEventId = latestTriageEvent?.id;
 
   // Extract state transition history from events
   const stateHistory = events
@@ -116,6 +119,14 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
           </div>
         </>
       )}
+
+      {/* Testing & Feedback Actions */}
+      <ThreadActions
+        threadId={threadId}
+        latestDraft={latestDraft || null}
+        latestEventId={latestEventId || null}
+        intent={thread?.last_intent || null}
+      />
     </div>
   );
 }
