@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/db";
 import { type ThreadState } from "@/lib/threads/stateMachine";
+import AgentSettingsPanel from "./AgentSettingsPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -95,6 +96,8 @@ export default async function AdminPage() {
           </a>
         </div>
       </div>
+      <AgentSettingsPanel />
+
       <p style={{ opacity: 0.6, marginBottom: 24 }}>
         {threads?.length || 0} threads (sorted by priority)
       </p>

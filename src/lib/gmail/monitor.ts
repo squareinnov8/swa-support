@@ -228,23 +228,15 @@ async function getNewMessages(
   const threadIds = new Set<string>();
 
   if (!lastHistoryId) {
-    // First run - get recent threads from inbox
-    const response = await gmail.users.threads.list({
-      userId: "me",
-      labelIds: ["INBOX"],
-      maxResults: 50,
-    });
-
-    for (const thread of response.data.threads || []) {
-      if (thread.id) {
-        threadIds.add(thread.id);
-      }
-    }
-
-    // Get current historyId
+    // First run - just capture current historyId, don't process old emails
+    // This ensures we only track NEW messages going forward
     const profile = await gmail.users.getProfile({ userId: "me" });
     const newHistoryId = profile.data.historyId || "0";
 
+    console.log(`Gmail monitor initialized. Starting from historyId: ${newHistoryId}`);
+    console.log("No existing emails will be processed - only new messages from now on.");
+
+    // Return empty set - no threads to process on first run
     return { threadIds, newHistoryId };
   }
 
