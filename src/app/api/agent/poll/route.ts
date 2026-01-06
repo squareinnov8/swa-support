@@ -121,6 +121,7 @@ export async function POST(request: NextRequest) {
       runId: result.runId,
       stats: {
         threadsChecked: result.threadsChecked,
+        threadsSkipped: result.threadsSkipped,
         newMessagesFound: result.newMessagesFound,
         draftsGenerated: result.draftsGenerated,
         ticketsCreated: result.ticketsCreated,

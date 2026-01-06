@@ -8,12 +8,14 @@ type PollResult = {
   reason?: string;
   stats?: {
     threadsChecked: number;
+    threadsSkipped: number;
     newMessagesFound: number;
     draftsGenerated: number;
     ticketsCreated: number;
     ticketsUpdated: number;
     escalations: number;
   };
+  errors?: string[];
   error?: string;
   hint?: string;
 };
@@ -123,11 +125,20 @@ export function GmailPollButton() {
           ) : result.skipped ? (
             <span>Skipped: {result.reason}</span>
           ) : result.stats ? (
-            <span>
-              Found {result.stats.newMessagesFound} new •{" "}
-              {result.stats.ticketsCreated} tickets created •{" "}
-              {result.stats.draftsGenerated} drafts
-            </span>
+            <div>
+              <span>
+                {result.stats.threadsChecked} threads
+                {result.stats.threadsSkipped > 0 && ` (${result.stats.threadsSkipped} skipped)`}
+                {" • "}{result.stats.newMessagesFound} new
+                {" • "}{result.stats.ticketsCreated} tickets
+                {" • "}{result.stats.draftsGenerated} drafts
+              </span>
+              {result.errors && result.errors.length > 0 && (
+                <div style={{ fontSize: 11, marginTop: 4, opacity: 0.8 }}>
+                  {result.errors.slice(0, 2).join("; ")}
+                </div>
+              )}
+            </div>
           ) : (
             <span>Poll completed</span>
           )}

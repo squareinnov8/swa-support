@@ -29,6 +29,7 @@ export type MonitorResult = {
   success: boolean;
   runId?: string;
   threadsChecked: number;
+  threadsSkipped: number;
   newMessagesFound: number;
   draftsGenerated: number;
   ticketsCreated: number;
@@ -63,6 +64,7 @@ export async function runGmailMonitor(options?: { fetchRecent?: boolean }): Prom
   const result: MonitorResult = {
     success: false,
     threadsChecked: 0,
+    threadsSkipped: 0,
     newMessagesFound: 0,
     draftsGenerated: 0,
     ticketsCreated: 0,
@@ -117,10 +119,18 @@ export async function runGmailMonitor(options?: { fetchRecent?: boolean }): Prom
     result.threadsChecked = updates.threadIds.size;
 
     // Process each updated thread
+    const skipReasons: Record<string, number> = {};
+
     for (const threadId of updates.threadIds) {
       try {
         const threadResult = await processGmailThread(tokens, threadId);
 
+        if (threadResult.skipped) {
+          result.threadsSkipped++;
+          const reason = threadResult.skipReason || "Unknown";
+          skipReasons[reason] = (skipReasons[reason] || 0) + 1;
+          continue;
+        }
         if (threadResult.newMessage) {
           result.newMessagesFound++;
         }
@@ -144,6 +154,14 @@ export async function runGmailMonitor(options?: { fetchRecent?: boolean }): Prom
           `Thread ${threadId}: ${err instanceof Error ? err.message : "Unknown error"}`
         );
       }
+    }
+
+    // Add skip summary to errors for visibility
+    if (result.threadsSkipped > 0) {
+      const skipSummary = Object.entries(skipReasons)
+        .map(([reason, count]) => `${count} ${reason}`)
+        .join(", ");
+      result.errors.push(`Skipped: ${skipSummary}`);
     }
 
     // Update sync state
@@ -302,6 +320,8 @@ type ThreadProcessResult = {
   ticketCreated: boolean;
   ticketUpdated: boolean;
   escalated: boolean;
+  skipped: boolean;
+  skipReason?: string;
   error?: string;
 };
 
@@ -318,21 +338,26 @@ async function processGmailThread(
     ticketCreated: false,
     ticketUpdated: false,
     escalated: false,
+    skipped: false,
   };
 
   // Fetch full thread
   const thread = await fetchThread(tokens, gmailThreadId);
   if (!thread || thread.messages.length === 0) {
+    result.skipped = true;
+    result.skipReason = "Empty thread";
     return result;
   }
 
-  // Find the latest customer message
+  // Find the latest customer message (not from support email)
   const latestIncoming = [...thread.messages]
     .reverse()
     .find((m) => m.isIncoming);
 
   if (!latestIncoming) {
-    // No customer messages, skip
+    // No customer messages - all from support email, skip
+    result.skipped = true;
+    result.skipReason = `No customer messages (${thread.messages.length} from support)`;
     return result;
   }
 
@@ -345,6 +370,8 @@ async function processGmailThread(
 
   if (existingMessage) {
     // Already processed
+    result.skipped = true;
+    result.skipReason = "Already processed";
     return result;
   }
 

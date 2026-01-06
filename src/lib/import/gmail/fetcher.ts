@@ -291,9 +291,10 @@ function extractMessage(message: gmail_v1.Schema$Message): GmailMessage | null {
   body = cleanEmailBody(body);
 
   // Determine if incoming (customer) or outgoing (support)
-  // This is a heuristic - could be improved with actual support email config
-  const labels = message.labelIds ?? [];
-  const isIncoming = labels.includes("INBOX") && !labels.includes("SENT");
+  // Check if sent FROM the support email address
+  const fromEmail = extractEmail(from).toLowerCase();
+  const supportEmail = (process.env.SUPPORT_EMAIL || "support@squarewheelsauto.com").toLowerCase();
+  const isIncoming = fromEmail !== supportEmail;
 
   return {
     id: message.id,
