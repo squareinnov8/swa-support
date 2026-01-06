@@ -94,7 +94,12 @@ export default async function KBPage() {
       </div>
 
       <KBBrowser
-        initialDocs={docs || []}
+        initialDocs={(docs || []).map((doc) => ({
+          ...doc,
+          kb_categories: Array.isArray(doc.kb_categories)
+            ? doc.kb_categories[0] || null
+            : doc.kb_categories,
+        }))}
         initialTotal={count || 0}
         categories={categories || []}
       />

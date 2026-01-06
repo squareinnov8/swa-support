@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/db";
 import { type ThreadState } from "@/lib/threads/stateMachine";
 import AgentSettingsPanel from "./AgentSettingsPanel";
+import { GmailPollButton } from "./GmailPollButton";
 
 export const dynamic = "force-dynamic";
 
@@ -98,9 +99,12 @@ export default async function AdminPage() {
       </div>
       <AgentSettingsPanel />
 
-      <p style={{ opacity: 0.6, marginBottom: 24 }}>
-        {threads?.length || 0} threads (sorted by priority)
-      </p>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+        <p style={{ opacity: 0.6, margin: 0 }}>
+          {threads?.length || 0} threads (sorted by priority)
+        </p>
+        <GmailPollButton />
+      </div>
       <ul style={{ listStyle: "none", padding: 0 }}>
         {sortedThreads?.map((t) => {
           const state = (t.state as ThreadState) || "NEW";

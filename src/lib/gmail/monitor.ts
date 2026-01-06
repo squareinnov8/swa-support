@@ -55,8 +55,11 @@ type SyncState = {
  * 3. Process each through ingest pipeline
  * 4. Create/update HubSpot tickets
  * 5. Handle escalations with rich notes
+ *
+ * @param options.fetchRecent - If true, fetch emails from last 2 days (for testing/initial setup)
  */
-export async function runGmailMonitor(): Promise<MonitorResult> {
+export async function runGmailMonitor(options?: { fetchRecent?: boolean }): Promise<MonitorResult> {
+  const { fetchRecent = false } = options || {};
   const result: MonitorResult = {
     success: false,
     threadsChecked: 0,
@@ -109,7 +112,7 @@ export async function runGmailMonitor(): Promise<MonitorResult> {
 
     // Fetch new messages
     const gmail = createGmailClient(tokens);
-    const updates = await getNewMessages(gmail, syncState.last_history_id);
+    const updates = await getNewMessages(gmail, syncState.last_history_id, fetchRecent);
 
     result.threadsChecked = updates.threadIds.size;
 
@@ -220,21 +223,46 @@ async function getValidTokens(syncState: SyncState): Promise<GmailTokens> {
 
 /**
  * Get new messages using Gmail History API
+ *
+ * @param fetchRecent - If true, fetch emails from last 2 days (bypasses historyId check)
  */
 async function getNewMessages(
   gmail: ReturnType<typeof createGmailClient>,
-  lastHistoryId: string | null
+  lastHistoryId: string | null,
+  fetchRecent: boolean = false
 ): Promise<{ threadIds: Set<string>; newHistoryId: string }> {
   const threadIds = new Set<string>();
+
+  // Get current profile for historyId
+  const profile = await gmail.users.getProfile({ userId: "me" });
+  const newHistoryId = profile.data.historyId || "0";
+
+  // If fetchRecent is true, fetch emails from the last 2 days
+  if (fetchRecent) {
+    console.log("Fetching recent emails from last 2 days...");
+
+    const response = await gmail.users.messages.list({
+      userId: "me",
+      q: "newer_than:2d",
+      maxResults: 50,
+    });
+
+    for (const msg of response.data.messages || []) {
+      if (msg.threadId) {
+        threadIds.add(msg.threadId);
+      }
+    }
+
+    console.log(`Found ${threadIds.size} threads from last 2 days`);
+    return { threadIds, newHistoryId };
+  }
 
   if (!lastHistoryId) {
     // First run - just capture current historyId, don't process old emails
     // This ensures we only track NEW messages going forward
-    const profile = await gmail.users.getProfile({ userId: "me" });
-    const newHistoryId = profile.data.historyId || "0";
-
     console.log(`Gmail monitor initialized. Starting from historyId: ${newHistoryId}`);
     console.log("No existing emails will be processed - only new messages from now on.");
+    console.log("Use 'Fetch Recent' to pull the last 2 days of emails for testing.");
 
     // Return empty set - no threads to process on first run
     return { threadIds, newHistoryId };

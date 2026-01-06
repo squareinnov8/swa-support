@@ -7,7 +7,7 @@
  * Supports both internal integration (NOTION_TOKEN) and OAuth flow.
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 
 type WorkspaceInfo = {
@@ -40,7 +40,7 @@ type ConnectionStatus = {
   error?: string;
 };
 
-export default function NotionImport() {
+function NotionImportContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -377,5 +377,13 @@ export default function NotionImport() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function NotionImport() {
+  return (
+    <Suspense fallback={<div className="p-8">Loading...</div>}>
+      <NotionImportContent />
+    </Suspense>
   );
 }

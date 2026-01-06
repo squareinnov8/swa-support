@@ -250,7 +250,7 @@ export async function searchDocsByText(
   if (vehicleTags && vehicleTags.length > 0) {
     results = results.filter(
       (r) =>
-        r.doc.vehicle_tags.some((t) => vehicleTags.includes(t)) ||
+        r.doc.vehicle_tags.some((t: string) => vehicleTags.includes(t)) ||
         r.doc.vehicle_tags.includes("All")
     );
   }
@@ -258,7 +258,7 @@ export async function searchDocsByText(
   if (productTags && productTags.length > 0) {
     results = results.filter(
       (r) =>
-        r.doc.product_tags.some((t) => productTags.includes(t)) ||
+        r.doc.product_tags.some((t: string) => productTags.includes(t)) ||
         r.doc.product_tags.includes("All Products")
     );
   }

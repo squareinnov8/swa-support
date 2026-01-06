@@ -195,10 +195,14 @@ export async function getDocsByIntent(intent: Intent): Promise<(KBDoc & { confid
 
   return data
     .filter((row) => row.doc !== null)
-    .map((row) => ({
-      ...(row.doc as KBDoc),
-      confidence: row.confidence,
-    }));
+    .map((row) => {
+      // Supabase returns the nested select as an array, take first item
+      const doc = Array.isArray(row.doc) ? row.doc[0] : row.doc;
+      return {
+        ...(doc as KBDoc),
+        confidence: row.confidence,
+      };
+    });
 }
 
 /**

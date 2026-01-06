@@ -9,7 +9,7 @@
  * 3. Create KB articles from resolutions
  */
 
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect, Fragment, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
 type ExtractedQA = {
@@ -58,7 +58,7 @@ type Status = {
   }>;
 };
 
-export default function GmailLearningLoop() {
+function GmailLearningLoopContent() {
   const searchParams = useSearchParams();
 
   const connected = searchParams.get("connected") === "true";
@@ -477,5 +477,13 @@ export default function GmailLearningLoop() {
         </>
       )}
     </div>
+  );
+}
+
+export default function GmailLearningLoop() {
+  return (
+    <Suspense fallback={<div className="p-8">Loading...</div>}>
+      <GmailLearningLoopContent />
+    </Suspense>
   );
 }

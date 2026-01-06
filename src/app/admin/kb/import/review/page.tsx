@@ -6,7 +6,7 @@
  * Review and approve/reject proposed KB documents.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
 type ProposedDoc = {
@@ -35,7 +35,7 @@ type ConfidenceBreakdown = {
   reasons: string[];
 };
 
-export default function ReviewQueue() {
+function ReviewQueueContent() {
   const searchParams = useSearchParams();
   const jobId = searchParams.get("job_id");
 
@@ -493,6 +493,14 @@ export default function ReviewQueue() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function ReviewQueue() {
+  return (
+    <Suspense fallback={<div className="p-8">Loading...</div>}>
+      <ReviewQueueContent />
+    </Suspense>
   );
 }
 

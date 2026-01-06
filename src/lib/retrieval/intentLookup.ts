@@ -62,11 +62,15 @@ export async function lookupByIntentMapping(intent: Intent): Promise<IntentSearc
 
   return data
     .filter((row) => row.doc !== null)
-    .map((row) => ({
-      doc: row.doc as KBDoc,
-      score: row.confidence,
-      matchType: "intent_mapping" as const,
-    }));
+    .map((row) => {
+      // Supabase returns the nested select as an array, take first item
+      const doc = Array.isArray(row.doc) ? row.doc[0] : row.doc;
+      return {
+        doc: doc as KBDoc,
+        score: row.confidence,
+        matchType: "intent_mapping" as const,
+      };
+    });
 }
 
 /**
