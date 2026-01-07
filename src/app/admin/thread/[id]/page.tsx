@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/db";
 import { type ThreadState } from "@/lib/threads/stateMachine";
 import { ThreadActions } from "./ThreadActions";
+import { AgentReasoning } from "./AgentReasoning";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,7 @@ const STATE_COLORS: Record<ThreadState, { bg: string; text: string }> = {
   AWAITING_INFO: { bg: "#fef3c7", text: "#92400e" },
   IN_PROGRESS: { bg: "#ede9fe", text: "#6b21a8" },
   ESCALATED: { bg: "#fee2e2", text: "#991b1b" },
+  HUMAN_HANDLING: { bg: "#ffedd5", text: "#9a3412" },
   RESOLVED: { bg: "#dcfce7", text: "#166534" },
 };
 
@@ -18,6 +20,7 @@ const STATE_LABELS: Record<ThreadState, string> = {
   AWAITING_INFO: "Awaiting Info",
   IN_PROGRESS: "In Progress",
   ESCALATED: "Escalated",
+  HUMAN_HANDLING: "Human Handling",
   RESOLVED: "Resolved",
 };
 
@@ -44,6 +47,35 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
   const latestTriageEvent = events?.find((e) => e.type === "auto_triage");
   const latestDraft = latestTriageEvent?.payload?.draft;
   const latestEventId = latestTriageEvent?.id;
+
+  // Fetch draft generation details for agent reasoning
+  const { data: draftGenerations } = await supabase
+    .from("draft_generations")
+    .select("*")
+    .eq("thread_id", threadId)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  const latestDraftGen = draftGenerations?.[0];
+
+  // Fetch KB docs used in the draft
+  let kbDocsUsed: { id: string; title: string }[] = [];
+  if (latestDraftGen?.kb_docs_used?.length) {
+    const { data: kbDocs } = await supabase
+      .from("kb_docs")
+      .select("id, title")
+      .in("id", latestDraftGen.kb_docs_used);
+    kbDocsUsed = kbDocs || [];
+  }
+
+  // Fetch customer verification
+  const { data: verification } = await supabase
+    .from("customer_verifications")
+    .select("status, order_number, flags")
+    .eq("thread_id", threadId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   // Extract state transition history from events
   const stateHistory = events
@@ -90,6 +122,34 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
         <pre style={{ whiteSpace: "pre-wrap" }}>{latestDraft || "(no draft generated)"}</pre>
       </div>
 
+      {/* Agent Reasoning Section */}
+      <AgentReasoning
+        threadId={threadId}
+        intent={thread?.last_intent || null}
+        confidence={latestTriageEvent?.payload?.confidence ?? null}
+        kbDocs={kbDocsUsed}
+        verification={
+          verification
+            ? {
+                status: verification.status,
+                orderNumber: verification.order_number,
+                flags: verification.flags || [],
+              }
+            : null
+        }
+        draftInfo={
+          latestDraftGen
+            ? {
+                policyGatePassed: latestDraftGen.policy_gate_passed ?? true,
+                policyViolations: latestDraftGen.policy_violations || [],
+                promptTokens: latestDraftGen.prompt_tokens || 0,
+                completionTokens: latestDraftGen.completion_tokens || 0,
+                citations: latestDraftGen.citations || [],
+              }
+            : null
+        }
+      />
+
       {stateHistory && stateHistory.length > 0 && (
         <>
           <h2 style={{ marginTop: 24 }}>State History</h2>
@@ -126,6 +186,8 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
         latestDraft={latestDraft || null}
         latestEventId={latestEventId || null}
         intent={thread?.last_intent || null}
+        isHumanHandling={thread?.human_handling_mode === true}
+        humanHandler={thread?.human_handler || null}
       />
     </div>
   );
