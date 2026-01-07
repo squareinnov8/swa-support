@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
       sameSite: "lax",
     });
 
-    const authUrl = getAuthorizationUrl(state);
+    const authUrl = getAuthorizationUrl(state, "support@squarewheelsauto.com");
 
     return NextResponse.json({
       authUrl,

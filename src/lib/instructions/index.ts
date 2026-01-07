@@ -146,15 +146,34 @@ export async function getInstructionSection(
 export async function getIntentInstructions(intent: string): Promise<string> {
   // Map intents to section keys
   const intentToSection: Record<string, string> = {
+    // Product support
+    PRODUCT_SUPPORT: "intent_product_support",
     FIRMWARE_UPDATE_REQUEST: "intent_firmware",
     FIRMWARE_ACCESS_ISSUE: "intent_firmware",
-    RETURN_REQUEST: "intent_returns",
-    REFUND_REQUEST: "intent_returns",
+    INSTALL_GUIDANCE: "intent_product_support",
+    FUNCTIONALITY_BUG: "intent_product_support",
+
+    // Orders
     ORDER_STATUS: "intent_orders",
     ORDER_CHANGE_REQUEST: "intent_orders",
+    MISSING_DAMAGED_ITEM: "intent_orders",
+    WRONG_ITEM_RECEIVED: "intent_orders",
+    RETURN_REFUND_REQUEST: "intent_returns",
+
+    // Pre-purchase
+    COMPATIBILITY_QUESTION: "intent_presale",
+    PART_IDENTIFICATION: "intent_presale",
+
+    // Escalation
     CHARGEBACK_THREAT: "intent_escalation",
     LEGAL_SAFETY_RISK: "intent_escalation",
-    GENERAL_INQUIRY: "intent_general",
+
+    // Low priority
+    THANK_YOU_CLOSE: "intent_closing",
+    FOLLOW_UP_NO_NEW_INFO: "intent_followup",
+
+    // Non-customer
+    VENDOR_SPAM: "intent_vendor_spam",
   };
 
   const sectionKey = intentToSection[intent];
@@ -184,7 +203,7 @@ These rules must NEVER be violated:
 ## Tone & Style
 - Friendly but professional
 - Concise (2-4 paragraphs max)
-- Sign off with "– Rob"
+- Sign off with "– Lina"
 - Ask clarifying questions when information is missing
 
 ## Citations

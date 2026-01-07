@@ -28,12 +28,13 @@ export type GmailTokens = {
 };
 
 /**
- * Gmail scopes needed for reading messages and managing labels
+ * Gmail scopes needed for reading messages, managing labels, and sending emails
  */
 export const GMAIL_SCOPES = [
   "https://www.googleapis.com/auth/gmail.readonly",
   "https://www.googleapis.com/auth/gmail.labels",
   "https://www.googleapis.com/auth/gmail.modify", // For adding labels to processed messages
+  "https://www.googleapis.com/auth/gmail.send", // For sending escalation emails
   "https://www.googleapis.com/auth/userinfo.email",
 ];
 
@@ -76,14 +77,15 @@ export function createOAuth2Client() {
 /**
  * Generate OAuth authorization URL
  */
-export function getAuthorizationUrl(state?: string): string {
+export function getAuthorizationUrl(state?: string, loginHint?: string): string {
   const oauth2Client = createOAuth2Client();
 
   return oauth2Client.generateAuthUrl({
     access_type: "offline",
     scope: GMAIL_SCOPES,
-    prompt: "consent", // Force consent to get refresh token
+    prompt: "select_account consent", // Allow account selection + force consent for refresh token
     state,
+    login_hint: loginHint, // Pre-fill email if provided
   });
 }
 
