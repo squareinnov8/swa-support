@@ -27,6 +27,32 @@ export type ShopifyCustomer = {
   orders: ShopifyOrder[];
 };
 
+export type ShopifyTrackingInfo = {
+  company: string | null; // "USPS", "UPS", "FedEx", etc.
+  number: string | null;  // Tracking number
+  url: string | null;     // Tracking URL
+};
+
+export type ShopifyFulfillment = {
+  id: string;
+  status: string; // SUCCESS, PENDING, CANCELLED, ERROR, FAILURE
+  createdAt: string;
+  updatedAt: string;
+  trackingInfo: ShopifyTrackingInfo[];
+};
+
+export type ShopifyLineItem = {
+  title: string;
+  quantity: number;
+  sku: string | null;
+};
+
+export type ShopifyShippingAddress = {
+  city: string | null;
+  provinceCode: string | null;
+  country: string | null;
+};
+
 export type ShopifyOrder = {
   id: string; // GraphQL ID (gid://shopify/Order/...)
   name: string; // Order number like "#1234"
@@ -36,9 +62,14 @@ export type ShopifyOrder = {
   displayFulfillmentStatus: string; // UNFULFILLED, FULFILLED, PARTIALLY_FULFILLED
   tags: string[];
   note: string | null;
+  shippingAddress?: ShopifyShippingAddress;
+  fulfillments?: ShopifyFulfillment[];
+  lineItems?: ShopifyLineItem[];
   customer?: {
     id: string;
     email: string;
+    firstName?: string | null;
+    lastName?: string | null;
     tags: string[];
     note: string | null;
   };

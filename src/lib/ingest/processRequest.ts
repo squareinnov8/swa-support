@@ -27,6 +27,7 @@ import {
 } from "@/lib/verification";
 import type { IngestRequest, IngestResult } from "./types";
 import { syncInteractionToHubSpot, isHubSpotConfigured } from "@/lib/hubspot";
+import { recordObservation } from "@/lib/collaboration";
 
 /**
  * Process an ingest request from any channel.
@@ -46,17 +47,19 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
   // 1. Upsert thread
   let threadId: string;
   let currentState: ThreadState = "NEW";
+  let isHumanHandling = false;
 
   if (req.external_id) {
     const { data: existing } = await supabase
       .from("threads")
-      .select("id, state")
+      .select("id, state, human_handling_mode")
       .eq("external_thread_id", req.external_id)
       .maybeSingle();
 
     if (existing?.id) {
       threadId = existing.id;
       currentState = (existing.state as ThreadState) || "NEW";
+      isHumanHandling = existing.human_handling_mode === true;
     } else {
       // Create new thread since external_id lookup found nothing
       const { data: created, error } = await supabase
@@ -107,6 +110,43 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
 
   if (messageError) {
     throw new Error(`Failed to insert message: ${messageError.message}`);
+  }
+
+  // 2.5. Check if thread is in human handling mode (observation mode)
+  // If so, record the observation and skip draft generation
+  if (isHumanHandling) {
+    // Record this message as an observation
+    await recordObservation(threadId, {
+      direction: "inbound",
+      from: req.from_identifier || "unknown",
+      to: req.to_identifier || "support@squarewheelsauto.com",
+      content: req.body_text,
+      timestamp: new Date(),
+    });
+
+    // Log event
+    await logEvent(threadId, {
+      intent: "UNKNOWN",
+      confidence: 0,
+      action: "NO_REPLY",
+      draft: null,
+      channel: req.channel,
+      humanHandling: true,
+      stateTransition: { from: "HUMAN_HANDLING", to: "HUMAN_HANDLING", reason: "observation_mode" },
+    });
+
+    // Return without generating draft - human is handling
+    return {
+      thread_id: threadId,
+      message_id: threadId,
+      intent: "UNKNOWN",
+      confidence: 0,
+      action: "NO_REPLY",
+      draft: null,
+      state: "HUMAN_HANDLING",
+      previous_state: "HUMAN_HANDLING",
+      humanHandling: true,
+    };
   }
 
   // 3. Classify intent
@@ -241,6 +281,34 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
 
   if (intent === "THANK_YOU_CLOSE") {
     action = "NO_REPLY";
+  } else if (intent === "VENDOR_SPAM") {
+    // Auto-close vendor spam without reply
+    action = "NO_REPLY";
+    // Set state to RESOLVED immediately
+    const nextState = "RESOLVED";
+
+    await logEvent(threadId, {
+      intent,
+      confidence,
+      action,
+      draft: null,
+      channel: req.channel,
+      note: "Auto-closed as vendor spam",
+      stateTransition: { from: currentState, to: nextState, reason: "vendor_spam_auto_close" },
+    });
+
+    await updateThreadState(threadId, nextState, intent);
+
+    return {
+      thread_id: threadId,
+      message_id: threadId,
+      intent,
+      confidence,
+      action: "NO_REPLY",
+      draft: null,
+      state: nextState,
+      previous_state: currentState,
+    };
   } else if (intent === "CHARGEBACK_THREAT") {
     // Always escalate chargebacks, regardless of required info
     action = "ESCALATE_WITH_DRAFT";
@@ -270,6 +338,23 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
     // Fetch conversation history for context
     const conversationHistory = await getConversationHistory(threadId);
 
+    // Build order context from verified order (for action-oriented responses)
+    const orderContext = verification?.order
+      ? {
+          orderNumber: verification.order.number,
+          status: verification.order.status,
+          fulfillmentStatus: verification.order.fulfillmentStatus,
+          createdAt: verification.order.createdAt,
+          tracking: verification.order.tracking,
+          lineItems: verification.order.lineItems?.map((item) => ({
+            title: item.title,
+            quantity: item.quantity,
+          })),
+          shippingCity: verification.order.shippingCity,
+          shippingState: verification.order.shippingState,
+        }
+      : undefined;
+
     draftResult = await generateDraft({
       threadId,
       customerMessage: fullText,
@@ -283,6 +368,8 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
           orderNumber: verification.order?.number,
         }),
       },
+      // Pass real order data for action-oriented responses
+      orderContext,
     });
 
     if (draftResult.success && draftResult.draft) {

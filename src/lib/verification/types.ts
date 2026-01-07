@@ -8,14 +8,22 @@ import type { Intent } from "@/lib/intents/taxonomy";
 
 /**
  * Intents that require customer verification before proceeding.
- * These are order-related support requests that need proof of ownership.
+ * These are support requests that need proof of ownership/purchase.
  */
 export const PROTECTED_INTENTS: Intent[] = [
+  // Order related
   "ORDER_STATUS",
   "ORDER_CHANGE_REQUEST",
   "MISSING_DAMAGED_ITEM",
   "WRONG_ITEM_RECEIVED",
   "RETURN_REFUND_REQUEST",
+
+  // Product support (post-purchase)
+  "PRODUCT_SUPPORT",
+  "FIRMWARE_UPDATE_REQUEST",
+  "FIRMWARE_ACCESS_ISSUE",
+  "INSTALL_GUIDANCE",
+  "FUNCTIONALITY_BUG",
 ];
 
 /**
@@ -57,6 +65,24 @@ export type VerifiedCustomer = {
 };
 
 /**
+ * Tracking info from Shopify
+ */
+export type TrackingInfo = {
+  carrier: string | null;
+  trackingNumber: string | null;
+  trackingUrl: string | null;
+};
+
+/**
+ * Line item from order
+ */
+export type OrderLineItem = {
+  title: string;
+  quantity: number;
+  sku: string | null;
+};
+
+/**
  * Order info from Shopify
  */
 export type VerifiedOrder = {
@@ -65,6 +91,12 @@ export type VerifiedOrder = {
   status: string;
   fulfillmentStatus: string;
   createdAt: string;
+  // Rich fulfillment data for action-oriented responses
+  tracking?: TrackingInfo[];
+  lineItems?: OrderLineItem[];
+  shippingCity?: string;
+  shippingState?: string;
+  shippingCountry?: string;
 };
 
 /**

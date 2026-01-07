@@ -45,6 +45,7 @@ export const GET_CUSTOMER_BY_EMAIL = `
 /**
  * Get order by order number (name)
  * Order names in Shopify are like "#1234" or "SWA-1234"
+ * Includes fulfillment and tracking details for action-oriented responses
  */
 export const GET_ORDER_BY_NUMBER = `
   query GetOrderByNumber($query: String!) {
@@ -59,6 +60,31 @@ export const GET_ORDER_BY_NUMBER = `
           displayFulfillmentStatus
           tags
           note
+          shippingAddress {
+            city
+            provinceCode
+            country
+          }
+          fulfillments(first: 5) {
+            id
+            status
+            createdAt
+            updatedAt
+            trackingInfo {
+              company
+              number
+              url
+            }
+          }
+          lineItems(first: 10) {
+            edges {
+              node {
+                title
+                quantity
+                sku
+              }
+            }
+          }
           customer {
             id
             email

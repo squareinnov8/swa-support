@@ -26,6 +26,27 @@ export type ConversationMessage = {
 };
 
 /**
+ * Order data for action-oriented responses
+ */
+export type OrderContext = {
+  orderNumber: string;
+  status: string; // PAID, REFUNDED, etc.
+  fulfillmentStatus: string; // FULFILLED, UNFULFILLED, etc.
+  createdAt: string;
+  tracking?: Array<{
+    carrier: string | null;
+    trackingNumber: string | null;
+    trackingUrl: string | null;
+  }>;
+  lineItems?: Array<{
+    title: string;
+    quantity: number;
+  }>;
+  shippingCity?: string;
+  shippingState?: string;
+};
+
+/**
  * Draft generation input
  */
 export type DraftInput = {
@@ -43,6 +64,8 @@ export type DraftInput = {
     vehicle?: string;
     product?: string;
   };
+  // Real order data from Shopify for action-oriented responses
+  orderContext?: OrderContext;
 };
 
 /**
@@ -75,6 +98,7 @@ export async function generateDraft(input: DraftInput): Promise<DraftResult> {
     productTag,
     previousMessages,
     customerInfo,
+    orderContext,
   } = input;
 
   // Check if LLM is configured
@@ -127,7 +151,7 @@ export async function generateDraft(input: DraftInput): Promise<DraftResult> {
 
     // Format previous messages for context
     const formattedHistory = previousMessages?.map((msg) => {
-      const role = msg.direction === "inbound" ? "Customer" : "Agent (Rob)";
+      const role = msg.direction === "inbound" ? "Customer" : "Agent (Lina)";
       // Truncate long messages to keep prompt manageable
       const body = msg.body.length > 500 ? msg.body.slice(0, 500) + "..." : msg.body;
       return `${role}: ${body}`;
@@ -140,6 +164,7 @@ export async function generateDraft(input: DraftInput): Promise<DraftResult> {
       previousMessages: formattedHistory,
       customerInfo,
       catalogProducts: catalogProducts.length > 0 ? catalogProducts : undefined,
+      orderContext,
     });
 
     // Add fallback note if no KB content found

@@ -149,11 +149,32 @@ export class ShopifyClient {
   /**
    * Get an order by order number
    * Accepts formats: "1234", "#1234", "SWA-1234"
+   * Returns full order details including fulfillment and tracking
    */
   async getOrderByNumber(orderNumber: string): Promise<ShopifyOrder | null> {
     // Clean up the order number for search
     // Shopify order names are like "#1234"
     const cleanNumber = orderNumber.replace(/^#/, "").trim();
+
+    type TrackingInfoResponse = {
+      company: string | null;
+      number: string | null;
+      url: string | null;
+    };
+
+    type FulfillmentResponse = {
+      id: string;
+      status: string;
+      createdAt: string;
+      updatedAt: string;
+      trackingInfo: TrackingInfoResponse[];
+    };
+
+    type LineItemResponse = {
+      title: string;
+      quantity: number;
+      sku: string | null;
+    };
 
     type Response = {
       orders: {
@@ -167,6 +188,15 @@ export class ShopifyClient {
             displayFulfillmentStatus: string;
             tags: string[];
             note: string | null;
+            shippingAddress: {
+              city: string | null;
+              provinceCode: string | null;
+              country: string | null;
+            } | null;
+            fulfillments: FulfillmentResponse[];
+            lineItems: {
+              edges: Array<{ node: LineItemResponse }>;
+            };
             customer: {
               id: string;
               email: string;
@@ -202,10 +232,25 @@ export class ShopifyClient {
       displayFulfillmentStatus: node.displayFulfillmentStatus,
       tags: node.tags,
       note: node.note,
+      shippingAddress: node.shippingAddress || undefined,
+      fulfillments: node.fulfillments?.map((f) => ({
+        id: f.id,
+        status: f.status,
+        createdAt: f.createdAt,
+        updatedAt: f.updatedAt,
+        trackingInfo: f.trackingInfo || [],
+      })),
+      lineItems: node.lineItems?.edges.map((e) => ({
+        title: e.node.title,
+        quantity: e.node.quantity,
+        sku: e.node.sku,
+      })),
       customer: node.customer
         ? {
             id: node.customer.id,
             email: node.customer.email,
+            firstName: node.customer.firstName,
+            lastName: node.customer.lastName,
             tags: node.customer.tags,
             note: node.customer.note,
           }

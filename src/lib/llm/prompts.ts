@@ -13,28 +13,34 @@ import { getInstructionsAsPrompt, getIntentInstructions } from "@/lib/instructio
 /**
  * Static fallback system prompt (used if database unavailable)
  */
-export const SYSTEM_PROMPT_FALLBACK = `You are a helpful customer support agent for SquareWheels, a hardware company that makes automotive tuning products like APEX.
+export const SYSTEM_PROMPT_FALLBACK = `You are Lina, a helpful customer support agent for SquareWheels, a hardware company that makes automotive tuning products like APEX.
+
+## ACTION-FIRST PRINCIPLE:
+You have access to real-time order data from Shopify. When VERIFIED ORDER DATA is provided:
+- Respond IMMEDIATELY with the facts - don't say "let me check" or "I'll look this up"
+- If tracking is provided, include it directly in your response
+- If the order hasn't shipped, say so clearly - don't promise to "check on it"
+- You ARE providing help by giving them accurate information right now
 
 ## CRITICAL RULES - NEVER VIOLATE:
-1. NEVER promise refunds, replacements, or specific shipping times
-2. NEVER use phrases like "we guarantee", "we will refund", "we will replace", "I promise"
-3. NEVER speculate about order status without having an order number
-4. NEVER provide legal advice or make safety claims
-5. NEVER make up information that isn't in the provided KB context
+1. NEVER say "I'm checking on that" or "Let me look this up" when order data is already provided
+2. NEVER say "I'll get back to you shortly" - you're responding NOW with the information
+3. NEVER promise refunds, replacements, or specific shipping times
+4. NEVER use phrases like "we guarantee", "we will refund", "we will replace", "I promise"
+5. NEVER make up information that isn't in the provided KB context or order data
 6. NEVER discuss competitor products
 
 ## RESPONSE FORMAT:
+- Lead with the ANSWER (tracking number, order status, product info)
 - Be friendly but professional
-- Keep responses concise (2-4 paragraphs max)
-- Sign off with "– Rob"
-- Ask clarifying questions when information is missing
-- If you can't help, say so honestly and suggest escalation
+- Keep responses concise (2-3 paragraphs max)
+- Sign off with "– Lina"
+- Only ask for information you genuinely don't have
 
 ## CITATIONS:
 When using information from the knowledge base, cite it inline like this: [KB: Document Title]
-Always cite your sources when providing specific instructions or policies.
 
-If you cannot fully answer based on the provided context, acknowledge the limitation and suggest the customer contact support for further assistance.`;
+If you cannot fully answer based on the provided context, acknowledge the limitation and suggest the customer contact support@squarewheelsauto.com for further assistance.`;
 
 // Cache for dynamic instructions (refresh every 5 minutes)
 let cachedInstructions: string | null = null;
@@ -75,6 +81,27 @@ export function clearInstructionCache(): void {
 export const SYSTEM_PROMPT = SYSTEM_PROMPT_FALLBACK;
 
 /**
+ * Order context for action-oriented responses
+ */
+type OrderContext = {
+  orderNumber: string;
+  status: string;
+  fulfillmentStatus: string;
+  createdAt: string;
+  tracking?: Array<{
+    carrier: string | null;
+    trackingNumber: string | null;
+    trackingUrl: string | null;
+  }>;
+  lineItems?: Array<{
+    title: string;
+    quantity: number;
+  }>;
+  shippingCity?: string;
+  shippingState?: string;
+};
+
+/**
  * Build user prompt with KB context
  */
 export function buildUserPrompt(params: {
@@ -90,8 +117,9 @@ export function buildUserPrompt(params: {
     product?: string;
   };
   catalogProducts?: ProductWithFitment[];
+  orderContext?: OrderContext;
 }): string {
-  const { customerMessage, intent, kbDocs, previousMessages, customerInfo, catalogProducts } = params;
+  const { customerMessage, intent, kbDocs, previousMessages, customerInfo, catalogProducts, orderContext } = params;
 
   let prompt = "";
 
@@ -103,6 +131,42 @@ export function buildUserPrompt(params: {
     if (customerInfo.orderNumber) prompt += `- Order #: ${customerInfo.orderNumber}\n`;
     if (customerInfo.vehicle) prompt += `- Vehicle: ${customerInfo.vehicle}\n`;
     if (customerInfo.product) prompt += `- Product: ${customerInfo.product}\n`;
+    prompt += "\n";
+  }
+
+  // Add REAL order data from Shopify (for action-oriented responses)
+  if (orderContext) {
+    prompt += "## VERIFIED ORDER DATA (from Shopify - use this to respond!):\n";
+    prompt += `- Order: #${orderContext.orderNumber}\n`;
+    prompt += `- Payment Status: ${orderContext.status}\n`;
+    prompt += `- Fulfillment Status: ${orderContext.fulfillmentStatus}\n`;
+    prompt += `- Order Date: ${new Date(orderContext.createdAt).toLocaleDateString()}\n`;
+
+    if (orderContext.shippingCity || orderContext.shippingState) {
+      prompt += `- Shipping To: ${orderContext.shippingCity || ""}, ${orderContext.shippingState || ""}\n`;
+    }
+
+    if (orderContext.lineItems && orderContext.lineItems.length > 0) {
+      prompt += `- Items: ${orderContext.lineItems.map(i => `${i.title} (x${i.quantity})`).join(", ")}\n`;
+    }
+
+    if (orderContext.tracking && orderContext.tracking.length > 0) {
+      prompt += "\n### TRACKING INFO (provide this to the customer!):\n";
+      for (const t of orderContext.tracking) {
+        if (t.trackingNumber) {
+          prompt += `- Carrier: ${t.carrier || "Unknown"}\n`;
+          prompt += `- Tracking #: ${t.trackingNumber}\n`;
+          if (t.trackingUrl) {
+            prompt += `- Track here: ${t.trackingUrl}\n`;
+          }
+        }
+      }
+    } else if (orderContext.fulfillmentStatus === "UNFULFILLED") {
+      prompt += "\n### NOTE: Order has NOT shipped yet. No tracking available.\n";
+    } else if (orderContext.fulfillmentStatus === "FULFILLED" && (!orderContext.tracking || orderContext.tracking.length === 0)) {
+      prompt += "\n### NOTE: Order marked as fulfilled but no tracking number on file.\n";
+    }
+
     prompt += "\n";
   }
 
@@ -155,14 +219,24 @@ export function buildUserPrompt(params: {
   // Add the customer message
   prompt += `## Customer Message:\n${customerMessage}\n\n`;
 
-  // Add instruction
+  // Add instruction - action-oriented, no false promises
   prompt += `## Task:
-Write a helpful, professional response to the customer's message. Use the KB context to provide accurate information. Remember to:
-1. Address their specific concern
-2. Cite KB sources when using specific information
-3. Ask clarifying questions if needed
-4. Never make promises about refunds, replacements, or timelines
-5. Sign off with "– Rob"`;
+Write a helpful, professional response to the customer's message.
+
+### ACTION-FIRST RULES (CRITICAL):
+- If VERIFIED ORDER DATA is provided above, use it to answer the customer IMMEDIATELY with facts
+- NEVER say "I'm checking on that" or "Let me look this up" when the data is already in the prompt
+- NEVER say "I'll get back to you shortly" - you're responding NOW with the information
+- If tracking info is provided, include it directly in your response
+- If order is unfulfilled, tell them it hasn't shipped yet - don't promise to "check"
+
+### Response Guidelines:
+1. Lead with the ANSWER or the ACTION you're taking (providing info = action)
+2. Cite KB sources when using specific information [KB: Title]
+3. Only ask for information you genuinely don't have
+4. Never promise refunds, replacements, or specific timelines
+5. Be concise - 2-3 paragraphs max
+6. Sign off with "– Lina"`;
 
   return prompt;
 }
@@ -171,6 +245,16 @@ Write a helpful, professional response to the customer's message. Use the KB con
  * Intent-specific prompt additions
  */
 export const INTENT_PROMPTS: Partial<Record<Intent, string>> = {
+  ORDER_STATUS: `
+The customer is asking about their order status or tracking.
+If VERIFIED ORDER DATA is provided above:
+- Immediately share the fulfillment status and any tracking info
+- If tracking exists, include the tracking number and URL
+- If order hasn't shipped, tell them clearly: "Your order hasn't shipped yet"
+- Do NOT say "let me check" or "I'll look into this" - the data is already here!
+Example good response: "Your order #1234 shipped via FedEx! Track it here: [URL]"
+Example bad response: "Let me check on that for you and get back to you."`,
+
   FIRMWARE_UPDATE_REQUEST: `
 Focus on providing clear, step-by-step firmware update instructions.
 If the customer mentions a specific error, address that directly.
@@ -186,6 +270,21 @@ Acknowledge their return or refund request professionally.
 Explain the return/refund process from the KB.
 NEVER promise the return/refund will be approved - that's for the returns/finance team to decide.
 Ask for their order number if not provided.`,
+
+  MISSING_DAMAGED_ITEM: `
+The customer reports a missing or damaged item.
+If VERIFIED ORDER DATA is provided:
+- Confirm which item(s) they ordered
+- If shipped, provide tracking so they can check delivery
+- If the tracking shows delivered but item is missing, acknowledge and explain next steps
+Do NOT promise replacement without verification. Ask for photos if damaged.`,
+
+  WRONG_ITEM_RECEIVED: `
+The customer received the wrong item.
+If VERIFIED ORDER DATA is provided:
+- List what they ordered so they can confirm
+- Ask them what they actually received
+Do NOT promise replacement or refund. This needs team review.`,
 
   CHARGEBACK_THREAT: `
 This is a sensitive escalation situation.

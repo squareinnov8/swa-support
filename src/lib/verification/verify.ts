@@ -156,12 +156,26 @@ export async function verifyCustomer(
         }
       : undefined;
 
+    // Extract tracking info from fulfillments
+    const tracking = order.fulfillments?.flatMap((f) =>
+      f.trackingInfo.map((t) => ({
+        carrier: t.company,
+        trackingNumber: t.number,
+        trackingUrl: t.url,
+      }))
+    ) || [];
+
     const verifiedOrder: VerifiedOrder = {
       shopifyId: order.id,
       number: order.name,
       status: order.displayFinancialStatus,
       fulfillmentStatus: order.displayFulfillmentStatus,
       createdAt: order.createdAt,
+      tracking: tracking.length > 0 ? tracking : undefined,
+      lineItems: order.lineItems,
+      shippingCity: order.shippingAddress?.city || undefined,
+      shippingState: order.shippingAddress?.provinceCode || undefined,
+      shippingCountry: order.shippingAddress?.country || undefined,
     };
 
     const result: VerificationResult = {
