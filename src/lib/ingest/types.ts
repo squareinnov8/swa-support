@@ -61,6 +61,12 @@ export type IngestResult = {
 
   /** Previous thread state (for tracking transitions) */
   previous_state: string;
+
+  /** Whether the thread is in human handling mode */
+  humanHandling?: boolean;
+
+  /** Whether this message triggered escalation */
+  escalated?: boolean;
 };
 
 /**

@@ -2,6 +2,7 @@
  * Escalation Module
  *
  * Handles ticket escalation with rich context for human review.
+ * Includes email generation and sending capabilities.
  */
 
 export {
@@ -10,3 +11,15 @@ export {
   type EscalationContext,
   type EscalationNotes,
 } from "./notes";
+
+export {
+  buildCustomerProfile,
+  generateEscalationEmail,
+  generateEscalationEmailHtml,
+} from "./emailGenerator";
+
+export {
+  sendEscalationEmail,
+  shouldSendEscalationEmail,
+  isGmailSendConfigured,
+} from "./emailSender";
