@@ -15,6 +15,7 @@ export const THREAD_STATES = [
   "AWAITING_INFO",
   "IN_PROGRESS",
   "ESCALATED",
+  "HUMAN_HANDLING",
   "RESOLVED",
 ] as const;
 
@@ -60,6 +61,12 @@ export const STATE_METADATA: Record<ThreadState, StateMetadata> = {
     description: "Requires human intervention (chargeback, legal, policy)",
     color: "bg-red-100 text-red-800",
     priority: 0, // Highest priority - show first
+  },
+  HUMAN_HANDLING: {
+    label: "Human Handling",
+    description: "Human has taken over - Lina is observing and learning",
+    color: "bg-orange-100 text-orange-800",
+    priority: 0, // Same as escalated - needs visibility
   },
   RESOLVED: {
     label: "Resolved",
@@ -127,6 +134,11 @@ export function getNextState(ctx: TransitionContext): ThreadState {
     return "ESCALATED";
   }
 
+  // Human handling stays in human handling - only manual exit
+  if (currentState === "HUMAN_HANDLING") {
+    return "HUMAN_HANDLING";
+  }
+
   // Already resolved stays resolved (new thread would be created for new issue)
   if (currentState === "RESOLVED") {
     // If customer sends new message to resolved thread, reopen
@@ -149,11 +161,12 @@ export function getNextState(ctx: TransitionContext): ThreadState {
 export function isValidTransition(from: ThreadState, to: ThreadState): boolean {
   // Define allowed manual transitions
   const allowedTransitions: Record<ThreadState, ThreadState[]> = {
-    NEW: ["AWAITING_INFO", "IN_PROGRESS", "ESCALATED", "RESOLVED"],
-    AWAITING_INFO: ["IN_PROGRESS", "ESCALATED", "RESOLVED"],
-    IN_PROGRESS: ["AWAITING_INFO", "ESCALATED", "RESOLVED"],
-    ESCALATED: ["IN_PROGRESS", "RESOLVED"], // Admin can de-escalate or resolve
-    RESOLVED: ["IN_PROGRESS"], // Reopen if needed
+    NEW: ["AWAITING_INFO", "IN_PROGRESS", "ESCALATED", "HUMAN_HANDLING", "RESOLVED"],
+    AWAITING_INFO: ["IN_PROGRESS", "ESCALATED", "HUMAN_HANDLING", "RESOLVED"],
+    IN_PROGRESS: ["AWAITING_INFO", "ESCALATED", "HUMAN_HANDLING", "RESOLVED"],
+    ESCALATED: ["IN_PROGRESS", "HUMAN_HANDLING", "RESOLVED"], // Admin can de-escalate, take over, or resolve
+    HUMAN_HANDLING: ["IN_PROGRESS", "ESCALATED", "RESOLVED"], // Can return to agent, escalate further, or resolve
+    RESOLVED: ["IN_PROGRESS", "HUMAN_HANDLING"], // Reopen if needed
   };
 
   return allowedTransitions[from]?.includes(to) ?? false;
@@ -183,6 +196,15 @@ export function getTransitionReason(ctx: TransitionContext, newState: ThreadStat
   }
   if (ctx.currentState === "RESOLVED" && newState === "IN_PROGRESS") {
     return "Thread reopened due to new customer message";
+  }
+  if (newState === "HUMAN_HANDLING") {
+    return "Human took over handling - agent observing";
+  }
+  if (ctx.currentState === "HUMAN_HANDLING" && newState === "IN_PROGRESS") {
+    return "Human handling complete - returned to agent";
+  }
+  if (ctx.currentState === "HUMAN_HANDLING" && newState === "RESOLVED") {
+    return "Resolved by human handler";
   }
 
   return `Transitioned from ${ctx.currentState} to ${newState}`;
