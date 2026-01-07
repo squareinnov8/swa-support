@@ -81,7 +81,7 @@ describe("calculateConfidence", () => {
     const analysis: LLMAnalysisResult = {
       suggested_category: null,
       category_confidence: 0,
-      intent_tags: ["GENERAL_INQUIRY"],
+      intent_tags: ["UNKNOWN"],
       vehicle_tags: [],
       product_tags: [],
       content_quality: 0,
