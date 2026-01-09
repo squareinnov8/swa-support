@@ -7,9 +7,10 @@
 
 import { supabase } from "@/lib/db";
 import { createGmailClient, refreshTokenIfNeeded, type GmailTokens } from "@/lib/import/gmail/auth";
-import { fetchThread, type GmailThread, type GmailMessage } from "@/lib/import/gmail/fetcher";
+import { fetchThread, downloadAttachment, type GmailThread, type GmailMessage, type GmailAttachment } from "@/lib/import/gmail/fetcher";
 import { processIngestRequest } from "@/lib/ingest/processRequest";
-import type { IngestRequest } from "@/lib/ingest/types";
+import type { IngestRequest, MessageAttachment } from "@/lib/ingest/types";
+import { processAttachment, type ExtractedAttachmentContent } from "@/lib/attachments";
 import {
   createTicket,
   updateTicket,
@@ -69,10 +70,11 @@ type SyncState = {
  * 4. Create/update HubSpot tickets
  * 5. Handle escalations with rich notes
  *
- * @param options.fetchRecent - If true, fetch emails from last 2 days (for testing/initial setup)
+ * @param options.fetchRecent - If true, fetch emails from last N days (for testing/initial setup)
+ * @param options.fetchDays - Number of days to fetch when fetchRecent is true (default: 3)
  */
-export async function runGmailMonitor(options?: { fetchRecent?: boolean }): Promise<MonitorResult> {
-  const { fetchRecent = false } = options || {};
+export async function runGmailMonitor(options?: { fetchRecent?: boolean; fetchDays?: number }): Promise<MonitorResult> {
+  const { fetchRecent = false, fetchDays = 3 } = options || {};
   const result: MonitorResult = {
     success: false,
     threadsChecked: 0,
@@ -126,7 +128,7 @@ export async function runGmailMonitor(options?: { fetchRecent?: boolean }): Prom
 
     // Fetch new messages
     const gmail = createGmailClient(tokens);
-    const updates = await getNewMessages(gmail, syncState.last_history_id, fetchRecent);
+    const updates = await getNewMessages(gmail, syncState.last_history_id, fetchRecent, fetchDays);
 
     result.threadsChecked = updates.threadIds.size;
 
@@ -254,12 +256,14 @@ async function getValidTokens(syncState: SyncState): Promise<GmailTokens> {
 /**
  * Get new messages using Gmail History API
  *
- * @param fetchRecent - If true, fetch emails from last 2 days (bypasses historyId check)
+ * @param fetchRecent - If true, fetch emails from last N days (bypasses historyId check)
+ * @param fetchDays - Number of days to fetch when fetchRecent is true
  */
 async function getNewMessages(
   gmail: ReturnType<typeof createGmailClient>,
   lastHistoryId: string | null,
-  fetchRecent: boolean = false
+  fetchRecent: boolean = false,
+  fetchDays: number = 3
 ): Promise<{ threadIds: Set<string>; newHistoryId: string }> {
   const threadIds = new Set<string>();
 
@@ -267,14 +271,14 @@ async function getNewMessages(
   const profile = await gmail.users.getProfile({ userId: "me" });
   const newHistoryId = profile.data.historyId || "0";
 
-  // If fetchRecent is true, fetch emails from the last 2 days
+  // If fetchRecent is true, fetch emails from the last N days
   if (fetchRecent) {
-    console.log("Fetching recent emails from last 2 days...");
+    console.log(`Fetching recent emails from last ${fetchDays} days...`);
 
     const response = await gmail.users.messages.list({
       userId: "me",
-      q: "newer_than:2d",
-      maxResults: 50,
+      q: `newer_than:${fetchDays}d`,
+      maxResults: 100,
     });
 
     for (const msg of response.data.messages || []) {
@@ -283,7 +287,7 @@ async function getNewMessages(
       }
     }
 
-    console.log(`Found ${threadIds.size} threads from last 2 days`);
+    console.log(`Found ${threadIds.size} threads from last ${fetchDays} days`);
     return { threadIds, newHistoryId };
   }
 
@@ -449,6 +453,39 @@ async function processGmailThread(
 
   // Note: existingThread already fetched earlier for intervention detection
 
+  // Process attachments if any
+  const processedAttachments: MessageAttachment[] = [];
+  if (latestIncoming.attachments && latestIncoming.attachments.length > 0) {
+    console.log(`[Monitor] Processing ${latestIncoming.attachments.length} attachment(s) from message ${latestIncoming.id}`);
+
+    for (const attachment of latestIncoming.attachments) {
+      try {
+        // Download attachment content from Gmail
+        const content = await downloadAttachment(tokens, latestIncoming.id, attachment.id);
+        if (!content) {
+          console.warn(`[Monitor] Failed to download attachment: ${attachment.filename}`);
+          continue;
+        }
+
+        // Process the attachment to extract text/data
+        const extracted = await processAttachment(attachment, content);
+
+        processedAttachments.push({
+          filename: attachment.filename,
+          mimeType: attachment.mimeType,
+          size: attachment.size,
+          extractedContent: extracted,
+        });
+
+        if (extracted.extractedData?.orderNumber) {
+          console.log(`[Monitor] Extracted order number from attachment: ${extracted.extractedData.orderNumber}`);
+        }
+      } catch (err) {
+        console.error(`[Monitor] Error processing attachment ${attachment.filename}:`, err);
+      }
+    }
+  }
+
   // Build ingest request
   const ingestRequest: IngestRequest = {
     channel: "email",
@@ -457,10 +494,12 @@ async function processGmailThread(
     to_identifier: latestIncoming.to[0],
     subject: thread.subject,
     body_text: latestIncoming.body,
+    attachments: processedAttachments.length > 0 ? processedAttachments : undefined,
     metadata: {
       gmail_thread_id: gmailThreadId,
       gmail_message_id: latestIncoming.id,
       gmail_date: latestIncoming.date.toISOString(),
+      attachment_count: latestIncoming.attachments?.length || 0,
     },
   };
 

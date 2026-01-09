@@ -1,0 +1,246 @@
+# CLAUDE.md - Support Agent v2 (Lina)
+
+This file provides guidance to Claude Code when working with this codebase.
+
+## Project Overview
+
+**Lina** is an AI-powered customer support agent for SquareWheels Auto, a hardware company selling automotive tuning products (APEX, etc.). The system monitors Gmail for support emails, classifies intents, retrieves relevant KB articles, and generates draft responses for human review.
+
+**Production URL**: https://support-agent-v2.vercel.app/
+**Owner**: Rob (rob@squarewheelsauto.com) - handles escalations and feedback
+
+## Common Commands
+
+```bash
+npm run dev          # Start development server (localhost:3000)
+npm run build        # Production build
+npm run lint         # ESLint
+npm run test         # Vitest tests
+npm run test:run     # Run tests once
+
+# Database
+npx supabase db push --linked    # Push migrations to production
+
+# Data scripts
+npm run seed:kb      # Seed knowledge base
+npm run embed:kb     # Generate embeddings for KB docs
+npm run sync:catalog # Sync Shopify product catalog
+```
+
+## Architecture
+
+### Tech Stack
+- **Framework**: Next.js 15 (App Router)
+- **Database**: Supabase (PostgreSQL + pgvector)
+- **LLM**: Anthropic Claude (via @anthropic-ai/sdk)
+- **Embeddings**: OpenAI text-embedding-3-small
+- **Deployment**: Vercel
+- **Integrations**: Gmail API, Shopify Admin API, HubSpot CRM
+
+### Directory Structure
+
+```
+src/
+├── app/
+│   ├── admin/              # Admin UI (inbox, KB, instructions)
+│   │   ├── page.tsx        # Main inbox view
+│   │   ├── thread/[id]/    # Thread detail view
+│   │   ├── kb/             # Knowledge base management
+│   │   ├── instructions/   # Agent instruction editor
+│   │   └── gmail-setup/    # Gmail OAuth setup
+│   └── api/
+│       ├── agent/poll/     # Gmail polling endpoint (cron)
+│       ├── admin/          # Admin APIs (settings, KB, chat)
+│       ├── ingest/email/   # Email ingestion endpoint
+│       └── webhooks/       # Shopify webhooks
+├── lib/
+│   ├── ingest/             # Core ingestion pipeline
+│   │   └── processRequest.ts   # Main processing logic
+│   ├── intents/            # Intent classification
+│   │   ├── taxonomy.ts     # Intent definitions
+│   │   └── classify.ts     # Classification logic
+│   ├── llm/                # LLM integration
+│   │   ├── client.ts       # Anthropic client
+│   │   ├── prompts.ts      # System/user prompts
+│   │   └── draftGenerator.ts   # Draft generation
+│   ├── instructions/       # Dynamic agent instructions
+│   │   └── index.ts        # Load from database
+│   ├── kb/                 # Knowledge base
+│   │   ├── documents.ts    # CRUD operations
+│   │   └── embedDocs.ts    # Embedding generation
+│   ├── retrieval/          # Hybrid search (vector + keyword)
+│   ├── gmail/              # Gmail monitoring
+│   │   └── monitor.ts      # Polling and sync
+│   ├── shopify/            # Shopify integration
+│   ├── hubspot/            # HubSpot CRM sync
+│   ├── verification/       # Customer/order verification
+│   ├── collaboration/      # Human-AI collaboration
+│   │   ├── observationMode.ts  # Watch human handle tickets
+│   │   └── learningGenerator.ts # Generate learning proposals
+│   ├── threads/            # Thread state machine
+│   └── responders/         # Policy gate, macros
+└── supabase/
+    └── migrations/         # Database migrations (001-020)
+```
+
+### Key Data Flow
+
+1. **Gmail Poll** (`/api/agent/poll`) → `runGmailMonitor()`
+2. **Ingest** → `processIngestRequest()` in `lib/ingest/processRequest.ts`
+3. **Classify** → `classifyIntent()` determines intent
+4. **Verify** → `verifyCustomer()` for protected intents (orders)
+5. **Retrieve** → `hybridSearch()` finds relevant KB docs
+6. **Generate** → `generateDraft()` creates response with Claude
+7. **Gate** → `policyGate()` checks for banned language
+8. **State** → `getNextState()` transitions thread state
+
+### Thread States
+- `NEW` → `AWAITING_INFO` → `IN_PROGRESS` → `RESOLVED`
+- `ESCALATED` - requires human intervention
+- `HUMAN_HANDLING` - agent is observing, human is responding
+
+### Key Database Tables
+- `threads` - Support conversations
+- `messages` - Individual messages
+- `events` - Audit log of all actions
+- `kb_docs` / `kb_chunks` - Knowledge base with embeddings
+- `agent_instructions` - Dynamic Lina behavior rules
+- `gmail_sync_state` - OAuth tokens and sync state
+- `customers` / `orders` - Synced from Shopify
+
+## Environment Variables
+
+Required in `.env` (and Vercel):
+```
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+ANTHROPIC_API_KEY=
+OPENAI_API_KEY=              # For embeddings
+GOOGLE_CLIENT_ID=            # Gmail OAuth + Admin Auth
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=         # Gmail: /api/admin/import/gmail/auth
+GOOGLE_ADMIN_REDIRECT_URI=   # Admin: /api/auth/callback
+ADMIN_SESSION_SECRET=        # JWT signing (or uses SUPABASE_SERVICE_ROLE_KEY)
+SHOPIFY_STORE_DOMAIN=
+SHOPIFY_ACCESS_TOKEN=
+```
+
+## Recent Changes (Jan 2026)
+
+### Completed
+- [x] Gmail monitoring with OAuth and polling
+- [x] Intent classification (17 intents)
+- [x] KB-powered draft generation with Claude
+- [x] Customer verification via Shopify
+- [x] Policy gate for banned language
+- [x] Human collaboration mode (observation/learning)
+- [x] Dynamic agent instructions from database
+- [x] Admin chat with Lina (persisted conversations)
+- [x] Thread summaries for CRM syndication
+- [x] Unified prompts (single source of truth in database)
+- [x] Admin authentication with Google OAuth (JWT sessions)
+
+### Pending / Outstanding
+- [ ] **Gmail re-authentication required** - After inbox purge, need to re-auth at `/admin/gmail-setup`
+- [ ] Auto-send approved drafts (currently manual)
+- [ ] Email response threading (reply-to headers)
+- [ ] Rate limiting on API endpoints
+- [ ] Production CRON frequency (currently daily at 8am UTC)
+
+## Tech Debt & Known Issues
+
+### High Priority
+1. **Gmail OAuth token in database** - Should be encrypted at rest
+2. **Hardcoded support email** - `support@squarewheelsauto.com` is hardcoded in several places
+
+### Medium Priority
+3. **Lint warnings** - Several unused `err` variables and React hook dependency warnings
+4. **Date.now() in render** - `src/app/admin/page.tsx:42` calls impure function during render
+5. **Unescaped entities** - `src/app/admin/gmail-setup/page.tsx:183` has unescaped apostrophe
+
+### Low Priority
+6. **Test coverage** - Evals exist but not comprehensive
+7. **Error boundaries** - No React error boundaries in admin UI
+8. **Mobile responsiveness** - Admin UI not optimized for mobile
+
+## Agent Behavior (Lina)
+
+Instructions are stored in `agent_instructions` table with sections:
+- `persona` - Who Lina is
+- `truthfulness` - NEVER make up information
+- `core_rules` - Safety rules (no promises, no legal advice)
+- `tone_style` - Voice and signoff ("– Lina")
+- `escalation_context` - When/how to escalate to Rob
+
+**Key rules:**
+- Never promise refunds, replacements, or shipping times
+- Always cite KB sources when making claims
+- Sign off as "– Lina"
+- Escalate chargebacks and flagged customers to Rob
+
+## Testing
+
+```bash
+npm run test              # Watch mode
+npm run test:run          # Single run
+
+# Specific test files
+npx vitest src/lib/evals/classify.test.ts
+```
+
+Test files are in `src/lib/evals/` covering:
+- Intent classification
+- Required info extraction
+- Policy gate
+- State machine transitions
+
+## Deployment
+
+Deployed via Vercel with automatic deploys from main branch.
+
+**Cron job**: `/api/agent/poll` runs daily at 8am UTC (configured in `vercel.json`)
+
+To trigger manual poll:
+```bash
+curl -X POST "https://support-agent-v2.vercel.app/api/agent/poll?force=true"
+
+# Fetch last N days:
+curl -X POST "https://support-agent-v2.vercel.app/api/agent/poll?force=true&fetchRecent=true&fetchDays=3"
+```
+
+## Database Migrations
+
+Migrations are in `supabase/migrations/` numbered 001-020:
+- 001-009: Core schema (threads, messages, KB, catalog)
+- 010: Agent instructions
+- 011-012: CRM integration
+- 013-014: Gmail monitoring
+- 015: Agent settings
+- 016-017: Human collaboration
+- 018: Admin-Lina chat persistence
+- 019: Fix agent instructions (truthfulness, Lina signoff)
+- 020: Thread summary field for CRM
+
+To apply migrations:
+```bash
+npx supabase db push --linked
+```
+
+## Quick Reference
+
+| What | Where |
+|------|-------|
+| Login page | `/login` |
+| Inbox UI | `/admin` |
+| Thread detail | `/admin/thread/[id]` |
+| KB management | `/admin/kb` |
+| Agent instructions | `/admin/instructions` |
+| Gmail setup | `/admin/gmail-setup` |
+| Auth utilities | `src/lib/auth/index.ts` |
+| Middleware | `src/middleware.ts` |
+| Poll API | `POST /api/agent/poll` |
+| Ingest API | `POST /api/ingest/email` |
+| Main processing | `src/lib/ingest/processRequest.ts` |
+| Intent taxonomy | `src/lib/intents/taxonomy.ts` |
+| Prompts | `src/lib/llm/prompts.ts` |
+| State machine | `src/lib/threads/stateMachine.ts` |

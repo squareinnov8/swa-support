@@ -8,9 +8,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/db";
 import { integrateFeedback } from "@/lib/instructions";
+import { getSession } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {
+    // Get current admin session
+    const session = await getSession();
+    const createdBy = session?.email || "admin";
+
     const body = await request.json();
     const {
       thread_id,
@@ -46,7 +51,7 @@ export async function POST(request: NextRequest) {
         rating,
         feedback_notes: feedback_notes || null,
         edited_draft: edited_draft || null,
-        created_by: "admin", // TODO: Get from auth session
+        created_by: createdBy,
       })
       .select("id")
       .single();

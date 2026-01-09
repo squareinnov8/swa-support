@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 
 type KBDoc = {
   id: string;
@@ -27,8 +27,18 @@ type AgentReasoningProps = {
 };
 
 type ChatMessage = {
+  id?: string;
   role: "user" | "assistant";
   content: string;
+  created_at?: string;
+};
+
+type PersistedMessage = {
+  id: string;
+  role: "admin" | "lina";
+  content: string;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
 };
 
 export function AgentReasoning({
@@ -43,6 +53,65 @@ export function AgentReasoning({
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [showFeedbackPrompt, setShowFeedbackPrompt] = useState(false);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  // Load persisted chat history when chat is opened
+  useEffect(() => {
+    if (showChat && !historyLoaded) {
+      loadChatHistory();
+    }
+  }, [showChat, historyLoaded, threadId]);
+
+  // Scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [chatMessages]);
+
+  async function loadChatHistory() {
+    setIsLoadingHistory(true);
+    try {
+      const res = await fetch(`/api/admin/thread-chat/messages?threadId=${threadId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.messages && data.messages.length > 0) {
+          // Convert persisted messages to chat format
+          const converted: ChatMessage[] = data.messages.map((msg: PersistedMessage) => ({
+            id: msg.id,
+            role: msg.role === "admin" ? "user" : "assistant",
+            content: msg.content,
+            created_at: msg.created_at,
+          }));
+          setChatMessages(converted);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to load chat history:", error);
+    } finally {
+      setIsLoadingHistory(false);
+      setHistoryLoaded(true);
+    }
+  }
+
+  async function clearChatHistory() {
+    if (!confirm("Clear all chat history with Lina for this thread?")) return;
+
+    try {
+      const res = await fetch(`/api/admin/thread-chat/messages?threadId=${threadId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setChatMessages([]);
+        setHistoryLoaded(false);
+      }
+    } catch (error) {
+      console.error("Failed to clear chat history:", error);
+    }
+  }
 
   async function handleSendMessage(e: React.FormEvent) {
     e.preventDefault();
@@ -52,6 +121,7 @@ export function AgentReasoning({
     setInputMessage("");
     setChatMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setIsLoading(true);
+    setShowFeedbackPrompt(false);
 
     try {
       const res = await fetch("/api/admin/thread-chat", {
@@ -60,7 +130,6 @@ export function AgentReasoning({
         body: JSON.stringify({
           threadId,
           message: userMessage,
-          conversationHistory: chatMessages,
         }),
       });
 
@@ -70,6 +139,22 @@ export function AgentReasoning({
           ...prev,
           { role: "assistant", content: data.response },
         ]);
+
+        // Check if Lina acknowledged a feedback instruction
+        const feedbackKeywords = [
+          "feedback entry",
+          "create feedback",
+          "instruction permanent",
+          "make it permanent",
+          "won't remember",
+          "will forget",
+        ];
+        const hasFeebbackMention = feedbackKeywords.some(
+          (kw) => data.response.toLowerCase().includes(kw)
+        );
+        if (hasFeebbackMention) {
+          setShowFeedbackPrompt(true);
+        }
       } else {
         const error = await res.json();
         setChatMessages((prev) => [
@@ -85,6 +170,19 @@ export function AgentReasoning({
     } finally {
       setIsLoading(false);
     }
+  }
+
+  function handleCreateFeedback() {
+    // Get the last few messages as context for the feedback
+    const recentMessages = chatMessages.slice(-4);
+    const context = recentMessages
+      .map((m) => `${m.role === "user" ? "Admin" : "Lina"}: ${m.content}`)
+      .join("\n\n");
+
+    // Open feedback form in a new tab with pre-filled context
+    const feedbackUrl = `/admin/feedback/new?threadId=${threadId}&context=${encodeURIComponent(context)}`;
+    window.open(feedbackUrl, "_blank");
+    setShowFeedbackPrompt(false);
   }
 
   return (
@@ -236,14 +334,83 @@ export function AgentReasoning({
             justifyContent: "space-between",
           }}
         >
-          <span>💬 Chat with Lina about this thread</span>
+          <span>
+            💬 Chat with Lina about this thread
+            {chatMessages.length > 0 && (
+              <span style={{ opacity: 0.7, marginLeft: 8, fontSize: 14 }}>
+                ({chatMessages.length} messages)
+              </span>
+            )}
+          </span>
           <span>{showChat ? "▼" : "▶"}</span>
         </button>
 
         {showChat && (
           <div style={{ backgroundColor: "#faf5ff" }}>
+            {/* Chat Header with Actions */}
+            {chatMessages.length > 0 && (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  padding: "8px 12px",
+                  borderBottom: "1px solid #e5e7eb",
+                  gap: 8,
+                }}
+              >
+                <button
+                  onClick={clearChatHistory}
+                  style={{
+                    padding: "6px 12px",
+                    backgroundColor: "transparent",
+                    color: "#6b7280",
+                    border: "1px solid #d1d5db",
+                    borderRadius: 4,
+                    cursor: "pointer",
+                    fontSize: 12,
+                  }}
+                >
+                  Clear History
+                </button>
+              </div>
+            )}
+
+            {/* Feedback Prompt Banner */}
+            {showFeedbackPrompt && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: 12,
+                  backgroundColor: "#fef3c7",
+                  borderBottom: "1px solid #fcd34d",
+                }}
+              >
+                <span style={{ color: "#92400e", fontSize: 14 }}>
+                  💡 Want to make this instruction permanent?
+                </span>
+                <button
+                  onClick={handleCreateFeedback}
+                  style={{
+                    padding: "8px 16px",
+                    backgroundColor: "#f59e0b",
+                    color: "white",
+                    border: "none",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    fontWeight: 600,
+                    fontSize: 14,
+                  }}
+                >
+                  Create Feedback Entry
+                </button>
+              </div>
+            )}
+
             {/* Chat Messages */}
             <div
+              ref={chatContainerRef}
               style={{
                 padding: 16,
                 maxHeight: 400,
@@ -251,15 +418,23 @@ export function AgentReasoning({
                 minHeight: 100,
               }}
             >
-              {chatMessages.length === 0 ? (
+              {isLoadingHistory ? (
+                <div style={{ color: "#64748b", fontStyle: "italic" }}>
+                  Loading conversation history...
+                </div>
+              ) : chatMessages.length === 0 ? (
                 <div style={{ color: "#64748b", fontStyle: "italic" }}>
                   Ask Lina anything about this thread - why she responded this way,
                   what KB docs she used, how to handle the case differently...
+                  <br /><br />
+                  <strong>Tip:</strong> Lina now uses your real agent instructions and will cite
+                  sources. If you give her feedback, she&apos;ll suggest creating a feedback entry
+                  to make it permanent.
                 </div>
               ) : (
                 chatMessages.map((msg, i) => (
                   <div
-                    key={i}
+                    key={msg.id || i}
                     style={{
                       marginBottom: 12,
                       display: "flex",

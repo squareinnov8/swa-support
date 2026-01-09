@@ -24,20 +24,11 @@ const STATE_LABELS: Record<ThreadState, string> = {
   RESOLVED: "Resolved",
 };
 
-// Sort priority (lower = show first)
-const STATE_PRIORITY: Record<ThreadState, number> = {
-  ESCALATED: 0,
-  HUMAN_HANDLING: 0,
-  NEW: 1,
-  AWAITING_INFO: 2,
-  IN_PROGRESS: 3,
-  RESOLVED: 4,
-};
-
 export default async function AdminPage() {
+  // Fetch threads sorted by latest update (for inbox workflow)
   const { data: threads } = await supabase
     .from("threads")
-    .select("id,subject,state,last_intent,updated_at,created_at,human_handling_mode,human_handler")
+    .select("id,subject,state,last_intent,updated_at,created_at,human_handling_mode,human_handler,summary")
     .order("updated_at", { ascending: false })
     .limit(50);
 
@@ -60,13 +51,7 @@ export default async function AdminPage() {
     .select("*", { count: "exact", head: true })
     .eq("status", "pending");
 
-  // Sort by state priority, then by updated_at
-  const sortedThreads = threads?.sort((a, b) => {
-    const aPriority = STATE_PRIORITY[(a.state as ThreadState) || "NEW"];
-    const bPriority = STATE_PRIORITY[(b.state as ThreadState) || "NEW"];
-    if (aPriority !== bPriority) return aPriority - bPriority;
-    return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
-  });
+  // Threads already sorted by updated_at from the query
 
   return (
     <div style={{ padding: 24, fontFamily: "system-ui", maxWidth: 900 }}>
@@ -186,12 +171,12 @@ export default async function AdminPage() {
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <p style={{ opacity: 0.6, margin: 0 }}>
-          {threads?.length || 0} threads (sorted by priority)
+          {threads?.length || 0} threads (sorted by latest update)
         </p>
         <GmailPollButton />
       </div>
       <ul style={{ listStyle: "none", padding: 0 }}>
-        {sortedThreads?.map((t) => {
+        {threads?.map((t) => {
           const state = (t.state as ThreadState) || "NEW";
           const colors = STATE_COLORS[state];
           const label = STATE_LABELS[state];
@@ -248,8 +233,13 @@ export default async function AdminPage() {
                   {t.subject || "(no subject)"}
                 </a>
               </div>
-              <div style={{ opacity: 0.6, fontSize: 13, marginTop: 4, marginLeft: t.human_handling_mode ? 140 : 70 }}>
-                {t.last_intent || "—"} • {new Date(t.updated_at).toLocaleString()}
+              {t.summary && (
+                <div style={{ fontSize: 13, marginTop: 4, marginLeft: t.human_handling_mode ? 140 : 70, color: "#4b5563" }}>
+                  {t.summary}
+                </div>
+              )}
+              <div style={{ opacity: 0.5, fontSize: 12, marginTop: 4, marginLeft: t.human_handling_mode ? 140 : 70 }}>
+                {new Date(t.updated_at).toLocaleString()}
                 {t.human_handler && <span> • Handler: {t.human_handler}</span>}
               </div>
             </li>

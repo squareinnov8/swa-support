@@ -5,8 +5,21 @@
  * from any channel (email, web form, chat, voice, etc.)
  */
 
+import type { ExtractedAttachmentContent } from "@/lib/attachments";
+
 export const CHANNELS = ["email", "web_form", "chat", "voice"] as const;
 export type Channel = (typeof CHANNELS)[number];
+
+/**
+ * Attachment info extracted from the message
+ */
+export type MessageAttachment = {
+  filename: string;
+  mimeType: string;
+  size: number;
+  /** Extracted text/content from the attachment */
+  extractedContent?: ExtractedAttachmentContent;
+};
 
 /**
  * Normalized ingest request - all channels normalize to this format.
@@ -29,6 +42,9 @@ export type IngestRequest = {
 
   /** Who received this (support email, agent ID, etc.) */
   to_identifier?: string;
+
+  /** Attachments with extracted content */
+  attachments?: MessageAttachment[];
 
   /** Channel-specific metadata (email headers, chat context, etc.) */
   metadata?: Record<string, unknown>;

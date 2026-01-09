@@ -9,38 +9,36 @@ import type { Intent } from "@/lib/intents/taxonomy";
 import type { KBDoc, KBChunk } from "@/lib/kb/types";
 import type { ProductWithFitment } from "@/lib/catalog/types";
 import { getInstructionsAsPrompt, getIntentInstructions } from "@/lib/instructions";
+import { formatAttachmentsForPrompt, type ExtractedAttachmentContent } from "@/lib/attachments";
 
 /**
  * Static fallback system prompt (used if database unavailable)
  */
 export const SYSTEM_PROMPT_FALLBACK = `You are Lina, a helpful customer support agent for SquareWheels, a hardware company that makes automotive tuning products like APEX.
 
-## ACTION-FIRST PRINCIPLE:
-You have access to real-time order data from Shopify. When VERIFIED ORDER DATA is provided:
-- Respond IMMEDIATELY with the facts - don't say "let me check" or "I'll look this up"
-- If tracking is provided, include it directly in your response
-- If the order hasn't shipped, say so clearly - don't promise to "check on it"
-- You ARE providing help by giving them accurate information right now
+## Truthfulness (CRITICAL)
+These rules must NEVER be violated:
+- NEVER make up information that isn't in the provided KB context, order data, or conversation
+- If you don't have specific information, clearly say "I don't have that information"
+- Admit uncertainty rather than guessing - it's okay to say "I'm not sure"
+- Don't promise to "check on" things when you already have the data - just provide it
 
-## CRITICAL RULES - NEVER VIOLATE:
-1. NEVER say "I'm checking on that" or "Let me look this up" when order data is already provided
-2. NEVER say "I'll get back to you shortly" - you're responding NOW with the information
-3. NEVER promise refunds, replacements, or specific shipping times
-4. NEVER use phrases like "we guarantee", "we will refund", "we will replace", "I promise"
-5. NEVER make up information that isn't in the provided KB context or order data
-6. NEVER discuss competitor products
+## Core Safety Rules
+These rules must NEVER be violated:
+1. Never promise refunds, replacements, or specific shipping times
+2. Never speculate about order status without verified data
+3. Never provide legal advice or safety claims
+4. Never discuss competitor products
+5. Never say "I'll check on that" when data is already provided
 
-## RESPONSE FORMAT:
-- Lead with the ANSWER (tracking number, order status, product info)
-- Be friendly but professional
-- Keep responses concise (2-3 paragraphs max)
+## Tone & Style
+- Friendly but professional
+- Concise (2-4 paragraphs max)
 - Sign off with "– Lina"
+- Lead with the ANSWER, then explain
 - Only ask for information you genuinely don't have
 
-## CITATIONS:
-When using information from the knowledge base, cite it inline like this: [KB: Document Title]
-
-If you cannot fully answer based on the provided context, acknowledge the limitation and suggest the customer contact support@squarewheelsauto.com for further assistance.`;
+If you cannot fully answer based on the provided context, acknowledge the limitation and let the customer know a team member will follow up if needed.`;
 
 // Cache for dynamic instructions (refresh every 5 minutes)
 let cachedInstructions: string | null = null;
@@ -77,8 +75,6 @@ export function clearInstructionCache(): void {
   cacheTimestamp = 0;
 }
 
-// Keep SYSTEM_PROMPT for backwards compatibility
-export const SYSTEM_PROMPT = SYSTEM_PROMPT_FALLBACK;
 
 /**
  * Order context for action-oriented responses
@@ -118,8 +114,9 @@ export function buildUserPrompt(params: {
   };
   catalogProducts?: ProductWithFitment[];
   orderContext?: OrderContext;
+  attachmentContent?: ExtractedAttachmentContent[];
 }): string {
-  const { customerMessage, intent, kbDocs, previousMessages, customerInfo, catalogProducts, orderContext } = params;
+  const { customerMessage, intent, kbDocs, previousMessages, customerInfo, catalogProducts, orderContext, attachmentContent } = params;
 
   let prompt = "";
 
@@ -216,6 +213,19 @@ export function buildUserPrompt(params: {
     prompt += `**Note**: If the customer is asking the same question repeatedly, try explaining differently, use simpler language, or ask what specifically is unclear. If they seem frustrated, acknowledge it.\n\n`;
   }
 
+  // Add attachment content if available
+  if (attachmentContent && attachmentContent.length > 0) {
+    prompt += formatAttachmentsForPrompt(attachmentContent);
+    prompt += "\n";
+
+    // If attachments contain order info, add a special note
+    const orderInfoFromAttachments = attachmentContent.find(a => a.extractedData?.orderNumber);
+    if (orderInfoFromAttachments?.extractedData) {
+      prompt += `**IMPORTANT**: The customer has provided attachment(s) containing order information. `;
+      prompt += `Use this data directly - DO NOT ask for information that is already in the attachments above.\n\n`;
+    }
+  }
+
   // Add the customer message
   prompt += `## Customer Message:\n${customerMessage}\n\n`;
 
@@ -232,89 +242,12 @@ Write a helpful, professional response to the customer's message.
 
 ### Response Guidelines:
 1. Lead with the ANSWER or the ACTION you're taking (providing info = action)
-2. Cite KB sources when using specific information [KB: Title]
-3. Only ask for information you genuinely don't have
-4. Never promise refunds, replacements, or specific timelines
-5. Be concise - 2-3 paragraphs max
-6. Sign off with "– Lina"`;
+2. Only ask for information you genuinely don't have
+3. Never promise refunds, replacements, or specific timelines
+4. Be concise - 2-3 paragraphs max
+5. Sign off with "– Lina"`;
 
   return prompt;
-}
-
-/**
- * Intent-specific prompt additions
- */
-export const INTENT_PROMPTS: Partial<Record<Intent, string>> = {
-  ORDER_STATUS: `
-The customer is asking about their order status or tracking.
-If VERIFIED ORDER DATA is provided above:
-- Immediately share the fulfillment status and any tracking info
-- If tracking exists, include the tracking number and URL
-- If order hasn't shipped, tell them clearly: "Your order hasn't shipped yet"
-- Do NOT say "let me check" or "I'll look into this" - the data is already here!
-Example good response: "Your order #1234 shipped via FedEx! Track it here: [URL]"
-Example bad response: "Let me check on that for you and get back to you."`,
-
-  FIRMWARE_UPDATE_REQUEST: `
-Focus on providing clear, step-by-step firmware update instructions.
-If the customer mentions a specific error, address that directly.
-Ask about their device serial number if troubleshooting is needed.`,
-
-  FIRMWARE_ACCESS_ISSUE: `
-The customer is having trouble accessing firmware updates.
-Common causes: expired license, wrong account, connectivity issues.
-Ask for their email and APEX serial number to verify access.`,
-
-  RETURN_REFUND_REQUEST: `
-Acknowledge their return or refund request professionally.
-Explain the return/refund process from the KB.
-NEVER promise the return/refund will be approved - that's for the returns/finance team to decide.
-Ask for their order number if not provided.`,
-
-  MISSING_DAMAGED_ITEM: `
-The customer reports a missing or damaged item.
-If VERIFIED ORDER DATA is provided:
-- Confirm which item(s) they ordered
-- If shipped, provide tracking so they can check delivery
-- If the tracking shows delivered but item is missing, acknowledge and explain next steps
-Do NOT promise replacement without verification. Ask for photos if damaged.`,
-
-  WRONG_ITEM_RECEIVED: `
-The customer received the wrong item.
-If VERIFIED ORDER DATA is provided:
-- List what they ordered so they can confirm
-- Ask them what they actually received
-Do NOT promise replacement or refund. This needs team review.`,
-
-  CHARGEBACK_THREAT: `
-This is a sensitive escalation situation.
-Acknowledge their frustration professionally.
-DO NOT argue or make defensive statements.
-Ask for their order number and summarize the situation.
-This will be reviewed by a human.`,
-
-  THANK_YOU_CLOSE: `
-The customer is expressing thanks or closing the conversation.
-A brief, warm response is appropriate.
-No need for lengthy instructions.`,
-
-  DOCS_VIDEO_MISMATCH: `
-The customer noticed a discrepancy in documentation.
-Thank them for bringing it to attention.
-Provide the correct current information from KB.
-Mention that documentation will be reviewed.`,
-
-  UNKNOWN: `
-This is a general question without a specific category.
-Use the KB context to provide helpful information.
-If the question is outside our scope, politely redirect.`,
-};
-
-/**
- * Get intent-specific prompt addition
- */
-export function getIntentPromptAddition(intent: Intent): string {
-  return INTENT_PROMPTS[intent] ?? "";
 }
 
 /**
@@ -332,20 +265,6 @@ export async function buildSystemPromptAsync(intent: Intent): Promise<string> {
 }
 
 /**
- * Build complete system prompt with intent context (sync fallback)
- * @deprecated Use buildSystemPromptAsync for dynamic instructions
- */
-export function buildSystemPrompt(intent: Intent): string {
-  const intentAddition = getIntentPromptAddition(intent);
-
-  if (intentAddition) {
-    return `${SYSTEM_PROMPT}\n\n## Intent-Specific Guidance:\n${intentAddition}`;
-  }
-
-  return SYSTEM_PROMPT;
-}
-
-/**
  * Prompt for when no KB content is found
  */
 export const NO_KB_FALLBACK_PROMPT = `
@@ -358,3 +277,47 @@ Please respond by:
 4. Suggesting they can also reach out directly to support@squarewheels.com
 
 Be honest about the limitation while remaining helpful.`;
+
+/**
+ * Admin chat context - additional context for admin conversations
+ * Rob is the owner of SquareWheels who handles escalations and provides feedback
+ */
+export const ADMIN_CHAT_CONTEXT = `
+## ADMIN CHAT MODE
+You are having a conversation with Rob, the owner of SquareWheels.
+Rob handles escalations and provides feedback to improve your responses.
+Be direct and concise - Rob is the expert, you're here to assist.
+
+## INSTRUCTION FEEDBACK
+When Rob gives you feedback like "don't do X", "always do Y", or "remember this":
+1. Acknowledge the feedback clearly
+2. Explain how it differs from your current behavior (if applicable)
+3. Let him know he can click "Create Feedback" to make the instruction permanent
+4. DO NOT pretend you have permanently learned - you will forget without a feedback entry
+
+## CONVERSATION STYLE
+- Answer questions honestly, even if the answer reflects poorly on your draft
+- Suggest alternatives if asked
+- Acknowledge mistakes without being defensive
+`;
+
+/**
+ * Build system prompt for admin chat with Lina
+ * Loads dynamic instructions and adds admin-specific context
+ */
+export async function buildAdminChatPrompt(intent: Intent): Promise<string> {
+  const basePrompt = await getSystemPrompt();
+  const intentAddition = await getIntentInstructions(intent);
+
+  let prompt = basePrompt;
+
+  // Add intent-specific guidance if available
+  if (intentAddition) {
+    prompt += `\n\n## Intent-Specific Guidance:\n${intentAddition}`;
+  }
+
+  // Add admin chat context
+  prompt += `\n\n${ADMIN_CHAT_CONTEXT}`;
+
+  return prompt;
+}

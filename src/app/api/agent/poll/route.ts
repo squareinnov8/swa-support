@@ -43,12 +43,14 @@ export async function GET() {
  *
  * Query params:
  * - force=true - Run even if recently polled (also bypasses auth for manual triggers)
- * - fetchRecent=true - Fetch emails from last 2 days (for testing/initial setup)
+ * - fetchRecent=true - Fetch emails from last N days (for testing/initial setup)
+ * - fetchDays=N - Number of days to fetch (default: 3)
  */
 export async function POST(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const force = searchParams.get("force") === "true";
   const fetchRecent = searchParams.get("fetchRecent") === "true";
+  const fetchDays = parseInt(searchParams.get("fetchDays") || "3", 10);
 
   // Check if this is a Vercel cron job (trusted)
   const isVercelCron = request.headers.has("x-vercel-cron-id");
@@ -114,7 +116,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Run the monitor
-    const result = await runGmailMonitor({ fetchRecent });
+    const result = await runGmailMonitor({ fetchRecent, fetchDays });
 
     return NextResponse.json({
       success: result.success,

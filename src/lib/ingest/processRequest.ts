@@ -25,9 +25,10 @@ import {
   getVerificationPrompt,
   type VerificationResult,
 } from "@/lib/verification";
-import type { IngestRequest, IngestResult } from "./types";
+import type { IngestRequest, IngestResult, MessageAttachment } from "./types";
 import { syncInteractionToHubSpot, isHubSpotConfigured } from "@/lib/hubspot";
 import { recordObservation } from "@/lib/collaboration";
+import type { ExtractedAttachmentContent } from "@/lib/attachments";
 
 /**
  * Process an ingest request from any channel.
@@ -152,13 +153,39 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
   // 3. Classify intent
   const { intent, confidence } = classifyIntent(req.subject, req.body_text);
 
+  // 3.4. Extract order info from attachments (if any)
+  // This helps avoid asking for order numbers that were already provided in attachments
+  let attachmentOrderNumber: string | undefined;
+  let attachmentCustomerName: string | undefined;
+  if (req.attachments) {
+    for (const att of req.attachments) {
+      if (att.extractedContent?.extractedData) {
+        const data = att.extractedContent.extractedData;
+        if (data.orderNumber && !attachmentOrderNumber) {
+          attachmentOrderNumber = data.orderNumber;
+          console.log(`[Ingest] Found order number in attachment: ${attachmentOrderNumber}`);
+        }
+        if (data.customerName && !attachmentCustomerName) {
+          attachmentCustomerName = data.customerName;
+        }
+      }
+    }
+  }
+
   // 3.5. Customer verification for protected intents
   let verification: VerificationResult | null = null;
   if (isProtectedIntent(intent)) {
+    // Include attachment data in the message text for order number extraction
+    let messageTextForVerification = req.body_text;
+    if (attachmentOrderNumber) {
+      // Append the order number from attachment so verification can find it
+      messageTextForVerification += `\n\n[Order number from attachment: ${attachmentOrderNumber}]`;
+    }
+
     verification = await verifyCustomer({
       threadId,
       email: req.from_identifier,
-      messageText: req.body_text,
+      messageText: messageTextForVerification,
     });
 
     // Handle verification outcomes before continuing
@@ -355,6 +382,16 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
         }
       : undefined;
 
+    // Extract attachment content for LLM context
+    const attachmentContent: ExtractedAttachmentContent[] = [];
+    if (req.attachments) {
+      for (const att of req.attachments) {
+        if (att.extractedContent) {
+          attachmentContent.push(att.extractedContent);
+        }
+      }
+    }
+
     draftResult = await generateDraft({
       threadId,
       customerMessage: fullText,
@@ -370,6 +407,8 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
       },
       // Pass real order data for action-oriented responses
       orderContext,
+      // Pass attachment content for context
+      attachmentContent: attachmentContent.length > 0 ? attachmentContent : undefined,
     });
 
     if (draftResult.success && draftResult.draft) {
@@ -445,12 +484,16 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
     },
   });
 
-  // 9. Update thread with new state and intent
+  // 9. Generate summary for CRM syndication
+  const summary = generateThreadSummary(intent, nextState, action, req.subject);
+
+  // 10. Update thread with new state, intent, and summary
   await supabase
     .from("threads")
     .update({
       state: nextState,
       last_intent: intent,
+      summary,
       updated_at: new Date().toISOString(),
     })
     .eq("id", threadId);
@@ -523,4 +566,58 @@ async function updateThreadState(
       updated_at: new Date().toISOString(),
     })
     .eq("id", threadId);
+}
+
+/**
+ * Generate a short summary for CRM syndication
+ * Format: "[Issue type] - [Status]"
+ */
+function generateThreadSummary(
+  intent: string,
+  state: ThreadState,
+  action: Action,
+  subject?: string
+): string {
+  // Map intents to readable issue types
+  const issueTypes: Record<string, string> = {
+    ORDER_STATUS: "Order status inquiry",
+    SHIPPING_DELAY: "Shipping delay",
+    RETURN_REQUEST: "Return request",
+    REFUND_REQUEST: "Refund request",
+    DEFECTIVE_PRODUCT: "Defective product",
+    WRONG_ITEM: "Wrong item received",
+    FITMENT_CHECK: "Fitment question",
+    PRODUCT_RECOMMENDATION: "Product recommendation",
+    TECH_SUPPORT: "Technical support",
+    FIRMWARE_ACCESS_ISSUE: "Firmware access issue",
+    DOCS_VIDEO_MISMATCH: "Documentation issue",
+    WARRANTY_CLAIM: "Warranty claim",
+    CHARGEBACK_THREAT: "Chargeback threat",
+    THANK_YOU_CLOSE: "Thank you message",
+    VENDOR_SPAM: "Vendor spam",
+    UNKNOWN: "General inquiry",
+  };
+
+  // Map states to readable statuses
+  const stateStatuses: Record<ThreadState, string> = {
+    NEW: "new",
+    AWAITING_INFO: "awaiting customer info",
+    IN_PROGRESS: "in progress",
+    ESCALATED: "escalated",
+    HUMAN_HANDLING: "human handling",
+    RESOLVED: "resolved",
+  };
+
+  const issueType = issueTypes[intent] || "General inquiry";
+  const status = stateStatuses[state] || state.toLowerCase().replace(/_/g, " ");
+
+  // Build summary
+  let summary = `${issueType} - ${status}`;
+
+  // Add action context if relevant
+  if (action === "ESCALATE_WITH_DRAFT") {
+    summary = `${issueType} - ESCALATED`;
+  }
+
+  return summary;
 }

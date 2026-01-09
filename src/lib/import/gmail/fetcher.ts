@@ -21,6 +21,19 @@ export type GmailThreadSummary = {
 };
 
 /**
+ * Gmail attachment metadata and content
+ */
+export type GmailAttachment = {
+  id: string; // Gmail attachment ID for downloading
+  filename: string;
+  mimeType: string;
+  size: number;
+  // Content is loaded on-demand via downloadAttachment()
+  // For inline processing, extracted text is stored here
+  extractedText?: string;
+};
+
+/**
  * Gmail message content
  */
 export type GmailMessage = {
@@ -32,6 +45,7 @@ export type GmailMessage = {
   subject: string;
   body: string;
   isIncoming: boolean; // Customer message vs support response
+  attachments: GmailAttachment[]; // Attachments (may be empty)
 };
 
 /**
@@ -279,12 +293,16 @@ function extractMessage(message: gmail_v1.Schema$Message): GmailMessage | null {
   const subject = getHeader(headers, "Subject") ?? "";
   const dateStr = getHeader(headers, "Date");
 
-  // Extract body
+  // Extract body and attachments
   let body = "";
+  let attachments: GmailAttachment[] = [];
+
   if (message.payload.body?.data) {
     body = decodeBase64(message.payload.body.data);
   } else if (message.payload.parts) {
-    body = extractBodyFromParts(message.payload.parts);
+    const extraction = extractBodyFromParts(message.payload.parts, message.id);
+    body = extraction.body;
+    attachments = extraction.attachments;
   }
 
   // Clean up body
@@ -305,37 +323,70 @@ function extractMessage(message: gmail_v1.Schema$Message): GmailMessage | null {
     subject,
     body,
     isIncoming,
+    attachments,
   };
 }
 
 /**
- * Extract body from message parts (handles multipart messages)
+ * Result from extracting body and attachments from message parts
  */
-function extractBodyFromParts(parts: gmail_v1.Schema$MessagePart[]): string {
+type BodyExtractionResult = {
+  body: string;
+  attachments: GmailAttachment[];
+};
+
+/**
+ * Extract body and attachments from message parts (handles multipart messages)
+ */
+function extractBodyFromParts(
+  parts: gmail_v1.Schema$MessagePart[],
+  messageId: string
+): BodyExtractionResult {
+  let body = "";
+  const attachments: GmailAttachment[] = [];
+
+  // First pass: collect attachments and find text content
   for (const part of parts) {
-    // Prefer plain text
-    if (part.mimeType === "text/plain" && part.body?.data) {
-      return decodeBase64(part.body.data);
+    // Check if this part is an attachment
+    if (part.filename && part.filename.length > 0 && part.body?.attachmentId) {
+      attachments.push({
+        id: part.body.attachmentId,
+        filename: part.filename,
+        mimeType: part.mimeType || "application/octet-stream",
+        size: part.body.size || 0,
+      });
+      continue;
+    }
+
+    // Prefer plain text for body
+    if (part.mimeType === "text/plain" && part.body?.data && !body) {
+      body = decodeBase64(part.body.data);
     }
   }
 
-  // Fall back to HTML
-  for (const part of parts) {
-    if (part.mimeType === "text/html" && part.body?.data) {
-      const html = decodeBase64(part.body.data);
-      return stripHtml(html);
+  // Fall back to HTML if no plain text
+  if (!body) {
+    for (const part of parts) {
+      if (part.mimeType === "text/html" && part.body?.data) {
+        body = stripHtml(decodeBase64(part.body.data));
+        break;
+      }
     }
   }
 
-  // Check nested parts
+  // Check nested parts (multipart/alternative, multipart/mixed, etc.)
   for (const part of parts) {
     if (part.parts) {
-      const nested = extractBodyFromParts(part.parts);
-      if (nested) return nested;
+      const nested = extractBodyFromParts(part.parts, messageId);
+      if (!body && nested.body) {
+        body = nested.body;
+      }
+      // Collect attachments from nested parts
+      attachments.push(...nested.attachments);
     }
   }
 
-  return "";
+  return { body, attachments };
 }
 
 /**
@@ -402,4 +453,35 @@ function cleanEmailBody(body: string): string {
  */
 function formatDateForGmail(date: Date): string {
   return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
+}
+
+/**
+ * Download attachment content from Gmail
+ * Returns the raw base64-decoded data as a Buffer
+ */
+export async function downloadAttachment(
+  tokens: GmailTokens,
+  messageId: string,
+  attachmentId: string
+): Promise<Buffer | null> {
+  const gmail = createGmailClient(tokens);
+
+  try {
+    const response = await gmail.users.messages.attachments.get({
+      userId: "me",
+      messageId,
+      id: attachmentId,
+    });
+
+    if (!response.data.data) {
+      return null;
+    }
+
+    // Gmail API returns base64url encoded data
+    const base64 = response.data.data.replace(/-/g, "+").replace(/_/g, "/");
+    return Buffer.from(base64, "base64");
+  } catch (err) {
+    console.error("Failed to download attachment:", err);
+    return null;
+  }
 }

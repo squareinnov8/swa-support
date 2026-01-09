@@ -15,6 +15,7 @@ import { findProductsByVehicle } from "@/lib/catalog/lookup";
 import type { ProductWithFitment } from "@/lib/catalog/types";
 import type { Intent } from "@/lib/intents/taxonomy";
 import type { Citation, DraftGeneration } from "@/lib/kb/types";
+import type { ExtractedAttachmentContent } from "@/lib/attachments";
 
 /**
  * Message from conversation history
@@ -66,6 +67,8 @@ export type DraftInput = {
   };
   // Real order data from Shopify for action-oriented responses
   orderContext?: OrderContext;
+  // Extracted content from email attachments
+  attachmentContent?: ExtractedAttachmentContent[];
 };
 
 /**
@@ -99,6 +102,7 @@ export async function generateDraft(input: DraftInput): Promise<DraftResult> {
     previousMessages,
     customerInfo,
     orderContext,
+    attachmentContent,
   } = input;
 
   // Check if LLM is configured
@@ -165,6 +169,7 @@ export async function generateDraft(input: DraftInput): Promise<DraftResult> {
       customerInfo,
       catalogProducts: catalogProducts.length > 0 ? catalogProducts : undefined,
       orderContext,
+      attachmentContent,
     });
 
     // Add fallback note if no KB content found
