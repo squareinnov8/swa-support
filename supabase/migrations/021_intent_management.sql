@@ -119,7 +119,7 @@ INSERT INTO intents (slug, name, description, category, priority, examples, requ
 
   -- Unknown
   ('UNKNOWN', 'Unknown Intent', 'Intent could not be determined - requires human review', 'unknown', 0,
-   ARRAY[],
+   ARRAY[]::text[],
    false, false)
 ON CONFLICT (slug) DO UPDATE SET
   name = EXCLUDED.name,
