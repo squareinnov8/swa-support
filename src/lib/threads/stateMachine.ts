@@ -1,5 +1,3 @@
-import type { Intent } from "../intents/taxonomy";
-
 /**
  * Thread State Machine
  *
@@ -79,9 +77,10 @@ export const STATE_METADATA: Record<ThreadState, StateMetadata> = {
 export type TransitionContext = {
   currentState: ThreadState;
   action: Action;
-  intent: Intent;
+  intent: string; // Dynamic intent slug from database
   policyBlocked?: boolean;
   missingRequiredInfo?: boolean;
+  autoEscalate?: boolean; // From intent configuration
 };
 
 /**
@@ -96,7 +95,7 @@ export type TransitionContext = {
  * - Customer replies to AWAITING_INFO → re-evaluate (typically IN_PROGRESS)
  */
 export function getNextState(ctx: TransitionContext): ThreadState {
-  const { currentState, action, intent, policyBlocked, missingRequiredInfo } = ctx;
+  const { currentState, action, intent, policyBlocked, missingRequiredInfo, autoEscalate } = ctx;
 
   // THANK_YOU_CLOSE always resolves the thread
   if (intent === "THANK_YOU_CLOSE") {
@@ -108,8 +107,13 @@ export function getNextState(ctx: TransitionContext): ThreadState {
     return "ESCALATED";
   }
 
-  // High-risk intents always escalate
+  // High-risk intents always escalate (these are hardcoded for safety)
   if (intent === "CHARGEBACK_THREAT" || intent === "LEGAL_SAFETY_RISK") {
+    return "ESCALATED";
+  }
+
+  // Auto-escalate flag from intent configuration
+  if (autoEscalate) {
     return "ESCALATED";
   }
 

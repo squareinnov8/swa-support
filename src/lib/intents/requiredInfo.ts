@@ -1,5 +1,3 @@
-import type { Intent } from "./taxonomy";
-
 /**
  * Required information checklist per intent.
  *
@@ -18,7 +16,7 @@ export type RequiredField = {
 };
 
 export type IntentRequirements = {
-  intent: Intent;
+  intent: string; // Dynamic intent slug from database
   fields: RequiredField[];
   minRequired?: number; // Minimum number of required fields that must be present (default: all required fields)
 };
@@ -193,7 +191,7 @@ export type CheckResult = {
 /**
  * Check if required information is present in the message.
  */
-export function checkRequiredInfo(intent: Intent, text: string): CheckResult {
+export function checkRequiredInfo(intent: string, text: string): CheckResult {
   const requirements = INTENT_REQUIREMENTS.find((r) => r.intent === intent);
 
   // If no requirements defined for this intent, assume all good

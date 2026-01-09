@@ -87,6 +87,48 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
       timestamp: e.created_at,
     }));
 
+  // Fetch all intents for this thread
+  const { data: threadIntents } = await supabase
+    .from("thread_intents")
+    .select(`
+      id,
+      confidence,
+      detected_at,
+      is_resolved,
+      resolved_at,
+      intents!inner(id, slug, name, category, priority, description)
+    `)
+    .eq("thread_id", threadId)
+    .order("detected_at", { ascending: false });
+
+  // Type for joined intents data
+  type IntentData = {
+    id: string;
+    slug: string;
+    name: string;
+    category: string;
+    priority: number;
+    description: string | null;
+  };
+
+  const allIntents = threadIntents?.map((ti) => {
+    const intent = ti.intents as unknown as IntentData;
+    return {
+      id: ti.id,
+      slug: intent.slug,
+      name: intent.name,
+      category: intent.category,
+      description: intent.description,
+      confidence: ti.confidence,
+      detected_at: ti.detected_at,
+      is_resolved: ti.is_resolved,
+      resolved_at: ti.resolved_at,
+    };
+  });
+
+  const activeIntents = allIntents?.filter((i) => !i.is_resolved) || [];
+  const resolvedIntents = allIntents?.filter((i) => i.is_resolved) || [];
+
   return (
     <div style={{ padding: 24, fontFamily: "system-ui", maxWidth: 900 }}>
       <a href="/admin">← Back</a>
@@ -104,8 +146,76 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
         >
           {stateLabel}
         </span>
-        <span style={{ opacity: 0.7 }}>Intent: {thread?.last_intent || "—"}</span>
       </div>
+
+      {/* Thread Intents Section */}
+      {(activeIntents.length > 0 || resolvedIntents.length > 0) && (
+        <div style={{ marginTop: 16, padding: 12, backgroundColor: "#f9fafb", borderRadius: 8 }}>
+          <h4 style={{ margin: "0 0 8px 0", fontSize: 14, fontWeight: 600 }}>
+            Intents ({activeIntents.length} active, {resolvedIntents.length} resolved)
+          </h4>
+
+          {activeIntents.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: resolvedIntents.length > 0 ? 8 : 0 }}>
+              {activeIntents.map((intent) => (
+                <span
+                  key={intent.id}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                    padding: "4px 10px",
+                    borderRadius: 6,
+                    fontSize: 12,
+                    fontWeight: 500,
+                    backgroundColor: "#dbeafe",
+                    color: "#1e40af",
+                    border: "1px solid #93c5fd",
+                  }}
+                  title={intent.description || undefined}
+                >
+                  <span>{intent.name}</span>
+                  <span style={{ opacity: 0.7, fontSize: 10 }}>
+                    ({Math.round((intent.confidence || 0) * 100)}%)
+                  </span>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {resolvedIntents.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {resolvedIntents.map((intent) => (
+                <span
+                  key={intent.id}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                    padding: "4px 10px",
+                    borderRadius: 6,
+                    fontSize: 12,
+                    fontWeight: 500,
+                    backgroundColor: "#f3f4f6",
+                    color: "#6b7280",
+                    border: "1px solid #d1d5db",
+                    textDecoration: "line-through",
+                  }}
+                  title={`Resolved: ${intent.resolved_at ? new Date(intent.resolved_at).toLocaleString() : "N/A"}`}
+                >
+                  <span>{intent.name}</span>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeIntents.length === 0 && resolvedIntents.length === 0 && thread?.last_intent && (
+        <div style={{ marginTop: 8, opacity: 0.7 }}>
+          Legacy intent: {thread.last_intent}
+        </div>
+      )}
 
       <h2 style={{ marginTop: 24 }}>Messages</h2>
       {messages?.map((m) => (

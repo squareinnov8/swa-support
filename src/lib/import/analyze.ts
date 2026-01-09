@@ -287,13 +287,13 @@ function parseExtractionResponse(response: string): GmailExtractionResult {
 }
 
 /**
- * Validate intent tags against known intents
+ * Validate intent tags against known static intents
  */
 function validateIntentTags(tags: unknown[]): Intent[] {
   if (!Array.isArray(tags)) return [];
 
   return tags.filter((tag): tag is Intent =>
-    INTENTS.includes(tag as Intent)
+    typeof tag === "string" && (INTENTS as readonly string[]).includes(tag)
   );
 }
 

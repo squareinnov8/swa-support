@@ -8,6 +8,7 @@
 
 import { supabase } from "@/lib/db";
 import { classifyIntent } from "@/lib/intents/classify";
+import { classifyWithLLM, addIntentsToThread, type ClassificationResult } from "@/lib/intents/llmClassify";
 import { checkRequiredInfo, generateMissingInfoPrompt } from "@/lib/intents/requiredInfo";
 import { policyGate } from "@/lib/responders/policyGate";
 import { macroDocsVideoMismatch, macroFirmwareAccessClarify } from "@/lib/responders/macros";
@@ -150,8 +151,50 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
     };
   }
 
-  // 3. Classify intent
-  const { intent, confidence } = classifyIntent(req.subject, req.body_text);
+  // 3. Classify intent using LLM-based classification (with fallback to regex)
+  let intent: string;
+  let confidence: number;
+  let classification: ClassificationResult | null = null;
+
+  // Try LLM classification first if configured
+  if (isLLMConfigured()) {
+    // Build conversation context for better classification
+    const { data: previousMessages } = await supabase
+      .from("messages")
+      .select("body_text, direction")
+      .eq("thread_id", threadId)
+      .order("created_at", { ascending: true })
+      .limit(3);
+
+    const conversationContext = previousMessages
+      ?.map((m) => `[${m.direction}]: ${m.body_text?.substring(0, 200)}`)
+      .join("\n");
+
+    classification = await classifyWithLLM(
+      req.subject,
+      req.body_text,
+      conversationContext
+    );
+
+    intent = classification.primary_intent;
+    confidence = classification.intents[0]?.confidence || 0.5;
+
+    // Add all detected intents to thread (handles UNKNOWN removal automatically)
+    await addIntentsToThread(threadId, classification);
+
+    // Log multi-intent detection
+    if (classification.intents.length > 1) {
+      console.log(
+        `[Ingest] Multi-intent detected for thread ${threadId}:`,
+        classification.intents.map((i) => `${i.slug} (${i.confidence})`).join(", ")
+      );
+    }
+  } else {
+    // Fallback to regex-based classification
+    const regexResult = classifyIntent(req.subject, req.body_text);
+    intent = regexResult.intent;
+    confidence = regexResult.confidence;
+  }
 
   // 3.4. Extract order info from attachments (if any)
   // This helps avoid asking for order numbers that were already provided in attachments
@@ -172,9 +215,40 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
     }
   }
 
-  // 3.5. Customer verification for protected intents
+  // 3.5. Check for auto-escalation intents (from LLM classification)
+  if (classification?.auto_escalate) {
+    const nextState = "ESCALATED";
+
+    await logEvent(threadId, {
+      intent,
+      confidence,
+      action: "ESCALATE",
+      draft: null,
+      channel: req.channel,
+      note: "Auto-escalated due to intent type",
+      intents: classification.intents,
+      stateTransition: { from: currentState, to: nextState, reason: "auto_escalate_intent" },
+    });
+
+    await updateThreadState(threadId, nextState, intent);
+
+    return {
+      thread_id: threadId,
+      message_id: threadId,
+      intent,
+      confidence,
+      action: "ESCALATE",
+      draft: null,
+      state: nextState,
+      previous_state: currentState,
+    };
+  }
+
+  // 3.6. Customer verification for protected intents
+  // Use classification's requires_verification or fall back to static check
+  const needsVerification = classification?.requires_verification || isProtectedIntent(intent);
   let verification: VerificationResult | null = null;
-  if (isProtectedIntent(intent)) {
+  if (needsVerification) {
     // Include attachment data in the message text for order number extraction
     let messageTextForVerification = req.body_text;
     if (attachmentOrderNumber) {

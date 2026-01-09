@@ -59,6 +59,21 @@ export default async function AdminPage() {
         <h1>Support Inbox</h1>
         <div style={{ display: "flex", gap: 12 }}>
           <a
+            href="/admin/intents"
+            style={{
+              padding: "8px 16px",
+              backgroundColor: "#f3f4f6",
+              color: "#374151",
+              borderRadius: 6,
+              textDecoration: "none",
+              fontSize: 14,
+              fontWeight: 500,
+              border: "1px solid #d1d5db",
+            }}
+          >
+            Intents
+          </a>
+          <a
             href="/admin/kb"
             style={{
               padding: "8px 16px",

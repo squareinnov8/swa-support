@@ -1,3 +1,12 @@
+/**
+ * Static Intent Reference
+ *
+ * These are the original static intents. They are now stored in the database
+ * and can be managed dynamically. This array is kept for:
+ * 1. Reference and documentation
+ * 2. Seeding the database with initial intents
+ * 3. Fallback regex-based classification
+ */
 export const INTENTS = [
   // Customer Support - Product Issues
   "PRODUCT_SUPPORT",           // General product troubleshooting (screen dead, audio issues, not working)
@@ -30,4 +39,8 @@ export const INTENTS = [
   "UNKNOWN",
 ] as const;
 
-export type Intent = (typeof INTENTS)[number];
+/**
+ * Intent type - now accepts any string to support dynamic intents from database.
+ * The static INTENTS array values are still valid.
+ */
+export type Intent = string;
