@@ -67,6 +67,12 @@ export async function verifyCustomer(
     };
   }
 
+  // Extract email (use from_identifier or extract from message)
+  let email = input.email;
+  if (!email && input.messageText) {
+    email = extractEmail(input.messageText) ?? undefined;
+  }
+
   // Extract order number
   let orderNumber = input.orderNumber;
   if (!orderNumber && input.messageText) {
@@ -75,17 +81,16 @@ export async function verifyCustomer(
 
   // If no order number, request it
   if (!orderNumber) {
-    return {
+    const result: VerificationResult = {
       status: "pending",
       flags: [],
       message: "Order number required for verification",
     };
-  }
 
-  // Extract email (use from_identifier or extract from message)
-  let email = input.email;
-  if (!email && input.messageText) {
-    email = extractEmail(input.messageText) ?? undefined;
+    // Store the pending verification so UI can show correct status
+    await saveVerification(input.threadId, email, "pending", result);
+
+    return result;
   }
 
   // Check if Shopify is configured
@@ -202,12 +207,18 @@ export async function verifyCustomer(
   } catch (error) {
     console.error("Shopify verification error:", error);
 
-    // On API error, don't block - escalate or proceed cautiously
-    return {
-      status: "verified", // Fail open for now
+    // Fail closed on API errors - require verification before proceeding
+    // This prevents drafts from being generated when we can't verify the customer
+    const result: VerificationResult = {
+      status: "pending",
       flags: [],
-      message: `Shopify API error: ${error instanceof Error ? error.message : "Unknown"}`,
+      message: `Shopify API error - verification required: ${error instanceof Error ? error.message : "Unknown"}`,
     };
+
+    // Store the pending verification so we have a record of the attempt
+    await saveVerification(input.threadId, email, orderNumber || "unknown", result);
+
+    return result;
   }
 }
 

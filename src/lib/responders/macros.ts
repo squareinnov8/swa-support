@@ -11,7 +11,7 @@ Reply with:
 
 I'll point you to the correct update method for your exact setup.
 
-– Rob
+– Lina
 `.trim();
 }
 
@@ -23,6 +23,6 @@ Hey — I can help, but I need 3 quick details so I don't send you the wrong fil
 2) What exactly happens when the site "kicks you off" (login loop, error message, blank page, etc.)?
 3) What email did you order with (or your order number)?
 
-– Rob
+– Lina
 `.trim();
 }

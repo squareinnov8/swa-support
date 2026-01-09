@@ -54,8 +54,8 @@ function formatExtractedInstructions(instructions: ExtractedInstruction[]): stri
     byType[inst.instruction_type].push(inst);
   }
 
-  let prompt = "## Rob's Specific Instructions\n";
-  prompt += "_These are direct instructions from Rob based on real support scenarios._\n\n";
+  let prompt = "## Admin Instructions\n";
+  prompt += "_These are direct instructions from the admin based on real support scenarios._\n\n";
 
   // Format by type
   const typeLabels: Record<string, string> = {

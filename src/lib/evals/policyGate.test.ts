@@ -48,15 +48,15 @@ describe("policyGate", () => {
   });
 
   describe("allows safe language", () => {
-    it("allows asking clarifying questions", () => {
+    it("allows asking clarifying questions with Lina signature", () => {
       const result = policyGate(
-        "Hey — I can help, but I need 3 quick details so I don't send you the wrong file."
+        "Hey — I can help, but I need 3 quick details so I don't send you the wrong file.\n\n– Lina"
       );
       expect(result.ok).toBe(true);
       expect(result.reasons).toHaveLength(0);
     });
 
-    it("allows pre-approved macros", () => {
+    it("allows pre-approved macros with Lina signature", () => {
       const result = policyGate(`
 Hey,
 
@@ -69,28 +69,81 @@ Reply with:
 
 I'll point you to the correct update method for your exact setup.
 
-– Rob
+– Lina
       `);
       expect(result.ok).toBe(true);
     });
 
-    it("allows non-committal language", () => {
+    it("allows non-committal language with Lina signature", () => {
       const result = policyGate(
-        "I understand your frustration. Let me look into this and get back to you with options."
+        "I understand your frustration. Let me look into this and get back to you with options.\n\n– Lina"
       );
       expect(result.ok).toBe(true);
     });
 
-    it("allows past tense statements", () => {
-      const result = policyGate("We have processed your refund.");
+    it("allows past tense statements with Lina signature", () => {
+      const result = policyGate("We have processed your refund.\n\n– Lina");
       expect(result.ok).toBe(true);
     });
 
-    it("allows conditional language", () => {
+    it("allows conditional language with Lina signature", () => {
       const result = policyGate(
-        "If the order qualifies, we may be able to process a refund."
+        "If the order qualifies, we may be able to process a refund.\n\n– Lina"
       );
       expect(result.ok).toBe(true);
+    });
+  });
+
+  describe("signature validation", () => {
+    it("blocks drafts signed with Rob", () => {
+      const result = policyGate(
+        "Thanks for reaching out! I can help with that.\n\n– Rob"
+      );
+      expect(result.ok).toBe(false);
+      expect(result.reasons.some(r => r.includes("Rob") || r.includes("Lina"))).toBe(true);
+    });
+
+    it("blocks drafts signed with Robert", () => {
+      const result = policyGate(
+        "I'll look into this for you.\n\n– Robert"
+      );
+      expect(result.ok).toBe(false);
+    });
+
+    it("blocks drafts without Lina signature", () => {
+      const result = policyGate(
+        "Thanks for your patience. We're looking into this."
+      );
+      expect(result.ok).toBe(false);
+      expect(result.reasons.some(r => r.includes("Lina"))).toBe(true);
+    });
+
+    it("allows all dash variants for Lina signature", () => {
+      // En dash
+      expect(policyGate("Hello!\n\n– Lina").ok).toBe(true);
+      // Em dash
+      expect(policyGate("Hello!\n\n— Lina").ok).toBe(true);
+      // Hyphen
+      expect(policyGate("Hello!\n\n- Lina").ok).toBe(true);
+    });
+
+    it("allows Lina signature with trailing whitespace", () => {
+      const result = policyGate("Thanks!\n\n– Lina  ");
+      expect(result.ok).toBe(true);
+    });
+
+    it("blocks The Team signature", () => {
+      const result = policyGate(
+        "We appreciate your business!\n\n– The Team"
+      );
+      expect(result.ok).toBe(false);
+    });
+
+    it("blocks The Support signature", () => {
+      const result = policyGate(
+        "Thanks for contacting us.\n\n– The Support"
+      );
+      expect(result.ok).toBe(false);
     });
   });
 });

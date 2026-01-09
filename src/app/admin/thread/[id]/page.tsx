@@ -2,6 +2,7 @@ import { supabase } from "@/lib/db";
 import { type ThreadState } from "@/lib/threads/stateMachine";
 import { ThreadActions } from "./ThreadActions";
 import { AgentReasoning } from "./AgentReasoning";
+import { isProtectedIntent } from "@/lib/verification";
 
 export const dynamic = "force-dynamic";
 
@@ -129,6 +130,42 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
   const activeIntents = allIntents?.filter((i) => !i.is_resolved) || [];
   const resolvedIntents = allIntents?.filter((i) => i.is_resolved) || [];
 
+  // Check if any active intent requires verification from database
+  const { data: intentDetails } = await supabase
+    .from("intents")
+    .select("slug, requires_verification")
+    .in("slug", activeIntents.map(i => i.slug).concat(thread?.last_intent ? [thread.last_intent] : []));
+
+  const requiresVerificationFromDB = intentDetails?.some(i => i.requires_verification) ?? false;
+
+  // Also check static protected intents list as fallback
+  const primaryIntent = thread?.last_intent || activeIntents[0]?.slug;
+  const requiresVerificationStatic = primaryIntent ? isProtectedIntent(primaryIntent) : false;
+
+  // Intent requires verification if either check passes
+  const intentRequiresVerification = requiresVerificationFromDB || requiresVerificationStatic;
+
+  // Verification is complete only if status is "verified"
+  const isVerificationComplete = verification?.status === "verified";
+
+  // Block draft if verification is required but not complete, or if policy gate blocked
+  const policyGatePassed = latestDraftGen?.policy_gate_passed ?? true;
+  const shouldBlockDraft = (intentRequiresVerification && !isVerificationComplete) || !policyGatePassed;
+
+  // Determine block reason for UI
+  let draftBlockReason: string | null = null;
+  if (intentRequiresVerification && !isVerificationComplete) {
+    draftBlockReason = verification?.status === "pending"
+      ? "Customer verification required. Please request order number."
+      : verification?.status === "not_found"
+      ? "Order not found in Shopify. Please verify order number."
+      : verification?.status === "flagged"
+      ? "Customer is flagged. Please escalate to human review."
+      : "Customer verification required before sending response.";
+  } else if (!policyGatePassed) {
+    draftBlockReason = `Policy gate blocked: ${latestDraftGen?.policy_violations?.join(", ") || "Unknown violation"}`;
+  }
+
   return (
     <div style={{ padding: 24, fontFamily: "system-ui", maxWidth: 900 }}>
       <a href="/admin">← Back</a>
@@ -227,10 +264,33 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
         </div>
       ))}
 
-      <h2 style={{ marginTop: 24 }}>Proposed Reply (copy/paste)</h2>
-      <div style={{ border: "1px solid #ddd", padding: 12 }}>
-        <pre style={{ whiteSpace: "pre-wrap" }}>{latestDraft || "(no draft generated)"}</pre>
-      </div>
+      <h2 style={{ marginTop: 24 }}>Proposed Reply</h2>
+      {shouldBlockDraft ? (
+        <div
+          style={{
+            border: "2px solid #ef4444",
+            backgroundColor: "#fef2f2",
+            padding: 16,
+            borderRadius: 8,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+            <span style={{ fontSize: 20 }}>⚠️</span>
+            <strong style={{ color: "#dc2626" }}>Draft Blocked</strong>
+          </div>
+          <p style={{ color: "#991b1b", margin: 0 }}>{draftBlockReason}</p>
+          {intentRequiresVerification && !isVerificationComplete && (
+            <p style={{ color: "#64748b", marginTop: 12, fontSize: 14 }}>
+              Verify the customer before this draft can be sent.
+              {verification?.status === "pending" && " Ask the customer for their order number."}
+            </p>
+          )}
+        </div>
+      ) : (
+        <div style={{ border: "1px solid #ddd", padding: 12 }}>
+          <pre style={{ whiteSpace: "pre-wrap" }}>{latestDraft || "(no draft generated)"}</pre>
+        </div>
+      )}
 
       {/* Agent Reasoning Section */}
       <AgentReasoning
@@ -298,6 +358,8 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
         intent={thread?.last_intent || null}
         isHumanHandling={thread?.human_handling_mode === true}
         humanHandler={thread?.human_handler || null}
+        draftBlocked={shouldBlockDraft}
+        draftBlockReason={draftBlockReason}
       />
     </div>
   );

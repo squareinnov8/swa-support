@@ -36,7 +36,7 @@ function simulateTriage(subject: string, bodyText: string): TriageResult {
     draft = macroFirmwareAccessClarify();
   } else if (intent === "CHARGEBACK_THREAT") {
     action = "ESCALATE_WITH_DRAFT";
-    draft = "Draft only (escalate): Customer mentions chargeback/dispute. Do not promise. Ask for order # + summarize situation.";
+    draft = "I need to escalate this to my team lead. In the meantime, could you please provide your order number so we can review the situation?\n\n– Lina";
   }
 
   if (draft) {

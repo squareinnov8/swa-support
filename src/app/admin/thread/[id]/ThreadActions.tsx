@@ -10,6 +10,8 @@ type ThreadActionsProps = {
   intent: string | null;
   isHumanHandling: boolean;
   humanHandler: string | null;
+  draftBlocked?: boolean;
+  draftBlockReason?: string | null;
 };
 
 type ReplyResult = {
@@ -26,6 +28,8 @@ export function ThreadActions({
   intent,
   isHumanHandling,
   humanHandler,
+  draftBlocked = false,
+  draftBlockReason = null,
 }: ThreadActionsProps) {
   const router = useRouter();
   const [replyText, setReplyText] = useState("");
@@ -331,7 +335,7 @@ export function ThreadActions({
       </div>
 
       {/* Feedback Section */}
-      {latestDraft && (
+      {latestDraft && !draftBlocked && (
         <div style={{ marginBottom: 32 }}>
           <h3 style={{ marginBottom: 12 }}>Rate This Draft</h3>
           {feedbackSubmitted ? (
