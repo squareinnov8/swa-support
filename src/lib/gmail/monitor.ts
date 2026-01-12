@@ -344,6 +344,67 @@ type ThreadProcessResult = {
 };
 
 /**
+ * Sync all messages from a Gmail thread to our database
+ * This ensures we have the full conversation history, including:
+ * - Outbound messages sent directly via Gmail (not through our system)
+ * - Any messages we may have missed
+ */
+async function syncGmailMessagesToThread(
+  threadId: string,
+  gmailThread: GmailThread
+): Promise<{ synced: number; skipped: number }> {
+  let synced = 0;
+  let skipped = 0;
+
+  for (const gmailMsg of gmailThread.messages) {
+    // Check if message already exists in our database by Gmail message ID
+    const { data: existing } = await supabase
+      .from("messages")
+      .select("id")
+      .eq("channel_metadata->>gmail_message_id", gmailMsg.id)
+      .maybeSingle();
+
+    if (existing) {
+      skipped++;
+      continue;
+    }
+
+    // Insert the message
+    const direction = gmailMsg.isIncoming ? "inbound" : "outbound";
+
+    const { error } = await supabase.from("messages").insert({
+      thread_id: threadId,
+      direction,
+      from_email: gmailMsg.from,
+      to_email: gmailMsg.to[0] || null,
+      body_text: gmailMsg.body,
+      channel: "email",
+      channel_metadata: {
+        gmail_thread_id: gmailMsg.threadId,
+        gmail_message_id: gmailMsg.id,
+        gmail_date: gmailMsg.date.toISOString(),
+        synced_from_gmail: true, // Mark as synced rather than processed
+      },
+      // Use the Gmail message date for proper ordering
+      created_at: gmailMsg.date.toISOString(),
+    });
+
+    if (!error) {
+      synced++;
+      console.log(`[Monitor] Synced ${direction} message ${gmailMsg.id} to thread ${threadId}`);
+    } else {
+      console.warn(`[Monitor] Failed to sync message ${gmailMsg.id}: ${error.message}`);
+    }
+  }
+
+  if (synced > 0) {
+    console.log(`[Monitor] Synced ${synced} messages for thread ${threadId} (${skipped} already existed)`);
+  }
+
+  return { synced, skipped };
+}
+
+/**
  * Process a single Gmail thread
  */
 async function processGmailThread(
@@ -373,6 +434,12 @@ async function processGmailThread(
     .select("id, hubspot_ticket_id, hubspot_contact_id, state, human_handling_mode")
     .eq("gmail_thread_id", gmailThreadId)
     .maybeSingle();
+
+  // IMPORTANT: Sync all messages from the Gmail thread to ensure full context
+  // This includes outbound messages that may have been sent via Gmail directly
+  if (existingThread?.id) {
+    await syncGmailMessagesToThread(existingThread.id, thread);
+  }
 
   // Check for intervention: look for outgoing messages from support@ that weren't agent-generated
   if (existingThread?.id && !existingThread.human_handling_mode) {
@@ -518,6 +585,12 @@ async function processGmailThread(
       updated_at: new Date().toISOString(),
     })
     .eq("id", ingestResult.thread_id);
+
+  // For NEW threads, sync all messages from Gmail to ensure full context
+  // (Existing threads were already synced above)
+  if (!existingThread) {
+    await syncGmailMessagesToThread(ingestResult.thread_id, thread);
+  }
 
   // Handle HubSpot integration
   if (isHubSpotConfigured()) {
