@@ -401,7 +401,32 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
   let draftResult: DraftResult | null = null;
 
   if (intent === "THANK_YOU_CLOSE") {
+    // Customer sent a closing/thank you message - no reply needed
     action = "NO_REPLY";
+    const nextState = "RESOLVED";
+
+    await logEvent(threadId, {
+      intent,
+      confidence,
+      action,
+      draft: null,
+      channel: req.channel,
+      note: "Customer closing message - no reply needed",
+      stateTransition: { from: currentState, to: nextState, reason: "thank_you_close" },
+    });
+
+    await updateThreadState(threadId, nextState, intent);
+
+    return {
+      thread_id: threadId,
+      message_id: threadId,
+      intent,
+      confidence,
+      action: "NO_REPLY",
+      draft: null,
+      state: nextState,
+      previous_state: currentState,
+    };
   } else if (intent === "VENDOR_SPAM") {
     // Auto-close vendor spam without reply
     action = "NO_REPLY";

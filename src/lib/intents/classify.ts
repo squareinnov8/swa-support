@@ -3,9 +3,42 @@ import type { Intent } from "./taxonomy";
 const has = (t: string, patterns: RegExp[]) => patterns.some((r) => r.test(t));
 const all = (t: string, patterns: RegExp[]) => patterns.every((r) => r.test(t));
 
+/**
+ * Strip quoted reply content from email body.
+ * This prevents old thread content from polluting intent classification.
+ */
+function stripQuotedContent(body: string): string {
+  // Split on common quote markers
+  const lines = body.split('\n');
+  const newContent: string[] = [];
+
+  for (const line of lines) {
+    // Stop at quoted content markers
+    if (
+      line.match(/^On .+wrote:$/i) ||           // "On Mon, Jan 12... wrote:"
+      line.match(/^-+\s*Original Message/i) ||  // "--- Original Message ---"
+      line.match(/^>/) ||                        // "> quoted line"
+      line.match(/^From:.+@/i) ||                // "From: email@..."
+      line.match(/^Sent:/i) ||                   // "Sent: date"
+      line.match(/^To:/i) ||                     // "To: email"
+      line.match(/^Subject:/i)                   // "Subject: ..."
+    ) {
+      break;
+    }
+    newContent.push(line);
+  }
+
+  return newContent.join('\n').trim();
+}
+
 export function classifyIntent(subject: string, body: string): { intent: Intent; confidence: number } {
-  const text = `${subject}\n${body}`.toLowerCase();
+  // Strip quoted content to focus on the new message
+  const strippedBody = stripQuotedContent(body);
+  const text = `${subject}\n${strippedBody}`.toLowerCase();
   const subjectLower = subject.toLowerCase();
+
+  // Also keep full text for some checks where context matters
+  const fullText = `${subject}\n${body}`.toLowerCase();
 
   // ==== NON-CUSTOMER (check first to filter out) ====
 
@@ -327,7 +360,34 @@ export function classifyIntent(subject: string, body: string): { intent: Intent;
     return { intent: "FOLLOW_UP_NO_NEW_INFO", confidence: 0.6 };
   }
 
-  // Thank you / closing
+  // Thank you / closing - check early for short polite closings
+  // Use stripped body (lowercase) to check for simple closing phrases
+  const strippedBodyLower = strippedBody.toLowerCase().trim();
+  const isShortMessage = strippedBody.length < 100;
+
+  // Very short polite closings - check the stripped body directly
+  if (has(strippedBodyLower, [
+    /^thanks[,!\.\s]*$/,                 // Just "Thanks!" or "Thanks,"
+    /^thank\s*you[,!\.\s]*$/,            // Just "Thank you!"
+    /^thanks,?\s*you\s*too[!\.\s]*$/,    // "Thanks, you too!"
+    /^you\s*too[!\.\s]*$/,               // Just "You too!"
+    /^same\s*to\s*you[!\.\s]*$/,         // "Same to you!"
+    /^appreciate\s*it[!\.\s]*$/,         // "Appreciate it!"
+    /^got\s*it[,!\.\s]*thanks?[!\.\s]*$/,// "Got it, thanks!"
+    /^perfect[,!\.\s]*thanks?[!\.\s]*$/, // "Perfect, thanks!"
+    /^great[,!\.\s]*thanks?[!\.\s]*$/,   // "Great, thanks!"
+    /^awesome[,!\.\s]*thanks?[!\.\s]*$/, // "Awesome, thanks!"
+    /^sounds?\s*good[!\.\s]*$/,          // "Sounds good!"
+    /^will\s*do[!\.\s]*$/,               // "Will do!"
+    /^perfect,?\s*will\s*do[!\.\s]*$/,   // "Perfect, will do!"
+    /^ok\s*thanks?[!\.\s]*$/,            // "Ok thanks!"
+    /^okay\s*thanks?[!\.\s]*$/,          // "Okay thanks!"
+    /^thanks\s*(again|a\s*lot|so\s*much)?[!\.\s]*$/, // "Thanks again!" etc
+  ])) {
+    return { intent: "THANK_YOU_CLOSE", confidence: 0.95 };
+  }
+
+  // Longer thank you messages - check stripped text to avoid quoted content
   if (has(text, [
     /thank.*you/,
     /thanks.*so.*much/,
@@ -339,7 +399,7 @@ export function classifyIntent(subject: string, body: string): { intent: Intent;
     /all.*good/,
     /happy.*new.*year/,
     /merry.*christmas/,
-  ]) && !has(text, [/but/, /however/, /still/, /issue/, /problem/])) {
+  ]) && isShortMessage && !has(strippedBodyLower, [/but/, /however/, /still.*not/, /still.*issue/, /still.*problem/])) {
     return { intent: "THANK_YOU_CLOSE", confidence: 0.85 };
   }
 
