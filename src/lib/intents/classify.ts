@@ -16,6 +16,8 @@ function stripQuotedContent(body: string): string {
     // Stop at quoted content markers
     if (
       line.match(/^On .+wrote:$/i) ||           // "On Mon, Jan 12... wrote:"
+      line.match(/^On .+<$/i) ||                // "On Mon, Jan 12... <" (email split to next line)
+      line.match(/^On [A-Z][a-z]{2},/i) ||      // "On Mon," "On Tue," etc (start of quote header)
       line.match(/^-+\s*Original Message/i) ||  // "--- Original Message ---"
       line.match(/^>/) ||                        // "> quoted line"
       line.match(/^From:.+@/i) ||                // "From: email@..."
