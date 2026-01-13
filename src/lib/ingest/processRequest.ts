@@ -268,8 +268,9 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
   const needsVerification = classification?.requires_verification || isProtectedIntent(intent);
   let verification: VerificationResult | null = null;
   if (needsVerification) {
-    // Include attachment data in the message text for order number extraction
-    let messageTextForVerification = req.body_text;
+    // Include subject line AND body text for order number extraction
+    // Order numbers often appear in subject like "Re: Order #1234"
+    let messageTextForVerification = `${req.subject}\n\n${req.body_text}`;
     if (attachmentOrderNumber) {
       // Append the order number from attachment so verification can find it
       messageTextForVerification += `\n\n[Order number from attachment: ${attachmentOrderNumber}]`;
