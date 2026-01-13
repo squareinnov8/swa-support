@@ -44,7 +44,7 @@ export function classifyIntent(subject: string, body: string): { intent: Intent;
 
   // ==== NON-CUSTOMER (check first to filter out) ====
 
-  // Vendor spam / sales pitches
+  // Vendor spam / sales pitches / marketing emails
   if (has(text, [
     /partnership opportunity/,
     /business opportunity/,
@@ -68,6 +68,21 @@ export function classifyIntent(subject: string, body: string): { intent: Intent;
     /let me know if you're interested/,
     /reaching out.*behalf of/,
     /i represent/,
+    // Marketing / promotional
+    /webinar/i,
+    /expand your.*reach/i,
+    /grow your.*audience/i,
+    /creators.*can/i,
+    /influencer/i,
+    /advertising credits/i,
+    /beta program/i,
+    /testflight/i,
+    // Automated notifications (not customer support)
+    /folder shared with you/i,
+    /has invited you to/i,
+    /unsubscribe/i,
+    /view in browser/i,
+    /email preferences/i,
   ])) {
     return { intent: "VENDOR_SPAM", confidence: 0.85 };
   }
@@ -134,8 +149,7 @@ export function classifyIntent(subject: string, body: string): { intent: Intent;
     /when.*deliver/,      // "when will it be delivered"
     /delivery.*status/,
     /still.*waiting.*order/,
-    /order.*\d{4,}/,      // "order 4037" pattern
-    /\border\s*#?\s*\d+/, // "order #1234" or "order 1234"
+    /\border\s+(#\s*)?\d{4,}\b/,  // "order #4037" or "order 4037" - word boundaries to avoid CSS matches
     /haven'?t.*received/,
     /didn'?t.*receive/,
     /package.*lost/,
@@ -187,7 +201,7 @@ export function classifyIntent(subject: string, body: string): { intent: Intent;
     /\breturn\b/,
     /\brefund\b/,
     /money.*back/,
-    /rma/,
+    /\brma\b/,         // RMA = Return Merchandise Authorization (word boundary to avoid "performance", "information")
     /send.*back/,
   ])) {
     return { intent: "RETURN_REFUND_REQUEST", confidence: 0.8 };
@@ -234,7 +248,7 @@ export function classifyIntent(subject: string, body: string): { intent: Intent;
     /screen.*frozen/,
     /screen.*not.*work/,
     /display.*not.*work/,
-    /no.*display/,
+    /\bno\s+display\b/,    // "no display" - word boundaries to avoid CSS matches
     /won'?t.*turn.*on/,
     /doesn'?t.*turn.*on/,
 
