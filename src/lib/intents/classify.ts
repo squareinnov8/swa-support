@@ -94,13 +94,18 @@ export function classifyIntent(subject: string, body: string): { intent: Intent;
     /has.*shipped/,
     /when.*ship/,
     /when.*arrive/,
+    /when.*receive/,      // "when will I receive" / "when may I receive"
+    /when.*get.*order/,   // "when will I get my order"
+    /when.*deliver/,      // "when will it be delivered"
     /delivery.*status/,
     /still.*waiting.*order/,
-    /order.*\d{4,}/,     // "order 4037" pattern
+    /order.*\d{4,}/,      // "order 4037" pattern
     /\border\s*#?\s*\d+/, // "order #1234" or "order 1234"
     /haven'?t.*received/,
     /didn'?t.*receive/,
     /package.*lost/,
+    /purchased.*when/,    // "I purchased X, when will..."
+    /bought.*when/,       // "I bought X, when will..."
   ])) {
     return { intent: "ORDER_STATUS", confidence: 0.8 };
   }

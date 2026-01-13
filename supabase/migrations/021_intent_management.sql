@@ -42,16 +42,16 @@ CREATE INDEX IF NOT EXISTS idx_thread_intents_unresolved ON thread_intents(threa
 INSERT INTO intents (slug, name, description, category, priority, examples, requires_verification, auto_escalate) VALUES
   -- Customer Support - Product Issues
   ('PRODUCT_SUPPORT', 'Product Support', 'General product troubleshooting - screen dead, audio issues, not working', 'support', 10,
-   ARRAY['screen is dead', 'audio not working', 'stopped working', 'broken', 'malfunction', 'not turning on'],
-   false, false),
+   ARRAY['screen is dead', 'audio not working', 'stopped working', 'broken', 'malfunction', 'not turning on', 'no sound', 'doesnt work'],
+   true, false),  -- requires_verification to confirm customer owns the product
 
   ('FIRMWARE_UPDATE_REQUEST', 'Firmware Update Request', 'Customer requesting firmware files or access to download firmware', 'support', 10,
    ARRAY['need firmware', 'send firmware', 'firmware download', 'latest firmware', 'software update'],
-   false, false),
+   true, false),  -- requires_verification to confirm ownership
 
   ('FIRMWARE_ACCESS_ISSUE', 'Firmware Access Issue', 'Problems accessing or downloading firmware from portal', 'support', 15,
    ARRAY['cant login', 'access denied', '403 error', 'password not working', 'kicking me off'],
-   false, false),
+   true, false),  -- requires_verification to confirm ownership
 
   ('DOCS_VIDEO_MISMATCH', 'Documentation Mismatch', 'Install docs or videos dont match actual product', 'support', 10,
    ARRAY['video shows different', 'instructions wrong', 'docs dont match', 'tutorial different'],
@@ -59,11 +59,11 @@ INSERT INTO intents (slug, name, description, category, priority, examples, requ
 
   ('INSTALL_GUIDANCE', 'Installation Guidance', 'How-to install questions and step-by-step help', 'support', 5,
    ARRAY['how to install', 'installation guide', 'step by step', 'walk me through'],
-   false, false),
+   true, false),  -- requires_verification to confirm ownership
 
   ('FUNCTIONALITY_BUG', 'Functionality Bug', 'Product feature not working as expected', 'support', 15,
    ARRAY['supposed to', 'should be able to', 'feature not working', 'button doesnt work'],
-   false, false),
+   true, false),  -- requires_verification to confirm ownership
 
   ('COMPATIBILITY_QUESTION', 'Compatibility Question', 'Will product X work with my car? Pre-purchase questions', 'presale', 5,
    ARRAY['compatible with', 'will it fit', 'work with my car', 'before I buy'],

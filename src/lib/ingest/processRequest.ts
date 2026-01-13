@@ -13,6 +13,7 @@ import { checkRequiredInfo, generateMissingInfoPrompt } from "@/lib/intents/requ
 import { policyGate } from "@/lib/responders/policyGate";
 import { macroDocsVideoMismatch, macroFirmwareAccessClarify } from "@/lib/responders/macros";
 import { generateDraft, getConversationHistory, type DraftResult } from "@/lib/llm/draftGenerator";
+import type { CustomerContext } from "@/lib/llm/prompts";
 import { isLLMConfigured } from "@/lib/llm/client";
 import {
   getNextState,
@@ -178,6 +179,24 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
 
     intent = classification.primary_intent;
     confidence = classification.intents[0]?.confidence || 0.5;
+
+    // If LLM returned UNKNOWN (e.g., no intents in DB), try regex fallback
+    if (intent === "UNKNOWN" && confidence <= 0.5) {
+      console.log(`[Ingest] LLM returned UNKNOWN, trying regex fallback for thread ${threadId}`);
+      const regexResult = classifyIntent(req.subject, req.body_text);
+      if (regexResult.intent !== "UNKNOWN") {
+        intent = regexResult.intent;
+        confidence = regexResult.confidence;
+        // Update classification to reflect regex result for verification check
+        classification = {
+          ...classification,
+          primary_intent: intent,
+          intents: [{ slug: intent, confidence, reasoning: "regex fallback" }],
+          requires_verification: isProtectedIntent(intent),
+        };
+        console.log(`[Ingest] Regex fallback classified as ${intent} (${confidence})`);
+      }
+    }
 
     // Add all detected intents to thread (handles UNKNOWN removal automatically)
     await addIntentsToThread(threadId, classification);
@@ -466,6 +485,46 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
       }
     }
 
+    // Build full customer context for richer Lina responses
+    let customerContext: CustomerContext | undefined;
+    if (verification?.status === "verified" && verification.customer) {
+      // Fetch previous support tickets for this customer
+      const previousTickets = verification.customer.email
+        ? await getPreviousTicketsForCustomer(verification.customer.email, threadId)
+        : [];
+
+      // Fetch extended verification data (recent orders, likely product)
+      const { data: verificationData } = await supabase
+        .from("customer_verifications")
+        .select("recent_orders, likely_product")
+        .eq("thread_id", threadId)
+        .eq("status", "verified")
+        .maybeSingle();
+
+      // Parse recent orders from JSONB
+      let recentOrders: CustomerContext["recentOrders"];
+      if (verificationData?.recent_orders) {
+        try {
+          recentOrders =
+            typeof verificationData.recent_orders === "string"
+              ? JSON.parse(verificationData.recent_orders)
+              : verificationData.recent_orders;
+        } catch {
+          // Ignore parse errors
+        }
+      }
+
+      customerContext = {
+        name: verification.customer.name,
+        email: verification.customer.email,
+        totalOrders: verification.customer.totalOrders,
+        totalSpent: verification.customer.totalSpent,
+        likelyProduct: verificationData?.likely_product || undefined,
+        recentOrders,
+        previousTickets: previousTickets.length > 0 ? previousTickets : undefined,
+      };
+    }
+
     draftResult = await generateDraft({
       threadId,
       customerMessage: fullText,
@@ -483,6 +542,8 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
       orderContext,
       // Pass attachment content for context
       attachmentContent: attachmentContent.length > 0 ? attachmentContent : undefined,
+      // Pass full customer context for richer Lina responses
+      customerContext,
     });
 
     if (draftResult.success && draftResult.draft) {
@@ -640,6 +701,43 @@ async function updateThreadState(
       updated_at: new Date().toISOString(),
     })
     .eq("id", threadId);
+}
+
+/**
+ * Fetch previous support tickets for a customer by email
+ */
+async function getPreviousTicketsForCustomer(
+  customerEmail: string,
+  currentThreadId: string
+): Promise<Array<{ subject: string; state: string; createdAt: string }>> {
+  // Find threads with messages from this customer email
+  const { data: messages } = await supabase
+    .from("messages")
+    .select("thread_id")
+    .eq("from_email", customerEmail)
+    .neq("thread_id", currentThreadId)
+    .limit(20);
+
+  if (!messages || messages.length === 0) {
+    return [];
+  }
+
+  const threadIds = [...new Set(messages.map((m) => m.thread_id))];
+
+  const { data: threads } = await supabase
+    .from("threads")
+    .select("subject, state, created_at")
+    .in("id", threadIds)
+    .order("created_at", { ascending: false })
+    .limit(5);
+
+  return (
+    threads?.map((t) => ({
+      subject: t.subject || "(no subject)",
+      state: t.state || "UNKNOWN",
+      createdAt: t.created_at,
+    })) || []
+  );
 }
 
 /**
