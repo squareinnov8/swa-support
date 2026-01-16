@@ -8,7 +8,7 @@
 
 import { supabase } from "@/lib/db";
 import { classifyIntent } from "@/lib/intents/classify";
-import { classifyWithLLM, addIntentsToThread, type ClassificationResult } from "@/lib/intents/llmClassify";
+import { classifyWithLLM, addIntentsToThread, reclassifyThread, type ClassificationResult } from "@/lib/intents/llmClassify";
 import { checkRequiredInfo, generateMissingInfoPrompt } from "@/lib/intents/requiredInfo";
 import { policyGate } from "@/lib/responders/policyGate";
 import { macroDocsVideoMismatch, macroFirmwareAccessClarify } from "@/lib/responders/macros";
@@ -22,7 +22,6 @@ import {
   type Action,
 } from "@/lib/threads/stateMachine";
 import {
-  isProtectedIntent,
   verifyCustomer,
   getVerificationPrompt,
   type VerificationResult,
@@ -51,6 +50,7 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
   let threadId: string;
   let currentState: ThreadState = "NEW";
   let isHumanHandling = false;
+  let isFollowUp = false; // Track if this is a follow-up message on existing thread
 
   if (req.external_id) {
     const { data: existing } = await supabase
@@ -63,6 +63,7 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
       threadId = existing.id;
       currentState = (existing.state as ThreadState) || "NEW";
       isHumanHandling = existing.human_handling_mode === true;
+      isFollowUp = true; // This is a follow-up message
     } else {
       // Create new thread since external_id lookup found nothing
       const { data: created, error } = await supabase
@@ -152,54 +153,46 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
     };
   }
 
-  // 3. Classify intent using LLM-based classification (with fallback to regex)
+  // 3. Classify intent using LLM-based classification
   let intent: string;
   let confidence: number;
   let classification: ClassificationResult | null = null;
 
-  // Try LLM classification first if configured
+  // Use LLM classification - reclassifyThread for follow-ups, classifyWithLLM for new threads
   if (isLLMConfigured()) {
-    // Build conversation context for better classification
-    const { data: previousMessages } = await supabase
-      .from("messages")
-      .select("body_text, direction")
-      .eq("thread_id", threadId)
-      .order("created_at", { ascending: true })
-      .limit(3);
+    if (isFollowUp) {
+      // Follow-up message: use reclassifyThread which considers conversation history
+      // and properly updates thread_intents (removes UNKNOWN when real intent detected)
+      console.log(`[Ingest] Follow-up message on thread ${threadId}, reclassifying...`);
+      classification = await reclassifyThread(
+        threadId,
+        { subject: req.subject, body: req.body_text }
+      );
+    } else {
+      // New thread: use standard classification with conversation context
+      const { data: previousMessages } = await supabase
+        .from("messages")
+        .select("body_text, direction")
+        .eq("thread_id", threadId)
+        .order("created_at", { ascending: true })
+        .limit(3);
 
-    const conversationContext = previousMessages
-      ?.map((m) => `[${m.direction}]: ${m.body_text?.substring(0, 200)}`)
-      .join("\n");
+      const conversationContext = previousMessages
+        ?.map((m) => `[${m.direction}]: ${m.body_text?.substring(0, 200)}`)
+        .join("\n");
 
-    classification = await classifyWithLLM(
-      req.subject,
-      req.body_text,
-      conversationContext
-    );
+      classification = await classifyWithLLM(
+        req.subject,
+        req.body_text,
+        conversationContext
+      );
+
+      // Add all detected intents to thread (handles UNKNOWN removal automatically)
+      await addIntentsToThread(threadId, classification);
+    }
 
     intent = classification.primary_intent;
     confidence = classification.intents[0]?.confidence || 0.5;
-
-    // If LLM returned UNKNOWN (e.g., no intents in DB), try regex fallback
-    if (intent === "UNKNOWN" && confidence <= 0.5) {
-      console.log(`[Ingest] LLM returned UNKNOWN, trying regex fallback for thread ${threadId}`);
-      const regexResult = classifyIntent(req.subject, req.body_text);
-      if (regexResult.intent !== "UNKNOWN") {
-        intent = regexResult.intent;
-        confidence = regexResult.confidence;
-        // Update classification to reflect regex result for verification check
-        classification = {
-          ...classification,
-          primary_intent: intent,
-          intents: [{ slug: intent, confidence, reasoning: "regex fallback" }],
-          requires_verification: isProtectedIntent(intent),
-        };
-        console.log(`[Ingest] Regex fallback classified as ${intent} (${confidence})`);
-      }
-    }
-
-    // Add all detected intents to thread (handles UNKNOWN removal automatically)
-    await addIntentsToThread(threadId, classification);
 
     // Log multi-intent detection
     if (classification.intents.length > 1) {
@@ -209,7 +202,8 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
       );
     }
   } else {
-    // Fallback to regex-based classification
+    // LLM not configured - log warning and use regex as last resort
+    console.warn(`[Ingest] LLM not configured, using regex fallback for thread ${threadId}`);
     const regexResult = classifyIntent(req.subject, req.body_text);
     intent = regexResult.intent;
     confidence = regexResult.confidence;
@@ -264,8 +258,8 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
   }
 
   // 3.6. Customer verification for protected intents
-  // Use classification's requires_verification or fall back to static check
-  const needsVerification = classification?.requires_verification || isProtectedIntent(intent);
+  // Trust LLM's contextual assessment of whether verification is needed
+  const needsVerification = classification?.requires_verification || false;
   let verification: VerificationResult | null = null;
   if (needsVerification) {
     // Include subject line AND body text for order number extraction

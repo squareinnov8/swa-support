@@ -2,7 +2,8 @@ import { supabase } from "@/lib/db";
 import { type ThreadState } from "@/lib/threads/stateMachine";
 import { ThreadActions } from "./ThreadActions";
 import { AgentReasoning } from "./AgentReasoning";
-import { isProtectedIntent } from "@/lib/verification";
+import { CustomerContextPanel, type CustomerContextData, type SupportTicket } from "./CustomerContextPanel";
+// Verification requirements now determined dynamically by LLM during classification
 
 export const dynamic = "force-dynamic";
 
@@ -69,14 +70,72 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
     kbDocsUsed = kbDocs || [];
   }
 
-  // Fetch customer verification
+  // Fetch customer verification with full context
   const { data: verification } = await supabase
     .from("customer_verifications")
-    .select("status, order_number, flags")
+    .select("status, order_number, flags, customer_name, customer_email, total_orders, total_spent, recent_orders, likely_product")
     .eq("thread_id", threadId)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  // Build customer context data for the panel
+  let customerContext: CustomerContextData | null = null;
+  let previousTickets: SupportTicket[] = [];
+
+  if (verification) {
+    // Parse recent_orders if it's a string
+    let recentOrders = null;
+    if (verification.recent_orders) {
+      try {
+        recentOrders = typeof verification.recent_orders === "string"
+          ? JSON.parse(verification.recent_orders)
+          : verification.recent_orders;
+      } catch {
+        // Ignore parse errors
+      }
+    }
+
+    customerContext = {
+      status: verification.status as CustomerContextData["status"],
+      customerName: verification.customer_name,
+      customerEmail: verification.customer_email,
+      totalOrders: verification.total_orders,
+      totalSpent: verification.total_spent,
+      likelyProduct: verification.likely_product,
+      recentOrders,
+      flags: verification.flags || [],
+    };
+
+    // Fetch previous support tickets for this customer (by email)
+    if (verification.customer_email) {
+      const { data: customerThreads } = await supabase
+        .from("threads")
+        .select("id, subject, state, created_at")
+        .neq("id", threadId) // Exclude current thread
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      // Filter threads that have messages from this customer email
+      if (customerThreads) {
+        const { data: threadsWithEmail } = await supabase
+          .from("messages")
+          .select("thread_id")
+          .eq("from_email", verification.customer_email)
+          .in("thread_id", customerThreads.map(t => t.id));
+
+        const customerThreadIds = new Set(threadsWithEmail?.map(m => m.thread_id) || []);
+        previousTickets = customerThreads
+          .filter(t => customerThreadIds.has(t.id))
+          .map(t => ({
+            id: t.id,
+            subject: t.subject || "(no subject)",
+            state: t.state || "UNKNOWN",
+            createdAt: t.created_at,
+          }));
+      }
+    }
+  }
 
   // Extract state transition history from events
   const stateHistory = events
@@ -136,14 +195,9 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
     .select("slug, requires_verification")
     .in("slug", activeIntents.map(i => i.slug).concat(thread?.last_intent ? [thread.last_intent] : []));
 
-  const requiresVerificationFromDB = intentDetails?.some(i => i.requires_verification) ?? false;
-
-  // Also check static protected intents list as fallback
-  const primaryIntent = thread?.last_intent || activeIntents[0]?.slug;
-  const requiresVerificationStatic = primaryIntent ? isProtectedIntent(primaryIntent) : false;
-
-  // Intent requires verification if either check passes
-  const intentRequiresVerification = requiresVerificationFromDB || requiresVerificationStatic;
+  // Verification requirements are determined by LLM during classification and stored in intent definitions
+  // No more static PROTECTED_INTENTS fallback - we trust the LLM's contextual assessment
+  const intentRequiresVerification = intentDetails?.some(i => i.requires_verification) ?? false;
 
   // Verification is complete only if status is "verified"
   const isVerificationComplete = verification?.status === "verified";
@@ -253,6 +307,12 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
           Legacy intent: {thread.last_intent}
         </div>
       )}
+
+      {/* Customer Context Panel */}
+      <CustomerContextPanel
+        customer={customerContext}
+        previousTickets={previousTickets}
+      />
 
       <h2 style={{ marginTop: 24 }}>Messages</h2>
       {messages?.map((m) => (

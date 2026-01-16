@@ -67,11 +67,9 @@ async function main() {
   const result = await processIngestRequest({
     channel: "email",
     external_id: thread.external_thread_id || thread.gmail_thread_id,
-    from_identifier: lastMessage.from_identifier || thread.from_identifier,
+    from_identifier: lastMessage.from_email || lastMessage.from_identifier,
     subject: thread.subject,
     body_text: lastMessage.body_text || "",
-    body_html: lastMessage.body_html,
-    received_at: lastMessage.created_at,
   });
 
   console.log(`\n${"=".repeat(60)}`);

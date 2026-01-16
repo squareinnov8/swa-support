@@ -1,14 +1,12 @@
 /**
  * LLM-Based Intent Classification
  *
- * Uses Claude to classify customer messages against dynamic intents from the database.
+ * Uses OpenAI to classify customer messages against dynamic intents from the database.
  * Supports multiple intents per message and provides confidence scores.
  */
 
-import Anthropic from "@anthropic-ai/sdk";
+import { getClient, isLLMConfigured } from "@/lib/llm/client";
 import { supabase } from "@/lib/db";
-
-const anthropic = new Anthropic();
 
 interface Intent {
   id: string;
@@ -87,6 +85,17 @@ export async function classifyWithLLM(
   body: string,
   conversationContext?: string
 ): Promise<ClassificationResult> {
+  // Check if LLM is configured before attempting classification
+  if (!isLLMConfigured()) {
+    console.warn("LLM not configured (OPENAI_API_KEY missing), returning UNKNOWN");
+    return {
+      intents: [{ slug: "UNKNOWN", confidence: 0.3, reasoning: "LLM not configured" }],
+      primary_intent: "UNKNOWN",
+      requires_verification: false,
+      auto_escalate: false,
+    };
+  }
+
   const intents = await getActiveIntents();
 
   if (intents.length === 0) {
@@ -114,6 +123,28 @@ CLASSIFICATION RULES:
 4. If no intent matches with >= 0.5 confidence, return UNKNOWN
 5. Order intents by confidence (highest first)
 6. Consider the conversation context if provided
+7. VENDOR_SPAM includes: partnership pitches, marketing outreach, automated platform notifications, sales emails, SEO/PR agencies, anyone trying to sell services
+
+VERIFICATION ASSESSMENT:
+Determine if this request requires customer verification (proving they are who they claim to be) BEFORE we can help them. Set requires_verification: true if ANY of these apply:
+- They're asking about a specific order, shipment, or purchase
+- They want to modify, cancel, or return something
+- They need account-specific information (order history, tracking, etc.)
+- Helping without verification could enable fraud or privacy violations
+- They're reporting issues with a product they claim to own
+
+Set requires_verification: false if:
+- This is a pre-sale question (compatibility, pricing, availability)
+- This is a general product question not tied to a purchase
+- This is spam or vendor outreach
+- This is general feedback or a question anyone could ask
+
+ESCALATION ASSESSMENT:
+Set auto_escalate: true if:
+- Customer mentions chargeback, dispute, or legal action
+- Message contains threats, abuse, or extreme frustration
+- Request involves refunds over $200 or unusual circumstances
+- Something feels "off" that a human should review
 
 RESPONSE FORMAT:
 Return a JSON object with this exact structure:
@@ -121,7 +152,11 @@ Return a JSON object with this exact structure:
   "intents": [
     {"slug": "INTENT_SLUG", "confidence": 0.85, "reasoning": "Brief explanation"}
   ],
-  "primary_intent": "HIGHEST_CONFIDENCE_SLUG"
+  "primary_intent": "HIGHEST_CONFIDENCE_SLUG",
+  "requires_verification": true,
+  "verification_reason": "Why verification is/isn't needed",
+  "auto_escalate": false,
+  "escalation_reason": null
 }`;
 
   const userMessage = `Classify this customer message:
@@ -135,22 +170,24 @@ ${conversationContext ? `\nCONVERSATION CONTEXT:\n${conversationContext}` : ""}
 Return ONLY the JSON classification, no other text.`;
 
   try {
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
+    const client = getClient();
+    const response = await client.chat.completions.create({
+      model: "gpt-4o-mini",
       max_tokens: 500,
+      temperature: 0.3, // Lower temperature for more consistent classification
       messages: [
+        { role: "system", content: systemPrompt },
         { role: "user", content: userMessage },
       ],
-      system: systemPrompt,
     });
 
-    const content = response.content[0];
-    if (content.type !== "text") {
-      throw new Error("Unexpected response type");
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error("No content in response");
     }
 
     // Parse JSON from response
-    const jsonMatch = content.text.match(/\{[\s\S]*\}/);
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       throw new Error("No JSON found in response");
     }
@@ -179,11 +216,32 @@ Return ONLY the JSON classification, no other text.`;
     const primarySlug = validIntents[0]?.slug || "UNKNOWN";
     const primaryIntent = intents.find((i) => i.slug === primarySlug);
 
+    // Use LLM's contextual assessment, with database intent as fallback
+    const llmRequiresVerification = parsed.requires_verification;
+    const llmAutoEscalate = parsed.auto_escalate;
+
+    // Trust the LLM's contextual judgment over static intent definitions
+    const requiresVerification = typeof llmRequiresVerification === "boolean"
+      ? llmRequiresVerification
+      : (primaryIntent?.requires_verification || false);
+
+    const autoEscalate = typeof llmAutoEscalate === "boolean"
+      ? llmAutoEscalate
+      : (primaryIntent?.auto_escalate || false);
+
+    // Log the reasoning for debugging
+    if (parsed.verification_reason) {
+      console.log(`[Classification] Verification: ${requiresVerification} - ${parsed.verification_reason}`);
+    }
+    if (parsed.escalation_reason) {
+      console.log(`[Classification] Escalation: ${autoEscalate} - ${parsed.escalation_reason}`);
+    }
+
     return {
       intents: validIntents,
       primary_intent: primarySlug,
-      requires_verification: primaryIntent?.requires_verification || false,
-      auto_escalate: primaryIntent?.auto_escalate || false,
+      requires_verification: requiresVerification,
+      auto_escalate: autoEscalate,
     };
   } catch (error) {
     console.error("LLM classification error:", error);

@@ -7,8 +7,13 @@
 import type { Intent } from "@/lib/intents/taxonomy";
 
 /**
- * Intents that require customer verification before proceeding.
- * These are support requests that need proof of ownership/purchase.
+ * @deprecated PROTECTED_INTENTS is no longer used.
+ * Verification requirements are now determined dynamically by the LLM during
+ * intent classification. The LLM assesses each message contextually to decide
+ * if verification is needed (e.g., order-specific questions need verification,
+ * but pre-sale compatibility questions don't, even if both are PRODUCT_SUPPORT).
+ *
+ * Kept for backwards compatibility with legacy scripts. Will be removed in future.
  */
 export const PROTECTED_INTENTS: Intent[] = [
   // Order related
@@ -27,9 +32,11 @@ export const PROTECTED_INTENTS: Intent[] = [
 ];
 
 /**
- * Check if an intent requires customer verification
+ * @deprecated Use LLM classification's requires_verification field instead.
+ * This function is kept for backwards compatibility with legacy scripts.
  */
 export function isProtectedIntent(intent: string): boolean {
+  console.warn("isProtectedIntent() is deprecated - verification is now determined by LLM classification");
   return PROTECTED_INTENTS.includes(intent as Intent);
 }
 
