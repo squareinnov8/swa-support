@@ -7,7 +7,7 @@
 
 import { supabase } from "@/lib/db";
 import { generate, isLLMConfigured, type GenerateResult } from "./client";
-import { buildUserPrompt, buildSystemPromptAsync, NO_KB_FALLBACK_PROMPT } from "./prompts";
+import { buildUserPrompt, buildSystemPromptAsync, NO_KB_FALLBACK_PROMPT, type CustomerContext } from "./prompts";
 import { hybridSearch, type SearchResult } from "@/lib/retrieval/search";
 import { policyGate } from "@/lib/responders/policyGate";
 import { detectVehicle, isProductQuestion, canDoProductLookup } from "@/lib/catalog/vehicleDetector";
@@ -69,6 +69,8 @@ export type DraftInput = {
   orderContext?: OrderContext;
   // Extracted content from email attachments
   attachmentContent?: ExtractedAttachmentContent[];
+  // Extended customer context with order history and support history
+  customerContext?: CustomerContext;
 };
 
 /**
@@ -103,6 +105,7 @@ export async function generateDraft(input: DraftInput): Promise<DraftResult> {
     customerInfo,
     orderContext,
     attachmentContent,
+    customerContext,
   } = input;
 
   // Check if LLM is configured
@@ -170,6 +173,7 @@ export async function generateDraft(input: DraftInput): Promise<DraftResult> {
       catalogProducts: catalogProducts.length > 0 ? catalogProducts : undefined,
       orderContext,
       attachmentContent,
+      customerContext,
     });
 
     // Add fallback note if no KB content found

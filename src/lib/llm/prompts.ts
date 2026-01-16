@@ -103,6 +103,28 @@ type OrderContext = {
 };
 
 /**
+ * Extended customer context with order history
+ */
+export type CustomerContext = {
+  name?: string;
+  email?: string;
+  totalOrders?: number;
+  totalSpent?: number;
+  likelyProduct?: string;
+  recentOrders?: Array<{
+    orderNumber: string;
+    status: string;
+    fulfillmentStatus: string;
+    createdAt: string;
+  }>;
+  previousTickets?: Array<{
+    subject: string;
+    state: string;
+    createdAt: string;
+  }>;
+};
+
+/**
  * Build user prompt with KB context
  */
 export function buildUserPrompt(params: {
@@ -120,13 +142,46 @@ export function buildUserPrompt(params: {
   catalogProducts?: ProductWithFitment[];
   orderContext?: OrderContext;
   attachmentContent?: ExtractedAttachmentContent[];
+  customerContext?: CustomerContext;
 }): string {
-  const { customerMessage, intent, kbDocs, previousMessages, customerInfo, catalogProducts, orderContext, attachmentContent } = params;
+  const { customerMessage, intent, kbDocs, previousMessages, customerInfo, catalogProducts, orderContext, attachmentContent, customerContext } = params;
 
   let prompt = "";
 
-  // Add customer context if available
-  if (customerInfo) {
+  // Add comprehensive customer context if available
+  if (customerContext) {
+    prompt += "## VERIFIED CUSTOMER PROFILE:\n";
+    if (customerContext.name) prompt += `- Name: ${customerContext.name}\n`;
+    if (customerContext.email) prompt += `- Email: ${customerContext.email}\n`;
+    if (customerContext.totalOrders !== undefined) prompt += `- Total Orders: ${customerContext.totalOrders}\n`;
+    if (customerContext.totalSpent !== undefined) prompt += `- Lifetime Value: $${customerContext.totalSpent.toLocaleString()}\n`;
+
+    // Highlight likely product they need help with
+    if (customerContext.likelyProduct) {
+      prompt += `\n### LIKELY PRODUCT CONTEXT:\n`;
+      prompt += `The customer most likely needs help with: **${customerContext.likelyProduct}**\n`;
+    }
+
+    // Show recent order history
+    if (customerContext.recentOrders && customerContext.recentOrders.length > 0) {
+      prompt += `\n### ORDER HISTORY (${customerContext.recentOrders.length} recent orders):\n`;
+      for (const order of customerContext.recentOrders.slice(0, 5)) {
+        prompt += `- ${order.orderNumber}: ${order.status} / ${order.fulfillmentStatus} (${new Date(order.createdAt).toLocaleDateString()})\n`;
+      }
+    }
+
+    // Show previous support ticket history
+    if (customerContext.previousTickets && customerContext.previousTickets.length > 0) {
+      prompt += `\n### SUPPORT HISTORY (${customerContext.previousTickets.length} previous tickets):\n`;
+      for (const ticket of customerContext.previousTickets.slice(0, 3)) {
+        prompt += `- "${ticket.subject}" - ${ticket.state} (${new Date(ticket.createdAt).toLocaleDateString()})\n`;
+      }
+      prompt += `Use this history to understand context and avoid repeating past solutions that didn't work.\n`;
+    }
+
+    prompt += "\n";
+  } else if (customerInfo) {
+    // Fallback to basic customer info if no extended context
     prompt += "## Customer Context:\n";
     if (customerInfo.name) prompt += `- Name: ${customerInfo.name}\n`;
     if (customerInfo.email) prompt += `- Email: ${customerInfo.email}\n`;
