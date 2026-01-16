@@ -60,8 +60,61 @@ const VERIFICATION_STATUS_COLORS: Record<string, { bg: string; text: string }> =
 export function CustomerContextPanel({ customer, previousTickets }: Props) {
   const [isExpanded, setIsExpanded] = useState(true);
 
-  if (!customer || customer.status === "not_found" || customer.status === "pending") {
-    return null;
+  // Show "Unknown Customer" state when no customer data
+  if (!customer) {
+    return (
+      <div
+        style={{
+          marginTop: 16,
+          padding: 16,
+          border: "1px solid #e5e7eb",
+          borderRadius: 8,
+          backgroundColor: "#f9fafb",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 16 }}>👤</span>
+          <span style={{ fontWeight: 600, fontSize: 14, color: "#6b7280" }}>
+            Unknown Customer
+          </span>
+        </div>
+        <p style={{ margin: "8px 0 0 0", fontSize: 13, color: "#9ca3af" }}>
+          No customer information found. Customer has not been verified via order lookup.
+        </p>
+      </div>
+    );
+  }
+
+  // Show pending/not_found state with helpful message
+  if (customer.status === "not_found" || customer.status === "pending") {
+    return (
+      <div
+        style={{
+          marginTop: 16,
+          padding: 16,
+          border: "1px solid #fef3c7",
+          borderRadius: 8,
+          backgroundColor: "#fffbeb",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 16 }}>⏳</span>
+          <span style={{ fontWeight: 600, fontSize: 14, color: "#92400e" }}>
+            {customer.status === "pending" ? "Verification Pending" : "Customer Not Found"}
+          </span>
+        </div>
+        <p style={{ margin: "8px 0 0 0", fontSize: 13, color: "#b45309" }}>
+          {customer.status === "pending"
+            ? "Waiting for order number to verify customer identity."
+            : "No matching customer found in Shopify. Email may be new or unregistered."}
+        </p>
+        {customer.customerEmail && (
+          <p style={{ margin: "8px 0 0 0", fontSize: 12, color: "#6b7280" }}>
+            Email: {customer.customerEmail}
+          </p>
+        )}
+      </div>
+    );
   }
 
   const statusColors = VERIFICATION_STATUS_COLORS[customer.status] || VERIFICATION_STATUS_COLORS.pending;

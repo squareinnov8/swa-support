@@ -3,6 +3,8 @@ import { type ThreadState } from "@/lib/threads/stateMachine";
 import { ThreadActions } from "./ThreadActions";
 import { AgentReasoning } from "./AgentReasoning";
 import { CustomerContextPanel, type CustomerContextData, type SupportTicket } from "./CustomerContextPanel";
+import { MessageBubble } from "./MessageBubble";
+import { lookupCustomerByEmail } from "@/lib/shopify/customer";
 // Verification requirements now determined dynamically by LLM during classification
 
 export const dynamic = "force-dynamic";
@@ -33,11 +35,16 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
   const state = (thread?.state as ThreadState) || "NEW";
   const stateColors = STATE_COLORS[state];
   const stateLabel = STATE_LABELS[state];
+  // Fetch messages - newest first for better UX
   const { data: messages } = await supabase
     .from("messages")
     .select("*")
     .eq("thread_id", threadId)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: false });
+
+  // Get the customer email from the first inbound message
+  const firstInboundMessage = messages?.slice().reverse().find(m => m.direction === "inbound");
+  const customerEmail = firstInboundMessage?.from_email;
 
   const { data: events } = await supabase
     .from("events")
@@ -106,34 +113,83 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
       recentOrders,
       flags: verification.flags || [],
     };
-
-    // Fetch previous support tickets for this customer (by email)
-    if (verification.customer_email) {
-      const { data: customerThreads } = await supabase
-        .from("threads")
-        .select("id, subject, state, created_at")
-        .neq("id", threadId) // Exclude current thread
-        .order("created_at", { ascending: false })
-        .limit(5);
-
-      // Filter threads that have messages from this customer email
-      if (customerThreads) {
-        const { data: threadsWithEmail } = await supabase
-          .from("messages")
-          .select("thread_id")
-          .eq("from_email", verification.customer_email)
-          .in("thread_id", customerThreads.map(t => t.id));
-
-        const customerThreadIds = new Set(threadsWithEmail?.map(m => m.thread_id) || []);
-        previousTickets = customerThreads
-          .filter(t => customerThreadIds.has(t.id))
-          .map(t => ({
-            id: t.id,
-            subject: t.subject || "(no subject)",
-            state: t.state || "UNKNOWN",
-            createdAt: t.created_at,
-          }));
+  } else if (customerEmail) {
+    // No verification record yet - try to look up customer from Shopify by email
+    try {
+      const shopifyCustomer = await lookupCustomerByEmail(customerEmail);
+      if (shopifyCustomer) {
+        customerContext = {
+          status: "pending", // Not verified yet, just looked up
+          customerName: `${shopifyCustomer.firstName || ""} ${shopifyCustomer.lastName || ""}`.trim() || null,
+          customerEmail: shopifyCustomer.email,
+          totalOrders: shopifyCustomer.ordersCount,
+          totalSpent: shopifyCustomer.totalSpent,
+          likelyProduct: null,
+          recentOrders: shopifyCustomer.recentOrders?.map(o => ({
+            orderNumber: o.name,
+            status: o.financialStatus || "UNKNOWN",
+            fulfillmentStatus: o.fulfillmentStatus || "UNKNOWN",
+            createdAt: o.createdAt,
+            items: o.lineItems?.map(li => li.title) || [],
+          })) || null,
+          flags: [],
+        };
+      } else {
+        // Customer not found in Shopify
+        customerContext = {
+          status: "not_found",
+          customerName: null,
+          customerEmail: customerEmail,
+          totalOrders: null,
+          totalSpent: null,
+          likelyProduct: null,
+          recentOrders: null,
+          flags: [],
+        };
       }
+    } catch (error) {
+      console.error("Error looking up customer:", error);
+      // Still show unknown customer state on error
+      customerContext = {
+        status: "not_found",
+        customerName: null,
+        customerEmail: customerEmail,
+        totalOrders: null,
+        totalSpent: null,
+        likelyProduct: null,
+        recentOrders: null,
+        flags: [],
+      };
+    }
+  }
+
+  // Fetch previous support tickets for this customer (by email)
+  const emailForTicketLookup = verification?.customer_email || customerEmail;
+  if (emailForTicketLookup) {
+    const { data: customerThreads } = await supabase
+      .from("threads")
+      .select("id, subject, state, created_at")
+      .neq("id", threadId) // Exclude current thread
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    // Filter threads that have messages from this customer email
+    if (customerThreads) {
+      const { data: threadsWithEmail } = await supabase
+        .from("messages")
+        .select("thread_id")
+        .eq("from_email", emailForTicketLookup)
+        .in("thread_id", customerThreads.map(t => t.id));
+
+      const customerThreadIds = new Set(threadsWithEmail?.map(m => m.thread_id) || []);
+      previousTickets = customerThreads
+        .filter(t => customerThreadIds.has(t.id))
+        .map(t => ({
+          id: t.id,
+          subject: t.subject || "(no subject)",
+          state: t.state || "UNKNOWN",
+          createdAt: t.created_at,
+        }));
     }
   }
 
@@ -315,14 +371,21 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
       />
 
       <h2 style={{ marginTop: 24 }}>Messages</h2>
-      {messages?.map((m) => (
-        <div key={m.id} style={{ border: "1px solid #ddd", padding: 12, margin: "12px 0" }}>
-          <div style={{ fontSize: 12, opacity: 0.7 }}>
-            {m.direction} • {m.from_email || ""} • {new Date(m.created_at).toLocaleString()}
-          </div>
-          <pre style={{ whiteSpace: "pre-wrap" }}>{m.body_text}</pre>
-        </div>
-      ))}
+      <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 16 }}>
+        Showing newest first
+      </p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {messages?.map((m) => (
+          <MessageBubble
+            key={m.id}
+            direction={m.direction as "inbound" | "outbound"}
+            fromEmail={m.from_email}
+            createdAt={m.created_at}
+            bodyText={m.body_text}
+            bodyHtml={m.body_html}
+          />
+        ))}
+      </div>
 
       <h2 style={{ marginTop: 24 }}>Proposed Reply</h2>
       {shouldBlockDraft ? (
