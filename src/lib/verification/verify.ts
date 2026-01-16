@@ -6,7 +6,7 @@
 
 import { supabase } from "@/lib/db";
 import { getShopifyClient } from "@/lib/shopify";
-import { extractOrderNumber, extractEmail } from "./extractors";
+import { extractOrderNumber, extractEmail, extractAllEmails } from "./extractors";
 import { checkNegativeFlags } from "./flags";
 import type {
   VerificationInput,
@@ -67,11 +67,21 @@ export async function verifyCustomer(
     };
   }
 
-  // Extract email (use from_identifier or extract from message)
-  let email = input.email;
-  if (!email && input.messageText) {
-    email = extractEmail(input.messageText) ?? undefined;
+  // Extract all possible emails (from input + message body)
+  const emailCandidates: string[] = [];
+  if (input.email) {
+    emailCandidates.push(input.email.toLowerCase());
   }
+  if (input.messageText) {
+    const extractedEmails = extractAllEmails(input.messageText);
+    extractedEmails.forEach(e => {
+      if (!emailCandidates.includes(e)) {
+        emailCandidates.push(e);
+      }
+    });
+  }
+  // Use first email as primary for storage
+  const email = emailCandidates[0];
 
   // Extract order number
   let orderNumber = input.orderNumber;
@@ -79,12 +89,90 @@ export async function verifyCustomer(
     orderNumber = extractOrderNumber(input.messageText) ?? undefined;
   }
 
-  // If no order number, request it
+  // NEW: Try email-based customer lookup BEFORE requiring order number
+  // This gives us customer context even without an order number
+  if (!orderNumber && isShopifyConfigured() && emailCandidates.length > 0) {
+    const shopify = getShopifyClient();
+
+    // Try each email candidate until we find a customer
+    for (const candidateEmail of emailCandidates) {
+      try {
+        const customerData = await shopify.getCustomerByEmail(candidateEmail);
+
+        if (customerData) {
+          // Found a customer! Build customer context
+          const verifiedCustomer: VerifiedCustomer = {
+            shopifyId: customerData.id,
+            email: customerData.email,
+            name: [customerData.firstName, customerData.lastName].filter(Boolean).join(" "),
+            totalOrders: customerData.numberOfOrders,
+            totalSpent: parseFloat(customerData.amountSpent?.amount || "0"),
+          };
+
+          // Build recent orders array
+          const recentOrders = (customerData.orders || []).map((o) => ({
+            orderNumber: o.name,
+            status: o.displayFinancialStatus,
+            fulfillmentStatus: o.displayFulfillmentStatus,
+            createdAt: o.createdAt,
+            items: [], // Could be populated if needed
+          }));
+
+          // Check for negative flags based on customer data
+          const flags = checkNegativeFlags(customerData, null);
+
+          // Note: getCustomerByEmail returns limited order data, so likelyProduct
+          // would need a separate order lookup for line items - leave undefined for now
+          const likelyProduct: string | undefined = undefined;
+
+          if (flags.length > 0) {
+            // Customer is flagged - return flagged status
+            const result: VerificationResult = {
+              status: "flagged",
+              flags,
+              customer: verifiedCustomer,
+              message: `Customer flagged: ${flags.join(", ")}`,
+            };
+
+            await saveVerification(input.threadId, candidateEmail, "pending", result, undefined, {
+              recentOrders,
+              likelyProduct,
+            });
+
+            return result;
+          }
+
+          // Customer found, no flags, but no order number provided
+          // Return "pending" status but WITH customer context populated
+          const result: VerificationResult = {
+            status: "pending",
+            flags: [],
+            customer: verifiedCustomer,
+            message: `Customer found via email (${candidateEmail}). Order number still needed for order-specific support.`,
+          };
+
+          await saveVerification(input.threadId, candidateEmail, "pending", result, undefined, {
+            recentOrders,
+            likelyProduct,
+          });
+
+          return result;
+        }
+      } catch (lookupError) {
+        console.warn(`[Verification] Email lookup failed for ${candidateEmail}:`, lookupError);
+        // Continue to next email candidate
+      }
+    }
+  }
+
+  // No order number AND no customer found by email
   if (!orderNumber) {
     const result: VerificationResult = {
       status: "pending",
       flags: [],
-      message: "Order number required for verification",
+      message: emailCandidates.length > 0
+        ? `No customer found for email(s): ${emailCandidates.join(", ")}. Order number required.`
+        : "Order number required for verification",
     };
 
     // Store the pending verification so UI can show correct status

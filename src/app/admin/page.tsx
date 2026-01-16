@@ -28,9 +28,22 @@ export default async function AdminPage() {
   // Fetch threads sorted by latest update (for inbox workflow)
   const { data: threads } = await supabase
     .from("threads")
-    .select("id,subject,state,last_intent,updated_at,created_at,human_handling_mode,human_handler,summary")
+    .select("id,subject,state,last_intent,updated_at,created_at,human_handling_mode,human_handler,summary,verification_status")
     .order("updated_at", { ascending: false })
     .limit(50);
+
+  // Fetch verification data for threads that have it
+  const threadIds = threads?.map(t => t.id) || [];
+  const { data: verifications } = await supabase
+    .from("customer_verifications")
+    .select("thread_id, status, customer_name")
+    .in("thread_id", threadIds)
+    .eq("status", "verified");
+
+  // Create a map of thread_id -> verification data
+  const verificationMap = new Map(
+    verifications?.map(v => [v.thread_id, { status: v.status, customerName: v.customer_name }]) || []
+  );
 
   // Get active observations count
   const { count: observationCount } = await supabase
@@ -195,6 +208,8 @@ export default async function AdminPage() {
           const state = (t.state as ThreadState) || "NEW";
           const colors = STATE_COLORS[state];
           const label = STATE_LABELS[state];
+          const verification = verificationMap.get(t.id);
+          const isVerifiedCustomer = verification?.status === "verified";
 
           return (
             <li
@@ -202,12 +217,15 @@ export default async function AdminPage() {
               style={{
                 margin: "12px 0",
                 padding: 12,
-                border: "1px solid #eee",
+                border: isVerifiedCustomer ? "1px solid #86efac" : "1px solid #eee",
                 borderRadius: 8,
+                backgroundColor: isVerifiedCustomer ? "#f0fdf4" : "transparent",
                 borderLeft: state === "ESCALATED"
                   ? "4px solid #991b1b"
                   : t.human_handling_mode
                   ? "4px solid #fb923c"
+                  : isVerifiedCustomer
+                  ? "4px solid #22c55e"
                   : undefined,
               }}
             >
@@ -224,6 +242,24 @@ export default async function AdminPage() {
                 >
                   {label}
                 </span>
+                {isVerifiedCustomer && (
+                  <span
+                    style={{
+                      padding: "2px 8px",
+                      borderRadius: 9999,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      backgroundColor: "#dcfce7",
+                      color: "#166534",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                    title={verification?.customerName || "Verified Customer"}
+                  >
+                    ✓ Verified
+                  </span>
+                )}
                 {t.human_handling_mode && (
                   <span
                     style={{
@@ -249,13 +285,14 @@ export default async function AdminPage() {
                 </a>
               </div>
               {t.summary && (
-                <div style={{ fontSize: 13, marginTop: 4, marginLeft: t.human_handling_mode ? 140 : 70, color: "#4b5563" }}>
+                <div style={{ fontSize: 13, marginTop: 4, marginLeft: isVerifiedCustomer ? 150 : t.human_handling_mode ? 140 : 70, color: "#4b5563" }}>
                   {t.summary}
                 </div>
               )}
-              <div style={{ opacity: 0.5, fontSize: 12, marginTop: 4, marginLeft: t.human_handling_mode ? 140 : 70 }}>
+              <div style={{ opacity: 0.5, fontSize: 12, marginTop: 4, marginLeft: isVerifiedCustomer ? 150 : t.human_handling_mode ? 140 : 70 }}>
                 {new Date(t.updated_at).toLocaleString()}
                 {t.human_handler && <span> • Handler: {t.human_handler}</span>}
+                {verification?.customerName && <span> • {verification.customerName}</span>}
               </div>
             </li>
           );

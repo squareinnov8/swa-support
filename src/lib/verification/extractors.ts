@@ -50,6 +50,20 @@ export function extractEmail(text: string): string | null {
 }
 
 /**
+ * Extract ALL email addresses from text.
+ * Returns unique emails, useful for finding customers who mention multiple emails.
+ */
+export function extractAllEmails(text: string): string[] {
+  const emailPattern = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/gi;
+  const matches = text.match(emailPattern);
+  if (!matches) return [];
+
+  // Return unique lowercase emails
+  const unique = [...new Set(matches.map(e => e.toLowerCase()))];
+  return unique;
+}
+
+/**
  * Extract all identifiers from a message
  */
 export function extractIdentifiers(text: string): {
