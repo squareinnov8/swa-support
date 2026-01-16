@@ -208,7 +208,7 @@ export function buildUserPrompt(params: {
     }
 
     if (orderContext.tracking && orderContext.tracking.length > 0) {
-      prompt += "\n### TRACKING INFO (provide this to the customer!):\n";
+      prompt += "\n### TRACKING INFO (only share if customer is asking about shipping/delivery):\n";
       for (const t of orderContext.tracking) {
         if (t.trackingNumber) {
           prompt += `- Carrier: ${t.carrier || "Unknown"}\n`;
@@ -219,7 +219,7 @@ export function buildUserPrompt(params: {
         }
       }
     } else if (orderContext.fulfillmentStatus === "UNFULFILLED") {
-      prompt += "\n### NOTE: Order has NOT shipped yet. No tracking available.\n";
+      prompt += "\n### NOTE: Order has NOT shipped yet (only mention if customer asks about shipping).\n";
     } else if (orderContext.fulfillmentStatus === "FULFILLED" && (!orderContext.tracking || orderContext.tracking.length === 0)) {
       prompt += "\n### NOTE: Order marked as fulfilled but no tracking number on file.\n";
     }
@@ -297,8 +297,9 @@ Write a helpful, professional response to the customer's message.
 - If VERIFIED ORDER DATA is provided above, use it to answer the customer IMMEDIATELY with facts
 - NEVER say "I'm checking on that" or "Let me look this up" when the data is already in the prompt
 - NEVER say "I'll get back to you shortly" - you're responding NOW with the information
-- If tracking info is provided, include it directly in your response
-- If order is unfulfilled, tell them it hasn't shipped yet - don't promise to "check"
+- Only include tracking info if the customer is specifically asking about shipping, delivery, or order status
+- Do NOT proactively share tracking info for old orders or when customer is asking about product issues
+- If customer asks about shipping AND order is unfulfilled, tell them it hasn't shipped yet
 
 ### Response Guidelines:
 1. Lead with the ANSWER or the ACTION you're taking (providing info = action)
