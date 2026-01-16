@@ -9,6 +9,7 @@ export {
   isThreadVerified,
   getThreadVerification,
   isShopifyConfigured,
+  type ExtendedVerificationResult,
 } from "./verify";
 
 export {

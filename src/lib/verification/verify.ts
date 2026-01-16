@@ -138,7 +138,7 @@ export async function verifyCustomer(
         message: `Customer flagged: ${flags.join(", ")}`,
       };
 
-      await saveVerification(input.threadId, email, orderNumber, result, order);
+      await saveVerification(input.threadId, email, orderNumber, result, order, {});
       return result;
     }
 
@@ -150,16 +150,59 @@ export async function verifyCustomer(
       );
     }
 
-    // Build verified customer info
-    const verifiedCustomer: VerifiedCustomer | undefined = customer
+    // Build verified customer info - fetch full customer data for richer context
+    let verifiedCustomer: VerifiedCustomer | undefined = customer
       ? {
           shopifyId: customer.id,
           email: customer.email,
-          name: "", // Would need additional query for full customer
+          name: "", // Will be populated below
           totalOrders: 0,
           totalSpent: 0,
         }
       : undefined;
+
+    // Fetch full customer details to get order history, total orders, total spent
+    let recentOrders: Array<{
+      orderNumber: string;
+      status: string;
+      fulfillmentStatus: string;
+      createdAt: string;
+      items: string[];
+    }> = [];
+    let likelyProduct: string | undefined;
+
+    if (customer?.email) {
+      try {
+        const fullCustomer = await shopify.getCustomerByEmail(customer.email);
+        if (fullCustomer) {
+          verifiedCustomer = {
+            shopifyId: fullCustomer.id,
+            email: fullCustomer.email,
+            name: [fullCustomer.firstName, fullCustomer.lastName].filter(Boolean).join(" "),
+            totalOrders: fullCustomer.numberOfOrders,
+            totalSpent: parseFloat(fullCustomer.amountSpent?.amount || "0"),
+          };
+
+          // Build recent orders array for storage
+          recentOrders = (fullCustomer.orders || []).map((o) => ({
+            orderNumber: o.name,
+            status: o.displayFinancialStatus,
+            fulfillmentStatus: o.displayFulfillmentStatus,
+            createdAt: o.createdAt,
+            items: [], // Will be populated from current order if available
+          }));
+        }
+      } catch (customerFetchError) {
+        // Non-fatal - we still have basic customer info from order
+        console.warn("Could not fetch full customer details:", customerFetchError);
+      }
+    }
+
+    // Determine likely product from the current order's line items
+    if (order.lineItems && order.lineItems.length > 0) {
+      // Use the first item as the likely product they need help with
+      likelyProduct = order.lineItems[0].title;
+    }
 
     // Extract tracking info from fulfillments
     const tracking = order.fulfillments?.flatMap((f) =>
@@ -191,7 +234,10 @@ export async function verifyCustomer(
       message: "Customer verified successfully",
     };
 
-    await saveVerification(input.threadId, email, orderNumber, result, order);
+    await saveVerification(input.threadId, email, orderNumber, result, order, {
+      recentOrders,
+      likelyProduct,
+    });
 
     // Update thread verification status
     await supabase
@@ -223,6 +269,20 @@ export async function verifyCustomer(
 }
 
 /**
+ * Extra context fields for customer verification storage
+ */
+type CustomerContextExtras = {
+  recentOrders?: Array<{
+    orderNumber: string;
+    status: string;
+    fulfillmentStatus: string;
+    createdAt: string;
+    items: string[];
+  }>;
+  likelyProduct?: string;
+};
+
+/**
  * Save verification result to database
  */
 async function saveVerification(
@@ -230,7 +290,8 @@ async function saveVerification(
   email: string | undefined,
   orderNumber: string,
   result: VerificationResult,
-  order?: { id: string; customer?: { id: string; email: string } | null }
+  order?: { id: string; customer?: { id: string; email: string } | null },
+  extras: CustomerContextExtras = {}
 ): Promise<void> {
   await supabase.from("customer_verifications").insert({
     thread_id: threadId,
@@ -244,6 +305,9 @@ async function saveVerification(
     customer_email: result.customer?.email ?? null,
     total_orders: result.customer?.totalOrders ?? null,
     total_spent: result.customer?.totalSpent ?? null,
+    // New fields for richer customer context
+    recent_orders: extras.recentOrders ? JSON.stringify(extras.recentOrders) : null,
+    likely_product: extras.likelyProduct ?? null,
   });
 }
 
@@ -261,11 +325,25 @@ export async function isThreadVerified(threadId: string): Promise<boolean> {
 }
 
 /**
+ * Extended verification result with full customer context
+ */
+export type ExtendedVerificationResult = VerificationResult & {
+  recentOrders?: Array<{
+    orderNumber: string;
+    status: string;
+    fulfillmentStatus: string;
+    createdAt: string;
+    items: string[];
+  }>;
+  likelyProduct?: string;
+};
+
+/**
  * Get existing verification for a thread
  */
 export async function getThreadVerification(
   threadId: string
-): Promise<VerificationResult | null> {
+): Promise<ExtendedVerificationResult | null> {
   const { data } = await supabase
     .from("customer_verifications")
     .select("*")
@@ -276,6 +354,25 @@ export async function getThreadVerification(
 
   if (!data) {
     return null;
+  }
+
+  // Parse recent_orders from JSONB if it exists
+  let recentOrders: Array<{
+    orderNumber: string;
+    status: string;
+    fulfillmentStatus: string;
+    createdAt: string;
+    items: string[];
+  }> | undefined;
+
+  if (data.recent_orders) {
+    try {
+      recentOrders = typeof data.recent_orders === "string"
+        ? JSON.parse(data.recent_orders)
+        : data.recent_orders;
+    } catch {
+      // Ignore parse errors
+    }
   }
 
   return {
@@ -299,5 +396,7 @@ export async function getThreadVerification(
           createdAt: data.created_at,
         }
       : undefined,
+    recentOrders,
+    likelyProduct: data.likely_product || undefined,
   };
 }
