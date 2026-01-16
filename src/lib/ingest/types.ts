@@ -48,6 +48,9 @@ export type IngestRequest = {
 
   /** Channel-specific metadata (email headers, chat context, etc.) */
   metadata?: Record<string, unknown>;
+
+  /** Original message date/time from email headers or source system */
+  message_date?: Date;
 };
 
 /**

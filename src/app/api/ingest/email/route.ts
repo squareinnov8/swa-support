@@ -18,6 +18,8 @@ const EmailIngestSchema = z.object({
   body_text: z.string().default(""),
   body_html: z.string().optional(),
   raw: z.any().optional(),
+  /** Email date from headers (ISO string) for accurate timestamps */
+  date: z.string().optional(),
 });
 
 export async function POST(req: Request) {
@@ -32,6 +34,8 @@ export async function POST(req: Request) {
       body_text: payload.body_text,
       from_identifier: payload.from_email,
       to_identifier: payload.to_email,
+      // Use email date if provided for accurate thread/message timestamps
+      message_date: payload.date ? new Date(payload.date) : undefined,
       metadata: {
         body_html: payload.body_html,
         raw: payload.raw,

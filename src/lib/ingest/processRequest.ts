@@ -66,14 +66,20 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
       isFollowUp = true; // This is a follow-up message
     } else {
       // Create new thread since external_id lookup found nothing
+      const threadData: Record<string, unknown> = {
+        external_thread_id: req.external_id,
+        subject: req.subject,
+        state: "NEW",
+        channel: req.channel,
+      };
+      // Use email date if provided for accurate thread timestamps
+      if (req.message_date) {
+        threadData.created_at = req.message_date.toISOString();
+      }
+
       const { data: created, error } = await supabase
         .from("threads")
-        .insert({
-          external_thread_id: req.external_id,
-          subject: req.subject,
-          state: "NEW",
-          channel: req.channel,
-        })
+        .insert(threadData)
         .select("id")
         .single();
 
@@ -84,14 +90,20 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
     }
   } else {
     // No external_id, create new thread
+    const threadData: Record<string, unknown> = {
+      external_thread_id: null,
+      subject: req.subject,
+      state: "NEW",
+      channel: req.channel,
+    };
+    // Use email date if provided for accurate thread timestamps
+    if (req.message_date) {
+      threadData.created_at = req.message_date.toISOString();
+    }
+
     const { data: created, error } = await supabase
       .from("threads")
-      .insert({
-        external_thread_id: null,
-        subject: req.subject,
-        state: "NEW",
-        channel: req.channel,
-      })
+      .insert(threadData)
       .select("id")
       .single();
 
@@ -102,7 +114,7 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
   }
 
   // 2. Insert message with channel info
-  const { error: messageError } = await supabase.from("messages").insert({
+  const messageData: Record<string, unknown> = {
     thread_id: threadId,
     direction: "inbound",
     from_email: req.from_identifier ?? null,
@@ -110,7 +122,13 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
     body_text: req.body_text,
     channel: req.channel,
     channel_metadata: req.metadata ?? null,
-  });
+  };
+  // Use email date if provided for accurate message timestamps
+  if (req.message_date) {
+    messageData.created_at = req.message_date.toISOString();
+  }
+
+  const { error: messageError } = await supabase.from("messages").insert(messageData);
 
   if (messageError) {
     throw new Error(`Failed to insert message: ${messageError.message}`);

@@ -562,6 +562,8 @@ async function processGmailThread(
     subject: thread.subject,
     body_text: latestIncoming.body,
     attachments: processedAttachments.length > 0 ? processedAttachments : undefined,
+    // Use the email's actual date for accurate thread/message timestamps
+    message_date: latestIncoming.date,
     metadata: {
       gmail_thread_id: gmailThreadId,
       gmail_message_id: latestIncoming.id,
