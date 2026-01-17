@@ -70,10 +70,10 @@ export default function IntentForm({ categories }: IntentFormProps) {
         onClick={() => setExpanded(true)}
         style={{
           padding: "10px 20px",
-          backgroundColor: "#1e40af",
+          backgroundColor: "#0091ae",
           color: "white",
           border: "none",
-          borderRadius: 6,
+          borderRadius: 4,
           cursor: "pointer",
           fontSize: 14,
           fontWeight: 500,
@@ -88,12 +88,13 @@ export default function IntentForm({ categories }: IntentFormProps) {
     <form onSubmit={handleSubmit}>
       {error && (
         <div style={{
-          backgroundColor: "#fee2e2",
-          color: "#991b1b",
+          backgroundColor: "#fde8e9",
+          color: "#c93b41",
           padding: 12,
-          borderRadius: 6,
+          borderRadius: 4,
           marginBottom: 16,
           fontSize: 14,
+          border: "1px solid #f2545b",
         }}>
           {error}
         </div>
@@ -101,7 +102,7 @@ export default function IntentForm({ categories }: IntentFormProps) {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
         <div>
-          <label style={{ display: "block", fontSize: 12, fontWeight: 500, marginBottom: 4 }}>
+          <label style={{ display: "block", fontSize: 11, fontWeight: 500, marginBottom: 4, color: "#516f90", textTransform: "uppercase", letterSpacing: "0.5px" }}>
             Slug (ID) *
           </label>
           <input
@@ -116,8 +117,8 @@ export default function IntentForm({ categories }: IntentFormProps) {
             style={{
               width: "100%",
               padding: 8,
-              border: "1px solid #d1d5db",
-              borderRadius: 6,
+              border: "1px solid #cbd6e2",
+              borderRadius: 4,
               fontSize: 14,
               fontFamily: "monospace",
             }}
@@ -125,7 +126,7 @@ export default function IntentForm({ categories }: IntentFormProps) {
         </div>
 
         <div>
-          <label style={{ display: "block", fontSize: 12, fontWeight: 500, marginBottom: 4 }}>
+          <label style={{ display: "block", fontSize: 11, fontWeight: 500, marginBottom: 4, color: "#516f90", textTransform: "uppercase", letterSpacing: "0.5px" }}>
             Name *
           </label>
           <input
@@ -137,8 +138,8 @@ export default function IntentForm({ categories }: IntentFormProps) {
             style={{
               width: "100%",
               padding: 8,
-              border: "1px solid #d1d5db",
-              borderRadius: 6,
+              border: "1px solid #cbd6e2",
+              borderRadius: 4,
               fontSize: 14,
             }}
           />
@@ -146,7 +147,7 @@ export default function IntentForm({ categories }: IntentFormProps) {
       </div>
 
       <div style={{ marginBottom: 16 }}>
-        <label style={{ display: "block", fontSize: 12, fontWeight: 500, marginBottom: 4 }}>
+        <label style={{ display: "block", fontSize: 11, fontWeight: 500, marginBottom: 4, color: "#516f90", textTransform: "uppercase", letterSpacing: "0.5px" }}>
           Description (helps LLM understand when to use this intent)
         </label>
         <textarea
@@ -157,8 +158,8 @@ export default function IntentForm({ categories }: IntentFormProps) {
           style={{
             width: "100%",
             padding: 8,
-            border: "1px solid #d1d5db",
-            borderRadius: 6,
+            border: "1px solid #cbd6e2",
+            borderRadius: 4,
             fontSize: 14,
             resize: "vertical",
           }}
@@ -166,7 +167,7 @@ export default function IntentForm({ categories }: IntentFormProps) {
       </div>
 
       <div style={{ marginBottom: 16 }}>
-        <label style={{ display: "block", fontSize: 12, fontWeight: 500, marginBottom: 4 }}>
+        <label style={{ display: "block", fontSize: 11, fontWeight: 500, marginBottom: 4, color: "#516f90", textTransform: "uppercase", letterSpacing: "0.5px" }}>
           Example phrases (one per line)
         </label>
         <textarea
@@ -177,8 +178,8 @@ export default function IntentForm({ categories }: IntentFormProps) {
           style={{
             width: "100%",
             padding: 8,
-            border: "1px solid #d1d5db",
-            borderRadius: 6,
+            border: "1px solid #cbd6e2",
+            borderRadius: 4,
             fontSize: 13,
             fontFamily: "monospace",
             resize: "vertical",
@@ -188,7 +189,7 @@ export default function IntentForm({ categories }: IntentFormProps) {
 
       <div style={{ display: "flex", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
         <div>
-          <label style={{ display: "block", fontSize: 12, fontWeight: 500, marginBottom: 4 }}>
+          <label style={{ display: "block", fontSize: 11, fontWeight: 500, marginBottom: 4, color: "#516f90", textTransform: "uppercase", letterSpacing: "0.5px" }}>
             Category
           </label>
           <select
@@ -196,10 +197,11 @@ export default function IntentForm({ categories }: IntentFormProps) {
             onChange={(e) => setForm({ ...form, category: e.target.value })}
             style={{
               padding: 8,
-              border: "1px solid #d1d5db",
-              borderRadius: 6,
+              border: "1px solid #cbd6e2",
+              borderRadius: 4,
               fontSize: 14,
               minWidth: 150,
+              backgroundColor: "#ffffff",
             }}
           >
             {categories.map((cat) => (
@@ -210,7 +212,7 @@ export default function IntentForm({ categories }: IntentFormProps) {
         </div>
 
         <div>
-          <label style={{ display: "block", fontSize: 12, fontWeight: 500, marginBottom: 4 }}>
+          <label style={{ display: "block", fontSize: 11, fontWeight: 500, marginBottom: 4, color: "#516f90", textTransform: "uppercase", letterSpacing: "0.5px" }}>
             Priority
           </label>
           <input
@@ -220,8 +222,8 @@ export default function IntentForm({ categories }: IntentFormProps) {
             style={{
               width: 80,
               padding: 8,
-              border: "1px solid #d1d5db",
-              borderRadius: 6,
+              border: "1px solid #cbd6e2",
+              borderRadius: 4,
               fontSize: 14,
             }}
           />
@@ -233,7 +235,7 @@ export default function IntentForm({ categories }: IntentFormProps) {
             checked={form.requires_verification}
             onChange={(e) => setForm({ ...form, requires_verification: e.target.checked })}
           />
-          <span style={{ fontSize: 13 }}>Requires Verification</span>
+          <span style={{ fontSize: 13, color: "#33475b" }}>Requires Verification</span>
         </label>
 
         <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginTop: 20 }}>
@@ -242,7 +244,7 @@ export default function IntentForm({ categories }: IntentFormProps) {
             checked={form.auto_escalate}
             onChange={(e) => setForm({ ...form, auto_escalate: e.target.checked })}
           />
-          <span style={{ fontSize: 13 }}>Auto-Escalate</span>
+          <span style={{ fontSize: 13, color: "#33475b" }}>Auto-Escalate</span>
         </label>
       </div>
 
@@ -252,10 +254,10 @@ export default function IntentForm({ categories }: IntentFormProps) {
           disabled={saving}
           style={{
             padding: "10px 20px",
-            backgroundColor: "#1e40af",
+            backgroundColor: saving ? "#cbd6e2" : "#00a182",
             color: "white",
             border: "none",
-            borderRadius: 6,
+            borderRadius: 4,
             cursor: saving ? "not-allowed" : "pointer",
             fontSize: 14,
             fontWeight: 500,
@@ -268,10 +270,10 @@ export default function IntentForm({ categories }: IntentFormProps) {
           onClick={() => setExpanded(false)}
           style={{
             padding: "10px 20px",
-            backgroundColor: "#f3f4f6",
-            color: "#374151",
-            border: "1px solid #d1d5db",
-            borderRadius: 6,
+            backgroundColor: "#eaf0f6",
+            color: "#516f90",
+            border: "1px solid #cbd6e2",
+            borderRadius: 4,
             cursor: "pointer",
             fontSize: 14,
           }}

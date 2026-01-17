@@ -119,10 +119,10 @@ export function KBBrowser({ initialDocs, initialTotal, categories }: Props) {
   }
 
   const sourceColors: Record<string, { bg: string; text: string }> = {
-    manual: { bg: "#dbeafe", text: "#1e40af" },
-    notion: { bg: "#fef3c7", text: "#92400e" },
-    thread_evolution: { bg: "#ede9fe", text: "#6b21a8" },
-    website: { bg: "#dcfce7", text: "#166534" },
+    manual: { bg: "#e5f5f8", text: "#0091ae" },
+    notion: { bg: "#fef6e7", text: "#b36b00" },
+    thread_evolution: { bg: "#eaf0f6", text: "#516f90" },
+    website: { bg: "#e5f8f4", text: "#00a182" },
   };
 
   return (
@@ -140,8 +140,8 @@ export function KBBrowser({ initialDocs, initialTotal, categories }: Props) {
             style={{
               flex: 1,
               padding: "8px 12px",
-              border: "1px solid #d1d5db",
-              borderRadius: 6,
+              border: "1px solid #cbd6e2",
+              borderRadius: 4,
               fontSize: 14,
             }}
           />
@@ -150,9 +150,10 @@ export function KBBrowser({ initialDocs, initialTotal, categories }: Props) {
             onChange={(e) => setCategoryFilter(e.target.value)}
             style={{
               padding: "8px 12px",
-              border: "1px solid #d1d5db",
-              borderRadius: 6,
+              border: "1px solid #cbd6e2",
+              borderRadius: 4,
               fontSize: 14,
+              backgroundColor: "#ffffff",
             }}
           >
             <option value="">All Categories</option>
@@ -167,9 +168,10 @@ export function KBBrowser({ initialDocs, initialTotal, categories }: Props) {
             onChange={(e) => setSourceFilter(e.target.value)}
             style={{
               padding: "8px 12px",
-              border: "1px solid #d1d5db",
-              borderRadius: 6,
+              border: "1px solid #cbd6e2",
+              borderRadius: 4,
               fontSize: 14,
+              backgroundColor: "#ffffff",
             }}
           >
             <option value="">All Sources</option>
@@ -183,19 +185,20 @@ export function KBBrowser({ initialDocs, initialTotal, categories }: Props) {
             disabled={isLoading}
             style={{
               padding: "8px 16px",
-              backgroundColor: "#3b82f6",
+              backgroundColor: "#0091ae",
               color: "white",
               border: "none",
-              borderRadius: 6,
+              borderRadius: 4,
               cursor: "pointer",
               fontSize: 14,
+              fontWeight: 500,
             }}
           >
             {isLoading ? "..." : "Search"}
           </button>
         </div>
 
-        <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 12 }}>
+        <div style={{ fontSize: 13, color: "#7c98b6", marginBottom: 12 }}>
           Showing {docs.length} of {total} documents
         </div>
 
@@ -211,33 +214,34 @@ export function KBBrowser({ initialDocs, initialTotal, categories }: Props) {
                   padding: 12,
                   border:
                     selectedDoc?.id === doc.id
-                      ? "2px solid #3b82f6"
-                      : "1px solid #e5e7eb",
-                  borderRadius: 8,
+                      ? "2px solid #0091ae"
+                      : "1px solid #cbd6e2",
+                  borderRadius: 4,
                   cursor: "pointer",
-                  backgroundColor: selectedDoc?.id === doc.id ? "#eff6ff" : "white",
+                  backgroundColor: selectedDoc?.id === doc.id ? "#e5f5f8" : "white",
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span
                     style={{
-                      padding: "2px 6px",
-                      borderRadius: 4,
+                      padding: "2px 8px",
+                      borderRadius: 3,
                       fontSize: 11,
                       fontWeight: 500,
                       backgroundColor: colors.bg,
                       color: colors.text,
+                      textTransform: "uppercase",
                     }}
                   >
                     {doc.source}
                   </span>
-                  <span style={{ fontWeight: 500 }}>{doc.title}</span>
+                  <span style={{ fontWeight: 500, color: "#33475b" }}>{doc.title}</span>
                 </div>
                 <div
                   style={{
                     fontSize: 13,
-                    color: "#6b7280",
-                    marginTop: 4,
+                    color: "#7c98b6",
+                    marginTop: 6,
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
@@ -245,7 +249,7 @@ export function KBBrowser({ initialDocs, initialTotal, categories }: Props) {
                 >
                   {doc.body.slice(0, 100)}...
                 </div>
-                <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>
+                <div style={{ fontSize: 12, color: "#7c98b6", marginTop: 6 }}>
                   {doc.kb_categories?.name || "Uncategorized"} •{" "}
                   {new Date(doc.updated_at).toLocaleDateString()}
                 </div>
@@ -259,7 +263,7 @@ export function KBBrowser({ initialDocs, initialTotal, categories }: Props) {
       <div
         style={{
           width: 500,
-          borderLeft: "1px solid #e5e7eb",
+          borderLeft: "1px solid #cbd6e2",
           paddingLeft: 24,
         }}
       >
@@ -271,22 +275,27 @@ export function KBBrowser({ initialDocs, initialTotal, categories }: Props) {
                 justifyContent: "space-between",
                 alignItems: "center",
                 marginBottom: 16,
+                paddingBottom: 12,
+                borderBottom: "1px solid #cbd6e2",
               }}
             >
-              <h3 style={{ margin: 0 }}>{isEditing ? "Edit Document" : "Document"}</h3>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "#33475b" }}>
+                {isEditing ? "Edit Document" : "Document"}
+              </h3>
               <div style={{ display: "flex", gap: 8 }}>
                 {isEditing ? (
                   <>
                     <button
                       onClick={handleSaveDoc}
                       style={{
-                        padding: "6px 12px",
-                        backgroundColor: "#22c55e",
+                        padding: "6px 14px",
+                        backgroundColor: "#00a182",
                         color: "white",
                         border: "none",
                         borderRadius: 4,
                         cursor: "pointer",
                         fontSize: 13,
+                        fontWeight: 500,
                       }}
                     >
                       Save
@@ -298,12 +307,14 @@ export function KBBrowser({ initialDocs, initialTotal, categories }: Props) {
                         setEditBody(selectedDoc.body);
                       }}
                       style={{
-                        padding: "6px 12px",
-                        backgroundColor: "#e5e7eb",
-                        border: "none",
+                        padding: "6px 14px",
+                        backgroundColor: "#eaf0f6",
+                        color: "#516f90",
+                        border: "1px solid #cbd6e2",
                         borderRadius: 4,
                         cursor: "pointer",
                         fontSize: 13,
+                        fontWeight: 500,
                       }}
                     >
                       Cancel
@@ -314,13 +325,14 @@ export function KBBrowser({ initialDocs, initialTotal, categories }: Props) {
                     <button
                       onClick={() => setIsEditing(true)}
                       style={{
-                        padding: "6px 12px",
-                        backgroundColor: "#3b82f6",
+                        padding: "6px 14px",
+                        backgroundColor: "#0091ae",
                         color: "white",
                         border: "none",
                         borderRadius: 4,
                         cursor: "pointer",
                         fontSize: 13,
+                        fontWeight: 500,
                       }}
                     >
                       Edit
@@ -328,13 +340,14 @@ export function KBBrowser({ initialDocs, initialTotal, categories }: Props) {
                     <button
                       onClick={handleDeleteDoc}
                       style={{
-                        padding: "6px 12px",
-                        backgroundColor: "#ef4444",
+                        padding: "6px 14px",
+                        backgroundColor: "#f2545b",
                         color: "white",
                         border: "none",
                         borderRadius: 4,
                         cursor: "pointer",
                         fontSize: 13,
+                        fontWeight: 500,
                       }}
                     >
                       Delete
@@ -346,65 +359,129 @@ export function KBBrowser({ initialDocs, initialTotal, categories }: Props) {
 
             {isEditing ? (
               <div>
-                <label style={{ fontSize: 13, fontWeight: 500 }}>Title</label>
+                <label
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 500,
+                    color: "#516f90",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                  }}
+                >
+                  Title
+                </label>
                 <input
                   type="text"
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
                   style={{
                     width: "100%",
-                    padding: 8,
-                    border: "1px solid #d1d5db",
-                    borderRadius: 6,
+                    padding: 10,
+                    border: "1px solid #cbd6e2",
+                    borderRadius: 4,
                     marginTop: 4,
-                    marginBottom: 12,
+                    marginBottom: 16,
+                    fontSize: 14,
                   }}
                 />
-                <label style={{ fontSize: 13, fontWeight: 500 }}>Body</label>
+                <label
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 500,
+                    color: "#516f90",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                  }}
+                >
+                  Body
+                </label>
                 <textarea
                   value={editBody}
                   onChange={(e) => setEditBody(e.target.value)}
                   style={{
                     width: "100%",
                     minHeight: 400,
-                    padding: 8,
-                    border: "1px solid #d1d5db",
-                    borderRadius: 6,
+                    padding: 10,
+                    border: "1px solid #cbd6e2",
+                    borderRadius: 4,
                     marginTop: 4,
                     fontFamily: "inherit",
                     fontSize: 14,
-                    lineHeight: 1.5,
+                    lineHeight: 1.6,
                   }}
                 />
               </div>
             ) : (
               <div>
                 <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 12, color: "#6b7280" }}>Source</div>
-                  <div>{selectedDoc.source}</div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "#7c98b6",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                      marginBottom: 4,
+                    }}
+                  >
+                    Source
+                  </div>
+                  <div style={{ color: "#33475b" }}>{selectedDoc.source}</div>
                 </div>
                 <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 12, color: "#6b7280" }}>Title</div>
-                  <div style={{ fontSize: 18, fontWeight: 500 }}>{selectedDoc.title}</div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "#7c98b6",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                      marginBottom: 4,
+                    }}
+                  >
+                    Title
+                  </div>
+                  <div style={{ fontSize: 18, fontWeight: 600, color: "#33475b" }}>
+                    {selectedDoc.title}
+                  </div>
                 </div>
                 {selectedDoc.kb_categories && (
                   <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 12, color: "#6b7280" }}>Category</div>
-                    <div>{selectedDoc.kb_categories.name}</div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "#7c98b6",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px",
+                        marginBottom: 4,
+                      }}
+                    >
+                      Category
+                    </div>
+                    <div style={{ color: "#33475b" }}>{selectedDoc.kb_categories.name}</div>
                   </div>
                 )}
                 {selectedDoc.intent_tags?.length > 0 && (
                   <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 12, color: "#6b7280" }}>Intent Tags</div>
-                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "#7c98b6",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px",
+                        marginBottom: 6,
+                      }}
+                    >
+                      Intent Tags
+                    </div>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                       {selectedDoc.intent_tags.map((tag) => (
                         <span
                           key={tag}
                           style={{
-                            padding: "2px 8px",
-                            backgroundColor: "#f3f4f6",
-                            borderRadius: 4,
+                            padding: "3px 10px",
+                            backgroundColor: "#eaf0f6",
+                            borderRadius: 3,
                             fontSize: 12,
+                            color: "#516f90",
                           }}
                         >
                           {tag}
@@ -414,24 +491,35 @@ export function KBBrowser({ initialDocs, initialTotal, categories }: Props) {
                   </div>
                 )}
                 <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 12, color: "#6b7280" }}>Content</div>
                   <div
                     style={{
-                      marginTop: 8,
+                      fontSize: 11,
+                      color: "#7c98b6",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                      marginBottom: 6,
+                    }}
+                  >
+                    Content
+                  </div>
+                  <div
+                    style={{
                       padding: 12,
-                      backgroundColor: "#f9fafb",
-                      borderRadius: 6,
+                      backgroundColor: "#f5f8fa",
+                      borderRadius: 4,
+                      border: "1px solid #cbd6e2",
                       whiteSpace: "pre-wrap",
                       fontSize: 14,
                       lineHeight: 1.6,
                       maxHeight: 500,
                       overflow: "auto",
+                      color: "#33475b",
                     }}
                   >
                     {selectedDoc.body}
                   </div>
                 </div>
-                <div style={{ fontSize: 12, color: "#9ca3af" }}>
+                <div style={{ fontSize: 12, color: "#7c98b6" }}>
                   Last updated: {new Date(selectedDoc.updated_at).toLocaleString()}
                 </div>
               </div>
@@ -444,7 +532,8 @@ export function KBBrowser({ initialDocs, initialTotal, categories }: Props) {
               alignItems: "center",
               justifyContent: "center",
               height: 300,
-              color: "#9ca3af",
+              color: "#7c98b6",
+              fontSize: 14,
             }}
           >
             Select a document to view

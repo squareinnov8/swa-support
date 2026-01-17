@@ -64,35 +64,34 @@ export function MessageBubble({ direction, fromEmail, createdAt, bodyText, bodyH
             gap: 8,
             marginBottom: 4,
             fontSize: 12,
-            color: "#6b7280",
+            color: "#7c98b6",
           }}
         >
           <span
             style={{
               fontWeight: 600,
-              color: isInbound ? "#1e40af" : "#166534",
+              color: isInbound ? "#0091ae" : "#00a182",
               textTransform: "uppercase",
               fontSize: 10,
+              letterSpacing: "0.5px",
             }}
           >
             {isInbound ? "Customer" : "Support"}
           </span>
           {fromEmail && (
-            <span>{fromEmail}</span>
+            <span style={{ color: "#516f90" }}>{fromEmail}</span>
           )}
-          <span>•</span>
+          <span>·</span>
           <span>{new Date(createdAt).toLocaleString()}</span>
         </div>
 
         {/* Message bubble */}
         <div
           style={{
-            padding: 16,
-            borderRadius: 12,
-            backgroundColor: isInbound ? "#eff6ff" : "#f0fdf4",
-            border: `1px solid ${isInbound ? "#bfdbfe" : "#bbf7d0"}`,
-            borderTopLeftRadius: isInbound ? 4 : 12,
-            borderTopRightRadius: isInbound ? 12 : 4,
+            padding: 14,
+            borderRadius: 4,
+            backgroundColor: isInbound ? "#e5f5f8" : "#e5f8f4",
+            border: `1px solid ${isInbound ? "#b0d6e0" : "#a8e4d0"}`,
           }}
         >
           {shouldRenderHtml ? (
@@ -126,10 +125,10 @@ export function MessageBubble({ direction, fromEmail, createdAt, bodyText, bodyH
                 marginTop: 12,
                 padding: "4px 8px",
                 fontSize: 11,
-                color: "#6b7280",
-                backgroundColor: "transparent",
-                border: "1px solid #d1d5db",
-                borderRadius: 4,
+                color: "#516f90",
+                backgroundColor: "#ffffff",
+                border: "1px solid #cbd6e2",
+                borderRadius: 3,
                 cursor: "pointer",
               }}
             >

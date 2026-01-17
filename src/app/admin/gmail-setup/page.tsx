@@ -114,180 +114,273 @@ export default function GmailSetupPage() {
 
   if (loading) {
     return (
-      <div style={{ padding: 24, fontFamily: "system-ui" }}>
-        <p>Loading...</p>
+      <div style={{ padding: 24, fontFamily: "system-ui, sans-serif" }}>
+        <p style={{ color: "#7c98b6" }}>Loading...</p>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: "system-ui", maxWidth: 600 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <h1 style={{ margin: 0 }}>Gmail Monitor Setup</h1>
-        <a href="/admin" style={{ color: "#1e40af", textDecoration: "none" }}>
+    <div style={{ padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 600 }}>
+      {/* Page Header */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 24,
+        }}
+      >
+        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 600, color: "#33475b" }}>
+          Gmail Monitor Setup
+        </h1>
+        <a
+          href="/admin"
+          style={{
+            color: "#0091ae",
+            textDecoration: "none",
+            fontSize: 14,
+            fontWeight: 500,
+          }}
+        >
           ← Back to Admin
         </a>
       </div>
 
       {error && (
-        <div style={{
-          padding: 16,
-          backgroundColor: "#fee2e2",
-          color: "#991b1b",
-          borderRadius: 8,
-          marginBottom: 16
-        }}>
+        <div
+          style={{
+            padding: 16,
+            backgroundColor: "#fde8e9",
+            color: "#c93b41",
+            borderRadius: 4,
+            marginBottom: 16,
+            border: "1px solid #f2545b",
+          }}
+        >
           {error}
         </div>
       )}
 
       {success && (
-        <div style={{
-          padding: 16,
-          backgroundColor: "#dcfce7",
-          color: "#166534",
-          borderRadius: 8,
-          marginBottom: 16
-        }}>
+        <div
+          style={{
+            padding: 16,
+            backgroundColor: "#e5f8f4",
+            color: "#00a182",
+            borderRadius: 4,
+            marginBottom: 16,
+            border: "1px solid #a8e4d0",
+          }}
+        >
           {success}
         </div>
       )}
 
       {/* Status Card */}
-      <div style={{
-        border: "1px solid #e5e7eb",
-        borderRadius: 8,
-        padding: 24,
-        marginBottom: 24,
-        backgroundColor: "white"
-      }}>
-        <h2 style={{ margin: "0 0 16px 0", fontSize: 18 }}>Connection Status</h2>
+      <div
+        style={{
+          border: "1px solid #cbd6e2",
+          borderRadius: 4,
+          overflow: "hidden",
+          marginBottom: 24,
+          backgroundColor: "white",
+        }}
+      >
+        <div
+          style={{
+            padding: "12px 16px",
+            backgroundColor: "#f5f8fa",
+            borderBottom: "1px solid #cbd6e2",
+          }}
+        >
+          <h2
+            style={{
+              margin: 0,
+              fontSize: 14,
+              fontWeight: 500,
+              color: "#516f90",
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
+            }}
+          >
+            Connection Status
+          </h2>
+        </div>
 
-        {!status?.configured ? (
-          <div>
-            <p style={{ color: "#dc2626", marginBottom: 16 }}>
-              Gmail OAuth not configured. Set environment variables:
-            </p>
-            <ul style={{ color: "#6b7280", fontSize: 14, marginBottom: 16 }}>
-              <li>GOOGLE_CLIENT_ID</li>
-              <li>GOOGLE_CLIENT_SECRET</li>
-              <li>GOOGLE_REDIRECT_URI</li>
-            </ul>
-          </div>
-        ) : !status.hasRefreshToken ? (
-          <div>
-            <p style={{ color: "#f59e0b", marginBottom: 16 }}>
-              Gmail OAuth configured but not connected. Click below to authorize.
-            </p>
-            <p style={{ color: "#6b7280", fontSize: 14, marginBottom: 16 }}>
-              You'll be redirected to Google to authorize access to <strong>support@squarewheelsauto.com</strong>
-            </p>
-            <button
-              onClick={handleConnect}
-              disabled={authorizing}
-              style={{
-                padding: "12px 24px",
-                backgroundColor: authorizing ? "#9ca3af" : "#dc2626",
-                color: "white",
-                border: "none",
-                borderRadius: 6,
-                fontSize: 16,
-                fontWeight: 500,
-                cursor: authorizing ? "not-allowed" : "pointer",
-              }}
-            >
-              {authorizing ? "Redirecting..." : "Connect Gmail Account"}
-            </button>
-          </div>
-        ) : (
-          <div>
-            <div style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              color: "#16a34a",
-              marginBottom: 16
-            }}>
-              <span style={{ fontSize: 20 }}>✓</span>
-              <span style={{ fontWeight: 500 }}>Connected to support@squarewheelsauto.com</span>
+        <div style={{ padding: 20 }}>
+          {!status?.configured ? (
+            <div>
+              <p style={{ color: "#c93b41", marginBottom: 16, fontSize: 14 }}>
+                Gmail OAuth not configured. Set environment variables:
+              </p>
+              <ul style={{ color: "#7c98b6", fontSize: 14, marginBottom: 16 }}>
+                <li>GOOGLE_CLIENT_ID</li>
+                <li>GOOGLE_CLIENT_SECRET</li>
+                <li>GOOGLE_REDIRECT_URI</li>
+              </ul>
             </div>
-
-            {status.monitorStatus && (
-              <div style={{ fontSize: 14, color: "#6b7280" }}>
-                <p>
-                  <strong>Status:</strong>{" "}
-                  {status.monitorStatus.enabled ? "Enabled" : "Disabled"}
-                </p>
-                <p>
-                  <strong>Last Sync:</strong>{" "}
-                  {status.monitorStatus.lastSyncAt
-                    ? new Date(status.monitorStatus.lastSyncAt).toLocaleString()
-                    : "Never"
-                  }
-                </p>
-                {status.monitorStatus.errorCount > 0 && (
-                  <p style={{ color: "#dc2626" }}>
-                    <strong>Errors:</strong> {status.monitorStatus.errorCount}
-                    {status.monitorStatus.lastError && ` - ${status.monitorStatus.lastError}`}
-                  </p>
-                )}
+          ) : !status.hasRefreshToken ? (
+            <div>
+              <p style={{ color: "#b36b00", marginBottom: 16, fontSize: 14 }}>
+                Gmail OAuth configured but not connected. Click below to authorize.
+              </p>
+              <p style={{ color: "#7c98b6", fontSize: 14, marginBottom: 16 }}>
+                You&apos;ll be redirected to Google to authorize access to{" "}
+                <strong style={{ color: "#33475b" }}>support@squarewheelsauto.com</strong>
+              </p>
+              <button
+                onClick={handleConnect}
+                disabled={authorizing}
+                style={{
+                  padding: "10px 20px",
+                  backgroundColor: authorizing ? "#cbd6e2" : "#0091ae",
+                  color: "white",
+                  border: "none",
+                  borderRadius: 4,
+                  fontSize: 14,
+                  fontWeight: 500,
+                  cursor: authorizing ? "not-allowed" : "pointer",
+                }}
+              >
+                {authorizing ? "Redirecting..." : "Connect Gmail Account"}
+              </button>
+            </div>
+          ) : (
+            <div>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  color: "#00a182",
+                  marginBottom: 16,
+                }}
+              >
+                <span style={{ fontSize: 18 }}>✓</span>
+                <span style={{ fontWeight: 600, fontSize: 15 }}>
+                  Connected to support@squarewheelsauto.com
+                </span>
               </div>
-            )}
 
-            <button
-              onClick={handleDisable}
-              style={{
-                marginTop: 16,
-                padding: "8px 16px",
-                backgroundColor: "white",
-                color: "#dc2626",
-                border: "1px solid #dc2626",
-                borderRadius: 6,
-                fontSize: 14,
-                cursor: "pointer",
-              }}
-            >
-              Disconnect Gmail
-            </button>
-          </div>
-        )}
+              {status.monitorStatus && (
+                <div style={{ fontSize: 14, color: "#7c98b6" }}>
+                  <p style={{ marginBottom: 8 }}>
+                    <strong style={{ color: "#516f90" }}>Status:</strong>{" "}
+                    {status.monitorStatus.enabled ? (
+                      <span style={{ color: "#00a182" }}>Enabled</span>
+                    ) : (
+                      <span style={{ color: "#b36b00" }}>Disabled</span>
+                    )}
+                  </p>
+                  <p style={{ marginBottom: 8 }}>
+                    <strong style={{ color: "#516f90" }}>Last Sync:</strong>{" "}
+                    {status.monitorStatus.lastSyncAt
+                      ? new Date(status.monitorStatus.lastSyncAt).toLocaleString()
+                      : "Never"}
+                  </p>
+                  {status.monitorStatus.errorCount > 0 && (
+                    <p style={{ color: "#c93b41" }}>
+                      <strong>Errors:</strong> {status.monitorStatus.errorCount}
+                      {status.monitorStatus.lastError &&
+                        ` - ${status.monitorStatus.lastError}`}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <button
+                onClick={handleDisable}
+                style={{
+                  marginTop: 16,
+                  padding: "8px 16px",
+                  backgroundColor: "white",
+                  color: "#c93b41",
+                  border: "1px solid #f2545b",
+                  borderRadius: 4,
+                  fontSize: 14,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                }}
+              >
+                Disconnect Gmail
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Instructions */}
-      <div style={{
-        border: "1px solid #e5e7eb",
-        borderRadius: 8,
-        padding: 24,
-        backgroundColor: "white"
-      }}>
-        <h2 style={{ margin: "0 0 16px 0", fontSize: 18 }}>How it works</h2>
-        <ol style={{ color: "#6b7280", fontSize: 14, paddingLeft: 20 }}>
-          <li style={{ marginBottom: 8 }}>
-            Connect the <strong>support@squarewheelsauto.com</strong> Gmail account
-          </li>
-          <li style={{ marginBottom: 8 }}>
-            The system will poll Gmail daily (or manually via the admin panel)
-          </li>
-          <li style={{ marginBottom: 8 }}>
-            New customer emails are processed through the AI agent
-          </li>
-          <li style={{ marginBottom: 8 }}>
-            Draft responses are generated and HubSpot tickets created
-          </li>
-        </ol>
+      <div
+        style={{
+          border: "1px solid #cbd6e2",
+          borderRadius: 4,
+          overflow: "hidden",
+          backgroundColor: "white",
+        }}
+      >
+        <div
+          style={{
+            padding: "12px 16px",
+            backgroundColor: "#f5f8fa",
+            borderBottom: "1px solid #cbd6e2",
+          }}
+        >
+          <h2
+            style={{
+              margin: 0,
+              fontSize: 14,
+              fontWeight: 500,
+              color: "#516f90",
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
+            }}
+          >
+            How it works
+          </h2>
+        </div>
 
-        <div style={{
-          marginTop: 16,
-          padding: 12,
-          backgroundColor: "#fef3c7",
-          borderRadius: 6,
-          fontSize: 13,
-          color: "#92400e"
-        }}>
-          <strong>Note:</strong> Make sure your Google Cloud Console has the redirect URI set to:{" "}
-          <code style={{ backgroundColor: "#fef9c3", padding: "2px 4px", borderRadius: 4 }}>
-            {typeof window !== "undefined" ? `${window.location.origin}/admin/gmail-setup` : "https://your-domain.com/admin/gmail-setup"}
-          </code>
+        <div style={{ padding: 20 }}>
+          <ol style={{ color: "#7c98b6", fontSize: 14, paddingLeft: 20, marginBottom: 16 }}>
+            <li style={{ marginBottom: 10 }}>
+              Connect the <strong style={{ color: "#33475b" }}>support@squarewheelsauto.com</strong>{" "}
+              Gmail account
+            </li>
+            <li style={{ marginBottom: 10 }}>
+              The system will poll Gmail daily (or manually via the admin panel)
+            </li>
+            <li style={{ marginBottom: 10 }}>
+              New customer emails are processed through the AI agent
+            </li>
+            <li style={{ marginBottom: 10 }}>
+              Draft responses are generated and HubSpot tickets created
+            </li>
+          </ol>
+
+          <div
+            style={{
+              padding: 12,
+              backgroundColor: "#fef6e7",
+              borderRadius: 4,
+              border: "1px solid #f5c26b",
+              fontSize: 13,
+              color: "#b36b00",
+            }}
+          >
+            <strong>Note:</strong> Make sure your Google Cloud Console has the redirect URI set to:{" "}
+            <code
+              style={{
+                backgroundColor: "rgba(255, 255, 255, 0.5)",
+                padding: "2px 6px",
+                borderRadius: 3,
+                fontFamily: "monospace",
+              }}
+            >
+              {typeof window !== "undefined"
+                ? `${window.location.origin}/admin/gmail-setup`
+                : "https://your-domain.com/admin/gmail-setup"}
+            </code>
+          </div>
         </div>
       </div>
     </div>

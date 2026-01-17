@@ -37,8 +37,8 @@ export default function AgentSettingsPanel() {
 
   if (loading) {
     return (
-      <div style={{ padding: 16, backgroundColor: "#f9fafb", borderRadius: 8, marginBottom: 24 }}>
-        Loading settings...
+      <div style={{ padding: 16, backgroundColor: "#ffffff", borderRadius: 4, marginBottom: 24, border: "1px solid #cbd6e2" }}>
+        <div style={{ color: "#516f90", fontSize: 14 }}>Loading settings...</div>
       </div>
     );
   }
@@ -51,19 +51,19 @@ export default function AgentSettingsPanel() {
     <div
       style={{
         padding: 16,
-        backgroundColor: "#f9fafb",
-        borderRadius: 8,
+        backgroundColor: "#ffffff",
+        borderRadius: 4,
         marginBottom: 24,
-        border: "1px solid #e5e7eb",
+        border: "1px solid #cbd6e2",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div>
-          <strong style={{ fontSize: 14 }}>Agent Mode</strong>
-          <p style={{ fontSize: 12, color: "#6b7280", margin: "4px 0 0 0" }}>
+          <div style={{ fontSize: 14, fontWeight: 500, color: "#33475b" }}>Agent Mode</div>
+          <p style={{ fontSize: 13, color: "#516f90", margin: "4px 0 0 0" }}>
             {settings.autoSendEnabled
-              ? "🟢 Auto-send: Agent will send replies automatically"
-              : "🟡 Draft only: Agent creates drafts for review"}
+              ? "Auto-send enabled — Agent will send replies automatically"
+              : "Draft mode — Agent creates drafts for review"}
           </p>
         </div>
 
@@ -71,11 +71,11 @@ export default function AgentSettingsPanel() {
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 8,
+            gap: 10,
             cursor: saving ? "wait" : "pointer",
           }}
         >
-          <span style={{ fontSize: 13, color: "#374151" }}>
+          <span style={{ fontSize: 13, color: settings.autoSendEnabled ? "#00a182" : "#516f90", fontWeight: 500 }}>
             {settings.autoSendEnabled ? "Auto-send ON" : "Drafts only"}
           </span>
           <div
@@ -84,7 +84,7 @@ export default function AgentSettingsPanel() {
               width: 44,
               height: 24,
               borderRadius: 12,
-              backgroundColor: settings.autoSendEnabled ? "#10b981" : "#d1d5db",
+              backgroundColor: settings.autoSendEnabled ? "#00a182" : "#cbd6e2",
               position: "relative",
               transition: "background-color 0.2s",
             }}
@@ -99,7 +99,7 @@ export default function AgentSettingsPanel() {
                 top: 2,
                 left: settings.autoSendEnabled ? 22 : 2,
                 transition: "left 0.2s",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                boxShadow: "0 1px 3px rgba(45,62,80,0.2)",
               }}
             />
           </div>
@@ -111,19 +111,20 @@ export default function AgentSettingsPanel() {
           style={{
             marginTop: 12,
             paddingTop: 12,
-            borderTop: "1px solid #e5e7eb",
-            fontSize: 12,
-            color: "#6b7280",
+            borderTop: "1px solid #eaf0f6",
+            fontSize: 13,
+            color: "#516f90",
           }}
         >
           <div style={{ display: "flex", gap: 16 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
               <input
                 type="checkbox"
                 checked={settings.requireVerificationForSend}
                 onChange={(e) =>
                   updateSetting("requireVerificationForSend", e.target.checked)
                 }
+                style={{ accentColor: "#0091ae" }}
               />
               Require customer verification for order-related auto-sends
             </label>

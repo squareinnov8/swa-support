@@ -93,9 +93,9 @@ export default function IntentList({ intents, usageByIntent }: IntentListProps) 
           <div
             key={intent.id}
             style={{
-              border: "1px solid #e5e7eb",
-              borderRadius: 8,
-              backgroundColor: intent.is_active ? "white" : "#f9fafb",
+              border: "1px solid #cbd6e2",
+              borderRadius: 4,
+              backgroundColor: intent.is_active ? "white" : "#f5f8fa",
               opacity: intent.is_active ? 1 : 0.7,
             }}
           >
@@ -110,27 +110,28 @@ export default function IntentList({ intents, usageByIntent }: IntentListProps) 
               }}
               onClick={() => setExpandedId(isExpanded ? null : intent.id)}
             >
-              <span style={{ color: "#9ca3af" }}>{isExpanded ? "▼" : "▶"}</span>
+              <span style={{ color: "#7c98b6", fontSize: 12 }}>{isExpanded ? "▼" : "▶"}</span>
 
               <code style={{
                 fontSize: 12,
-                backgroundColor: "#f3f4f6",
+                backgroundColor: "#eaf0f6",
                 padding: "2px 6px",
-                borderRadius: 4,
+                borderRadius: 3,
                 fontFamily: "monospace",
+                color: "#516f90",
               }}>
                 {intent.slug}
               </code>
 
-              <span style={{ fontWeight: 500, flex: 1 }}>{intent.name}</span>
+              <span style={{ fontWeight: 500, flex: 1, color: "#33475b" }}>{intent.name}</span>
 
               {intent.auto_escalate && (
                 <span style={{
                   fontSize: 10,
-                  backgroundColor: "#fee2e2",
-                  color: "#991b1b",
+                  backgroundColor: "#fde8e9",
+                  color: "#c93b41",
                   padding: "2px 6px",
-                  borderRadius: 4,
+                  borderRadius: 3,
                   fontWeight: 600,
                 }}>
                   ESCALATE
@@ -140,10 +141,11 @@ export default function IntentList({ intents, usageByIntent }: IntentListProps) 
               {intent.requires_verification && (
                 <span style={{
                   fontSize: 10,
-                  backgroundColor: "#dbeafe",
-                  color: "#1e40af",
+                  backgroundColor: "#e5f5f8",
+                  color: "#0091ae",
                   padding: "2px 6px",
-                  borderRadius: 4,
+                  borderRadius: 3,
+                  fontWeight: 500,
                 }}>
                   VERIFY
                 </span>
@@ -151,7 +153,7 @@ export default function IntentList({ intents, usageByIntent }: IntentListProps) 
 
               <span style={{
                 fontSize: 12,
-                color: "#6b7280",
+                color: "#7c98b6",
                 minWidth: 60,
                 textAlign: "right",
               }}>
@@ -160,10 +162,10 @@ export default function IntentList({ intents, usageByIntent }: IntentListProps) 
 
               <span style={{
                 fontSize: 11,
-                color: "#9ca3af",
-                backgroundColor: "#f3f4f6",
+                color: "#516f90",
+                backgroundColor: "#eaf0f6",
                 padding: "2px 8px",
-                borderRadius: 4,
+                borderRadius: 3,
               }}>
                 P{intent.priority}
               </span>
@@ -171,12 +173,12 @@ export default function IntentList({ intents, usageByIntent }: IntentListProps) 
 
             {/* Expanded Content */}
             {isExpanded && (
-              <div style={{ padding: "0 16px 16px 16px", borderTop: "1px solid #e5e7eb" }}>
+              <div style={{ padding: "0 16px 16px 16px", borderTop: "1px solid #cbd6e2" }}>
                 {isEditing ? (
                   /* Edit Form */
                   <div style={{ marginTop: 16 }}>
                     <div style={{ marginBottom: 12 }}>
-                      <label style={{ display: "block", fontSize: 12, fontWeight: 500, marginBottom: 4 }}>
+                      <label style={{ display: "block", fontSize: 11, fontWeight: 500, marginBottom: 4, color: "#516f90", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                         Name
                       </label>
                       <input
@@ -186,15 +188,15 @@ export default function IntentList({ intents, usageByIntent }: IntentListProps) 
                         style={{
                           width: "100%",
                           padding: 8,
-                          border: "1px solid #d1d5db",
-                          borderRadius: 6,
+                          border: "1px solid #cbd6e2",
+                          borderRadius: 4,
                           fontSize: 14,
                         }}
                       />
                     </div>
 
                     <div style={{ marginBottom: 12 }}>
-                      <label style={{ display: "block", fontSize: 12, fontWeight: 500, marginBottom: 4 }}>
+                      <label style={{ display: "block", fontSize: 11, fontWeight: 500, marginBottom: 4, color: "#516f90", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                         Description (for LLM context)
                       </label>
                       <textarea
@@ -204,8 +206,8 @@ export default function IntentList({ intents, usageByIntent }: IntentListProps) 
                         style={{
                           width: "100%",
                           padding: 8,
-                          border: "1px solid #d1d5db",
-                          borderRadius: 6,
+                          border: "1px solid #cbd6e2",
+                          borderRadius: 4,
                           fontSize: 14,
                           resize: "vertical",
                         }}
@@ -213,7 +215,7 @@ export default function IntentList({ intents, usageByIntent }: IntentListProps) 
                     </div>
 
                     <div style={{ marginBottom: 12 }}>
-                      <label style={{ display: "block", fontSize: 12, fontWeight: 500, marginBottom: 4 }}>
+                      <label style={{ display: "block", fontSize: 11, fontWeight: 500, marginBottom: 4, color: "#516f90", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                         Examples (one per line)
                       </label>
                       <textarea
@@ -226,8 +228,8 @@ export default function IntentList({ intents, usageByIntent }: IntentListProps) 
                         style={{
                           width: "100%",
                           padding: 8,
-                          border: "1px solid #d1d5db",
-                          borderRadius: 6,
+                          border: "1px solid #cbd6e2",
+                          borderRadius: 4,
                           fontSize: 13,
                           fontFamily: "monospace",
                           resize: "vertical",
@@ -238,7 +240,7 @@ export default function IntentList({ intents, usageByIntent }: IntentListProps) 
 
                     <div style={{ display: "flex", gap: 16, marginBottom: 12 }}>
                       <div>
-                        <label style={{ display: "block", fontSize: 12, fontWeight: 500, marginBottom: 4 }}>
+                        <label style={{ display: "block", fontSize: 11, fontWeight: 500, marginBottom: 4, color: "#516f90", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                           Priority
                         </label>
                         <input
@@ -248,8 +250,8 @@ export default function IntentList({ intents, usageByIntent }: IntentListProps) 
                           style={{
                             width: 80,
                             padding: 8,
-                            border: "1px solid #d1d5db",
-                            borderRadius: 6,
+                            border: "1px solid #cbd6e2",
+                            borderRadius: 4,
                             fontSize: 14,
                           }}
                         />
@@ -261,7 +263,7 @@ export default function IntentList({ intents, usageByIntent }: IntentListProps) 
                           checked={editForm.requires_verification || false}
                           onChange={(e) => setEditForm({ ...editForm, requires_verification: e.target.checked })}
                         />
-                        <span style={{ fontSize: 13 }}>Requires Verification</span>
+                        <span style={{ fontSize: 13, color: "#33475b" }}>Requires Verification</span>
                       </label>
 
                       <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
@@ -270,7 +272,7 @@ export default function IntentList({ intents, usageByIntent }: IntentListProps) 
                           checked={editForm.auto_escalate || false}
                           onChange={(e) => setEditForm({ ...editForm, auto_escalate: e.target.checked })}
                         />
-                        <span style={{ fontSize: 13 }}>Auto-Escalate</span>
+                        <span style={{ fontSize: 13, color: "#33475b" }}>Auto-Escalate</span>
                       </label>
                     </div>
 
@@ -280,10 +282,10 @@ export default function IntentList({ intents, usageByIntent }: IntentListProps) 
                         disabled={saving}
                         style={{
                           padding: "8px 16px",
-                          backgroundColor: "#1e40af",
+                          backgroundColor: saving ? "#cbd6e2" : "#00a182",
                           color: "white",
                           border: "none",
-                          borderRadius: 6,
+                          borderRadius: 4,
                           cursor: saving ? "not-allowed" : "pointer",
                           fontSize: 14,
                           fontWeight: 500,
@@ -295,10 +297,10 @@ export default function IntentList({ intents, usageByIntent }: IntentListProps) 
                         onClick={() => setEditingId(null)}
                         style={{
                           padding: "8px 16px",
-                          backgroundColor: "#f3f4f6",
-                          color: "#374151",
-                          border: "1px solid #d1d5db",
-                          borderRadius: 6,
+                          backgroundColor: "#eaf0f6",
+                          color: "#516f90",
+                          border: "1px solid #cbd6e2",
+                          borderRadius: 4,
                           cursor: "pointer",
                           fontSize: 14,
                         }}
@@ -311,14 +313,14 @@ export default function IntentList({ intents, usageByIntent }: IntentListProps) 
                   /* View Mode */
                   <div style={{ marginTop: 12 }}>
                     {intent.description && (
-                      <p style={{ fontSize: 14, color: "#4b5563", margin: "0 0 12px 0" }}>
+                      <p style={{ fontSize: 14, color: "#516f90", margin: "0 0 12px 0" }}>
                         {intent.description}
                       </p>
                     )}
 
                     {intent.examples && intent.examples.length > 0 && (
                       <div style={{ marginBottom: 12 }}>
-                        <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 4, color: "#6b7280" }}>
+                        <div style={{ fontSize: 11, fontWeight: 500, marginBottom: 6, color: "#7c98b6", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                           Example phrases:
                         </div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -327,17 +329,17 @@ export default function IntentList({ intents, usageByIntent }: IntentListProps) 
                               key={i}
                               style={{
                                 fontSize: 11,
-                                backgroundColor: "#f3f4f6",
+                                backgroundColor: "#eaf0f6",
                                 padding: "2px 8px",
-                                borderRadius: 4,
-                                color: "#4b5563",
+                                borderRadius: 3,
+                                color: "#516f90",
                               }}
                             >
                               {ex}
                             </code>
                           ))}
                           {intent.examples.length > 8 && (
-                            <span style={{ fontSize: 11, color: "#9ca3af" }}>
+                            <span style={{ fontSize: 11, color: "#7c98b6" }}>
                               +{intent.examples.length - 8} more
                             </span>
                           )}
@@ -349,13 +351,14 @@ export default function IntentList({ intents, usageByIntent }: IntentListProps) 
                       <button
                         onClick={() => handleEdit(intent)}
                         style={{
-                          padding: "6px 12px",
-                          backgroundColor: "#f3f4f6",
-                          color: "#374151",
-                          border: "1px solid #d1d5db",
-                          borderRadius: 6,
+                          padding: "6px 14px",
+                          backgroundColor: "#0091ae",
+                          color: "white",
+                          border: "none",
+                          borderRadius: 4,
                           cursor: "pointer",
                           fontSize: 13,
+                          fontWeight: 500,
                         }}
                       >
                         Edit
@@ -363,13 +366,14 @@ export default function IntentList({ intents, usageByIntent }: IntentListProps) 
                       <button
                         onClick={() => handleToggle(intent)}
                         style={{
-                          padding: "6px 12px",
-                          backgroundColor: intent.is_active ? "#fef3c7" : "#dcfce7",
-                          color: intent.is_active ? "#92400e" : "#166534",
-                          border: "none",
-                          borderRadius: 6,
+                          padding: "6px 14px",
+                          backgroundColor: intent.is_active ? "#fef6e7" : "#e5f8f4",
+                          color: intent.is_active ? "#b36b00" : "#00a182",
+                          border: intent.is_active ? "1px solid #f5c26b" : "1px solid #a8e4d0",
+                          borderRadius: 4,
                           cursor: "pointer",
                           fontSize: 13,
+                          fontWeight: 500,
                         }}
                       >
                         {intent.is_active ? "Deactivate" : "Activate"}
@@ -378,13 +382,14 @@ export default function IntentList({ intents, usageByIntent }: IntentListProps) 
                         <button
                           onClick={() => handleDelete(intent)}
                           style={{
-                            padding: "6px 12px",
-                            backgroundColor: "#fee2e2",
-                            color: "#991b1b",
-                            border: "none",
-                            borderRadius: 6,
+                            padding: "6px 14px",
+                            backgroundColor: "#fde8e9",
+                            color: "#c93b41",
+                            border: "1px solid #f2545b",
+                            borderRadius: 4,
                             cursor: "pointer",
                             fontSize: 13,
+                            fontWeight: 500,
                           }}
                         >
                           Delete

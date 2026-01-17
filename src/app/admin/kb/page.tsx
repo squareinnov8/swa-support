@@ -54,42 +54,75 @@ export default async function KBPage() {
   const uniqueEmbeddedDocs = new Set(chunkStats?.map((c) => c.doc_id) || []).size;
 
   return (
-    <div style={{ padding: 24, fontFamily: "system-ui", maxWidth: 1200 }}>
+    <div style={{ padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 1200 }}>
+      {/* Page Header */}
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
+          marginBottom: 20,
         }}
       >
-        <h1 style={{ margin: 0 }}>Knowledge Base</h1>
-        <a href="/admin" style={{ color: "#3b82f6" }}>
+        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 600, color: "#33475b" }}>
+          Knowledge Base
+        </h1>
+        <a
+          href="/admin"
+          style={{
+            color: "#0091ae",
+            textDecoration: "none",
+            fontSize: 14,
+            fontWeight: 500,
+          }}
+        >
           ← Back to Inbox
         </a>
       </div>
 
+      {/* Stats Cards */}
       <div
         style={{
           display: "flex",
-          gap: 24,
-          marginTop: 16,
+          gap: 16,
           marginBottom: 24,
-          padding: 16,
-          backgroundColor: "#f9fafb",
-          borderRadius: 8,
         }}
       >
-        <div>
-          <div style={{ fontSize: 24, fontWeight: 600 }}>{totalDocs || 0}</div>
-          <div style={{ fontSize: 13, color: "#6b7280" }}>Total Documents</div>
+        <div
+          style={{
+            flex: 1,
+            padding: 16,
+            backgroundColor: "#ffffff",
+            borderRadius: 4,
+            border: "1px solid #cbd6e2",
+          }}
+        >
+          <div style={{ fontSize: 28, fontWeight: 600, color: "#33475b" }}>{totalDocs || 0}</div>
+          <div style={{ fontSize: 13, color: "#7c98b6", marginTop: 4 }}>Total Documents</div>
         </div>
-        <div>
-          <div style={{ fontSize: 24, fontWeight: 600 }}>{uniqueEmbeddedDocs}</div>
-          <div style={{ fontSize: 13, color: "#6b7280" }}>With Embeddings</div>
+        <div
+          style={{
+            flex: 1,
+            padding: 16,
+            backgroundColor: "#ffffff",
+            borderRadius: 4,
+            border: "1px solid #cbd6e2",
+          }}
+        >
+          <div style={{ fontSize: 28, fontWeight: 600, color: "#00a182" }}>{uniqueEmbeddedDocs}</div>
+          <div style={{ fontSize: 13, color: "#7c98b6", marginTop: 4 }}>With Embeddings</div>
         </div>
-        <div>
-          <div style={{ fontSize: 24, fontWeight: 600 }}>{categories?.length || 0}</div>
-          <div style={{ fontSize: 13, color: "#6b7280" }}>Categories</div>
+        <div
+          style={{
+            flex: 1,
+            padding: 16,
+            backgroundColor: "#ffffff",
+            borderRadius: 4,
+            border: "1px solid #cbd6e2",
+          }}
+        >
+          <div style={{ fontSize: 28, fontWeight: 600, color: "#0091ae" }}>{categories?.length || 0}</div>
+          <div style={{ fontSize: 13, color: "#7c98b6", marginTop: 4 }}>Categories</div>
         </div>
       </div>
 

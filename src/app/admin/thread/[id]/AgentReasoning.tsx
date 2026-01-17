@@ -186,135 +186,187 @@ export function AgentReasoning({
   }
 
   return (
-    <div style={{ marginTop: 24 }}>
-      <h2 style={{ marginBottom: 16 }}>Agent Reasoning</h2>
-
-      {/* Quick Stats Grid */}
+    <div
+      style={{
+        marginTop: 24,
+        border: "1px solid #cbd6e2",
+        borderRadius: 4,
+        backgroundColor: "#ffffff",
+        overflow: "hidden",
+      }}
+    >
+      {/* Section Header */}
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-          gap: 12,
-          marginBottom: 20,
+          padding: "12px 16px",
+          backgroundColor: "#f5f8fa",
+          borderBottom: "1px solid #cbd6e2",
         }}
       >
-        {/* Intent */}
-        <div
+        <span
           style={{
-            padding: 16,
-            backgroundColor: "#f0f9ff",
-            borderRadius: 8,
-            border: "1px solid #bae6fd",
+            fontWeight: 500,
+            fontSize: 12,
+            color: "#516f90",
+            textTransform: "uppercase",
+            letterSpacing: "0.5px",
           }}
         >
-          <div style={{ fontSize: 12, color: "#0369a1", marginBottom: 4 }}>
-            Intent Classification
-          </div>
-          <div style={{ fontWeight: 600, fontSize: 16 }}>{intent || "—"}</div>
-          {confidence !== null && (
-            <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
-              Confidence: {Math.round(confidence * 100)}%
-            </div>
-          )}
-        </div>
-
-        {/* Verification */}
-        <div
-          style={{
-            padding: 16,
-            backgroundColor: verification?.status === "verified" ? "#f0fdf4" : "#fef3c7",
-            borderRadius: 8,
-            border: `1px solid ${verification?.status === "verified" ? "#86efac" : "#fcd34d"}`,
-          }}
-        >
-          <div
-            style={{
-              fontSize: 12,
-              color: verification?.status === "verified" ? "#166534" : "#92400e",
-              marginBottom: 4,
-            }}
-          >
-            Customer Verification
-          </div>
-          <div style={{ fontWeight: 600, fontSize: 16 }}>
-            {verification?.status || "Not verified"}
-          </div>
-          {verification?.orderNumber && (
-            <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
-              Order: #{verification.orderNumber}
-            </div>
-          )}
-          {verification?.flags && verification.flags.length > 0 && (
-            <div style={{ fontSize: 12, color: "#dc2626", marginTop: 4 }}>
-              Flags: {verification.flags.join(", ")}
-            </div>
-          )}
-        </div>
-
-        {/* KB Docs Used */}
-        <div
-          style={{
-            padding: 16,
-            backgroundColor: "#faf5ff",
-            borderRadius: 8,
-            border: "1px solid #d8b4fe",
-          }}
-        >
-          <div style={{ fontSize: 12, color: "#7c3aed", marginBottom: 4 }}>
-            Knowledge Base
-          </div>
-          <div style={{ fontWeight: 600, fontSize: 16 }}>
-            {kbDocs.length} doc{kbDocs.length !== 1 ? "s" : ""} used
-          </div>
-          {kbDocs.length > 0 && (
-            <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
-              {kbDocs.map((d) => d.title).join(", ")}
-            </div>
-          )}
-        </div>
-
-        {/* Policy Gate */}
-        <div
-          style={{
-            padding: 16,
-            backgroundColor: draftInfo?.policyGatePassed ? "#f0fdf4" : "#fef2f2",
-            borderRadius: 8,
-            border: `1px solid ${draftInfo?.policyGatePassed ? "#86efac" : "#fecaca"}`,
-          }}
-        >
-          <div
-            style={{
-              fontSize: 12,
-              color: draftInfo?.policyGatePassed ? "#166534" : "#991b1b",
-              marginBottom: 4,
-            }}
-          >
-            Policy Gate
-          </div>
-          <div style={{ fontWeight: 600, fontSize: 16 }}>
-            {draftInfo?.policyGatePassed ? "✓ Passed" : "✗ Blocked"}
-          </div>
-          {draftInfo?.policyViolations && draftInfo.policyViolations.length > 0 && (
-            <div style={{ fontSize: 12, color: "#dc2626", marginTop: 4 }}>
-              {draftInfo.policyViolations.join(", ")}
-            </div>
-          )}
-        </div>
+          Agent Reasoning
+        </span>
       </div>
 
-      {/* Token Usage */}
-      {draftInfo && (draftInfo.promptTokens > 0 || draftInfo.completionTokens > 0) && (
-        <div style={{ fontSize: 12, color: "#64748b", marginBottom: 16 }}>
-          Tokens: {draftInfo.promptTokens} prompt + {draftInfo.completionTokens} completion
+      <div style={{ padding: 16 }}>
+        {/* Quick Stats Grid */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+            gap: 12,
+            marginBottom: 16,
+          }}
+        >
+          {/* Intent */}
+          <div
+            style={{
+              padding: 14,
+              backgroundColor: "#e5f5f8",
+              borderRadius: 4,
+              border: "1px solid #b0d6e0",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                color: "#0091ae",
+                marginBottom: 4,
+                textTransform: "uppercase",
+                fontWeight: 500,
+                letterSpacing: "0.5px",
+              }}
+            >
+              Intent Classification
+            </div>
+            <div style={{ fontWeight: 600, fontSize: 15, color: "#33475b" }}>{intent || "—"}</div>
+            {confidence !== null && (
+              <div style={{ fontSize: 12, color: "#7c98b6", marginTop: 4 }}>
+                Confidence: {Math.round(confidence * 100)}%
+              </div>
+            )}
+          </div>
+
+          {/* Verification */}
+          <div
+            style={{
+              padding: 14,
+              backgroundColor: verification?.status === "verified" ? "#e5f8f4" : "#fef6e7",
+              borderRadius: 4,
+              border: `1px solid ${verification?.status === "verified" ? "#a8e4d0" : "#f5c26b"}`,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                color: verification?.status === "verified" ? "#00a182" : "#b36b00",
+                marginBottom: 4,
+                textTransform: "uppercase",
+                fontWeight: 500,
+                letterSpacing: "0.5px",
+              }}
+            >
+              Customer Verification
+            </div>
+            <div style={{ fontWeight: 600, fontSize: 15, color: "#33475b" }}>
+              {verification?.status || "Not verified"}
+            </div>
+            {verification?.orderNumber && (
+              <div style={{ fontSize: 12, color: "#7c98b6", marginTop: 4 }}>
+                Order: #{verification.orderNumber}
+              </div>
+            )}
+            {verification?.flags && verification.flags.length > 0 && (
+              <div style={{ fontSize: 12, color: "#c93b41", marginTop: 4 }}>
+                Flags: {verification.flags.join(", ")}
+              </div>
+            )}
+          </div>
+
+          {/* KB Docs Used */}
+          <div
+            style={{
+              padding: 14,
+              backgroundColor: "#eaf0f6",
+              borderRadius: 4,
+              border: "1px solid #cbd6e2",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                color: "#516f90",
+                marginBottom: 4,
+                textTransform: "uppercase",
+                fontWeight: 500,
+                letterSpacing: "0.5px",
+              }}
+            >
+              Knowledge Base
+            </div>
+            <div style={{ fontWeight: 600, fontSize: 15, color: "#33475b" }}>
+              {kbDocs.length} doc{kbDocs.length !== 1 ? "s" : ""} used
+            </div>
+            {kbDocs.length > 0 && (
+              <div style={{ fontSize: 12, color: "#7c98b6", marginTop: 4 }}>
+                {kbDocs.map((d) => d.title).join(", ")}
+              </div>
+            )}
+          </div>
+
+          {/* Policy Gate */}
+          <div
+            style={{
+              padding: 14,
+              backgroundColor: draftInfo?.policyGatePassed ? "#e5f8f4" : "#fde8e9",
+              borderRadius: 4,
+              border: `1px solid ${draftInfo?.policyGatePassed ? "#a8e4d0" : "#f2545b"}`,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                color: draftInfo?.policyGatePassed ? "#00a182" : "#c93b41",
+                marginBottom: 4,
+                textTransform: "uppercase",
+                fontWeight: 500,
+                letterSpacing: "0.5px",
+              }}
+            >
+              Policy Gate
+            </div>
+            <div style={{ fontWeight: 600, fontSize: 15, color: "#33475b" }}>
+              {draftInfo?.policyGatePassed ? "✓ Passed" : "✗ Blocked"}
+            </div>
+            {draftInfo?.policyViolations && draftInfo.policyViolations.length > 0 && (
+              <div style={{ fontSize: 12, color: "#c93b41", marginTop: 4 }}>
+                {draftInfo.policyViolations.join(", ")}
+              </div>
+            )}
+          </div>
         </div>
-      )}
+
+        {/* Token Usage */}
+        {draftInfo && (draftInfo.promptTokens > 0 || draftInfo.completionTokens > 0) && (
+          <div style={{ fontSize: 12, color: "#7c98b6", marginBottom: 16 }}>
+            Tokens: {draftInfo.promptTokens} prompt + {draftInfo.completionTokens} completion
+          </div>
+        )}
 
       {/* Chat with Agent Section */}
       <div
         style={{
-          marginTop: 24,
-          border: "2px solid #8b5cf6",
-          borderRadius: 8,
+          marginTop: 16,
+          border: "1px solid #cbd6e2",
+          borderRadius: 4,
           overflow: "hidden",
         }}
       >
@@ -322,13 +374,13 @@ export function AgentReasoning({
           onClick={() => setShowChat(!showChat)}
           style={{
             width: "100%",
-            padding: 16,
-            backgroundColor: "#8b5cf6",
+            padding: "12px 16px",
+            backgroundColor: "#0091ae",
             color: "white",
             border: "none",
             cursor: "pointer",
-            fontWeight: 600,
-            fontSize: 16,
+            fontWeight: 500,
+            fontSize: 14,
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
@@ -337,16 +389,16 @@ export function AgentReasoning({
           <span>
             💬 Chat with Lina about this thread
             {chatMessages.length > 0 && (
-              <span style={{ opacity: 0.7, marginLeft: 8, fontSize: 14 }}>
+              <span style={{ opacity: 0.8, marginLeft: 8, fontSize: 13 }}>
                 ({chatMessages.length} messages)
               </span>
             )}
           </span>
-          <span>{showChat ? "▼" : "▶"}</span>
+          <span style={{ fontSize: 12 }}>{showChat ? "▼" : "▶"}</span>
         </button>
 
         {showChat && (
-          <div style={{ backgroundColor: "#faf5ff" }}>
+          <div style={{ backgroundColor: "#f5f8fa" }}>
             {/* Chat Header with Actions */}
             {chatMessages.length > 0 && (
               <div
@@ -354,7 +406,7 @@ export function AgentReasoning({
                   display: "flex",
                   justifyContent: "flex-end",
                   padding: "8px 12px",
-                  borderBottom: "1px solid #e5e7eb",
+                  borderBottom: "1px solid #cbd6e2",
                   gap: 8,
                 }}
               >
@@ -363,8 +415,8 @@ export function AgentReasoning({
                   style={{
                     padding: "6px 12px",
                     backgroundColor: "transparent",
-                    color: "#6b7280",
-                    border: "1px solid #d1d5db",
+                    color: "#516f90",
+                    border: "1px solid #cbd6e2",
                     borderRadius: 4,
                     cursor: "pointer",
                     fontSize: 12,
@@ -383,24 +435,24 @@ export function AgentReasoning({
                   alignItems: "center",
                   justifyContent: "space-between",
                   padding: 12,
-                  backgroundColor: "#fef3c7",
-                  borderBottom: "1px solid #fcd34d",
+                  backgroundColor: "#fef6e7",
+                  borderBottom: "1px solid #f5c26b",
                 }}
               >
-                <span style={{ color: "#92400e", fontSize: 14 }}>
+                <span style={{ color: "#b36b00", fontSize: 14 }}>
                   💡 Want to make this instruction permanent?
                 </span>
                 <button
                   onClick={handleCreateFeedback}
                   style={{
                     padding: "8px 16px",
-                    backgroundColor: "#f59e0b",
-                    color: "white",
+                    backgroundColor: "#f5c26b",
+                    color: "#33475b",
                     border: "none",
-                    borderRadius: 6,
+                    borderRadius: 4,
                     cursor: "pointer",
                     fontWeight: 600,
-                    fontSize: 14,
+                    fontSize: 13,
                   }}
                 >
                   Create Feedback Entry
@@ -419,15 +471,15 @@ export function AgentReasoning({
               }}
             >
               {isLoadingHistory ? (
-                <div style={{ color: "#64748b", fontStyle: "italic" }}>
+                <div style={{ color: "#7c98b6", fontStyle: "italic" }}>
                   Loading conversation history...
                 </div>
               ) : chatMessages.length === 0 ? (
-                <div style={{ color: "#64748b", fontStyle: "italic" }}>
+                <div style={{ color: "#7c98b6", fontStyle: "italic", fontSize: 14 }}>
                   Ask Lina anything about this thread - why she responded this way,
                   what KB docs she used, how to handle the case differently...
                   <br /><br />
-                  <strong>Tip:</strong> Lina now uses your real agent instructions and will cite
+                  <strong style={{ color: "#516f90" }}>Tip:</strong> Lina now uses your real agent instructions and will cite
                   sources. If you give her feedback, she&apos;ll suggest creating a feedback entry
                   to make it permanent.
                 </div>
@@ -445,23 +497,31 @@ export function AgentReasoning({
                     <div
                       style={{
                         padding: "10px 14px",
-                        borderRadius: 12,
+                        borderRadius: 4,
                         maxWidth: "80%",
-                        backgroundColor: msg.role === "user" ? "#8b5cf6" : "white",
-                        color: msg.role === "user" ? "white" : "#1f2937",
-                        border: msg.role === "user" ? "none" : "1px solid #e5e7eb",
+                        backgroundColor: msg.role === "user" ? "#0091ae" : "white",
+                        color: msg.role === "user" ? "white" : "#33475b",
+                        border: msg.role === "user" ? "none" : "1px solid #cbd6e2",
                       }}
                     >
-                      <div style={{ fontSize: 11, marginBottom: 4, opacity: 0.7 }}>
+                      <div
+                        style={{
+                          fontSize: 10,
+                          marginBottom: 4,
+                          opacity: 0.8,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.5px",
+                        }}
+                      >
                         {msg.role === "user" ? "You" : "Lina"}
                       </div>
-                      <div style={{ whiteSpace: "pre-wrap" }}>{msg.content}</div>
+                      <div style={{ whiteSpace: "pre-wrap", fontSize: 14 }}>{msg.content}</div>
                     </div>
                   </div>
                 ))
               )}
               {isLoading && (
-                <div style={{ color: "#64748b", fontStyle: "italic" }}>
+                <div style={{ color: "#7c98b6", fontStyle: "italic" }}>
                   Lina is thinking...
                 </div>
               )}
@@ -474,7 +534,7 @@ export function AgentReasoning({
                 display: "flex",
                 gap: 8,
                 padding: 12,
-                borderTop: "1px solid #e5e7eb",
+                borderTop: "1px solid #cbd6e2",
                 backgroundColor: "white",
               }}
             >
@@ -485,10 +545,11 @@ export function AgentReasoning({
                 placeholder="Ask Lina about this thread..."
                 style={{
                   flex: 1,
-                  padding: 12,
-                  border: "1px solid #d1d5db",
-                  borderRadius: 6,
+                  padding: 10,
+                  border: "1px solid #cbd6e2",
+                  borderRadius: 4,
                   fontFamily: "inherit",
+                  fontSize: 14,
                 }}
                 disabled={isLoading}
               />
@@ -496,13 +557,14 @@ export function AgentReasoning({
                 type="submit"
                 disabled={isLoading || !inputMessage.trim()}
                 style={{
-                  padding: "12px 20px",
-                  backgroundColor: isLoading ? "#d1d5db" : "#8b5cf6",
+                  padding: "10px 20px",
+                  backgroundColor: isLoading ? "#cbd6e2" : "#0091ae",
                   color: "white",
                   border: "none",
-                  borderRadius: 6,
+                  borderRadius: 4,
                   cursor: isLoading ? "not-allowed" : "pointer",
-                  fontWeight: 600,
+                  fontWeight: 500,
+                  fontSize: 14,
                 }}
               >
                 Send
@@ -510,6 +572,7 @@ export function AgentReasoning({
             </form>
           </div>
         )}
+      </div>
       </div>
     </div>
   );

@@ -11,26 +11,46 @@ export default async function InstructionsPage() {
 
   if (error) {
     return (
-      <div style={{ padding: 24, fontFamily: "system-ui" }}>
-        <h1>Agent Instructions</h1>
-        <p style={{ color: "red" }}>Error loading instructions: {error.message}</p>
+      <div style={{ padding: 24, fontFamily: "system-ui, sans-serif" }}>
+        <h1 style={{ color: "#33475b" }}>Agent Instructions</h1>
+        <p style={{ color: "#c93b41" }}>Error loading instructions: {error.message}</p>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: "system-ui", maxWidth: 1000 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h1 style={{ margin: 0 }}>Agent Instructions</h1>
-        <a href="/admin" style={{ color: "#3b82f6" }}>← Back to Inbox</a>
+    <div style={{ padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 1000 }}>
+      {/* Page Header */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 8,
+        }}
+      >
+        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 600, color: "#33475b" }}>
+          Agent Instructions
+        </h1>
+        <a
+          href="/admin"
+          style={{
+            color: "#0091ae",
+            textDecoration: "none",
+            fontSize: 14,
+            fontWeight: 500,
+          }}
+        >
+          ← Back to Inbox
+        </a>
       </div>
 
-      <p style={{ color: "#666", marginTop: 8 }}>
+      <p style={{ color: "#7c98b6", marginTop: 8, fontSize: 14, marginBottom: 24 }}>
         Edit these instructions to control how the agent responds. Changes are applied immediately.
         Feedback from draft reviews will automatically integrate into the relevant sections.
       </p>
 
-      <div style={{ marginTop: 24 }}>
+      <div>
         {instructions?.map((instruction) => (
           <InstructionEditor
             key={instruction.id}

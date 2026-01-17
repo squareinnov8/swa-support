@@ -1,7 +1,7 @@
 /**
  * Admin Layout
  *
- * Wraps all admin pages with a header showing current user and logout button.
+ * HubSpot-inspired layout with sticky header and navigation.
  */
 
 import { getSession } from "@/lib/auth";
@@ -20,60 +20,119 @@ export default async function AdminLayout({
   }
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#f9fafb" }}>
+    <div style={{ minHeight: "100vh", backgroundColor: "#f5f8fa" }}>
       {/* Header */}
       <header
         style={{
-          backgroundColor: "white",
-          borderBottom: "1px solid #e5e7eb",
-          padding: "12px 24px",
+          backgroundColor: "#2d3e50",
+          padding: "0 24px",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
+          height: 56,
           position: "sticky",
           top: 0,
           zIndex: 50,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
           <a
             href="/admin"
             style={{
               fontWeight: 600,
-              fontSize: 18,
-              color: "#111827",
+              fontSize: 16,
+              color: "#ffffff",
               textDecoration: "none",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
             }}
           >
-            Lina Support
+            <span
+              style={{
+                width: 28,
+                height: 28,
+                backgroundColor: "#ff7a59",
+                borderRadius: 4,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 14,
+                fontWeight: 700,
+              }}
+            >
+              L
+            </span>
+            Lina
           </a>
-          <span
-            style={{
-              fontSize: 12,
-              color: "#6b7280",
-              backgroundColor: "#f3f4f6",
-              padding: "4px 8px",
-              borderRadius: 4,
-            }}
-          >
-            SquareWheels Auto
-          </span>
+          <nav style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <a
+              href="/admin"
+              style={{
+                padding: "8px 14px",
+                fontSize: 14,
+                fontWeight: 500,
+                color: "#99acc2",
+                textDecoration: "none",
+                borderRadius: 4,
+              }}
+            >
+              Inbox
+            </a>
+            <a
+              href="/admin/kb"
+              style={{
+                padding: "8px 14px",
+                fontSize: 14,
+                fontWeight: 500,
+                color: "#99acc2",
+                textDecoration: "none",
+                borderRadius: 4,
+              }}
+            >
+              Knowledge Base
+            </a>
+            <a
+              href="/admin/intents"
+              style={{
+                padding: "8px 14px",
+                fontSize: 14,
+                fontWeight: 500,
+                color: "#99acc2",
+                textDecoration: "none",
+                borderRadius: 4,
+              }}
+            >
+              Intents
+            </a>
+            <a
+              href="/admin/instructions"
+              style={{
+                padding: "8px 14px",
+                fontSize: 14,
+                fontWeight: 500,
+                color: "#99acc2",
+                textDecoration: "none",
+                borderRadius: 4,
+              }}
+            >
+              Instructions
+            </a>
+          </nav>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <span style={{ fontSize: 14, color: "#6b7280" }}>
+          <span style={{ fontSize: 14, color: "#99acc2" }}>
             {session.email}
           </span>
           <a
             href="/api/auth/logout"
             style={{
-              fontSize: 14,
-              color: "#991b1b",
+              fontSize: 13,
+              color: "#ff8f73",
               textDecoration: "none",
               padding: "6px 12px",
-              borderRadius: 6,
-              backgroundColor: "#fef2f2",
-              border: "1px solid #fecaca",
+              borderRadius: 4,
             }}
           >
             Sign out

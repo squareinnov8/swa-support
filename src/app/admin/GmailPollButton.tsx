@@ -53,16 +53,16 @@ export function GmailPollButton() {
   }
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <button
         onClick={() => handlePoll(false)}
         disabled={polling}
         style={{
-          padding: "8px 16px",
-          backgroundColor: polling ? "#9ca3af" : "#059669",
-          color: "white",
-          borderRadius: 6,
-          border: "none",
+          padding: "9px 14px",
+          backgroundColor: polling ? "#cbd6e2" : "#ffffff",
+          color: polling ? "#7c98b6" : "#33475b",
+          borderRadius: 4,
+          border: "1px solid #cbd6e2",
           fontSize: 14,
           fontWeight: 500,
           cursor: polling ? "not-allowed" : "pointer",
@@ -79,18 +79,18 @@ export function GmailPollButton() {
             Polling...
           </>
         ) : (
-          <>📧 Poll New</>
+          <>Poll Gmail</>
         )}
       </button>
       <button
         onClick={() => handlePoll(true)}
         disabled={polling}
         style={{
-          padding: "8px 16px",
-          backgroundColor: polling ? "#9ca3af" : "#dc2626",
-          color: "white",
-          borderRadius: 6,
-          border: "none",
+          padding: "9px 14px",
+          backgroundColor: polling ? "#cbd6e2" : "#ffffff",
+          color: polling ? "#7c98b6" : "#33475b",
+          borderRadius: 4,
+          border: "1px solid #cbd6e2",
           fontSize: 14,
           fontWeight: 500,
           cursor: polling ? "not-allowed" : "pointer",
@@ -99,25 +99,28 @@ export function GmailPollButton() {
           gap: 6,
         }}
       >
-        📥 Fetch Recent (2 days)
+        Fetch Recent
       </button>
 
       {showResult && result && (
         <div
           style={{
-            padding: "6px 12px",
-            borderRadius: 6,
+            padding: "8px 12px",
+            borderRadius: 4,
             fontSize: 13,
             backgroundColor: result.error
-              ? "#fee2e2"
+              ? "#fde8e9"
               : result.skipped
-              ? "#fef3c7"
-              : "#dcfce7",
+              ? "#fef6e7"
+              : "#e5f8f4",
             color: result.error
-              ? "#991b1b"
+              ? "#c93b41"
               : result.skipped
-              ? "#92400e"
-              : "#166534",
+              ? "#b36b00"
+              : "#00a182",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
           }}
         >
           {result.error ? (
@@ -129,9 +132,9 @@ export function GmailPollButton() {
               <span>
                 {result.stats.threadsChecked} threads
                 {result.stats.threadsSkipped > 0 && ` (${result.stats.threadsSkipped} skipped)`}
-                {" • "}{result.stats.newMessagesFound} new
-                {" • "}{result.stats.ticketsCreated} tickets
-                {" • "}{result.stats.draftsGenerated} drafts
+                {" · "}{result.stats.newMessagesFound} new
+                {" · "}{result.stats.ticketsCreated} tickets
+                {" · "}{result.stats.draftsGenerated} drafts
               </span>
               {result.errors && result.errors.length > 0 && (
                 <div style={{ fontSize: 11, marginTop: 4, opacity: 0.8 }}>
@@ -145,11 +148,13 @@ export function GmailPollButton() {
           <button
             onClick={() => setShowResult(false)}
             style={{
-              marginLeft: 8,
               background: "none",
               border: "none",
               cursor: "pointer",
               opacity: 0.6,
+              padding: 0,
+              fontSize: 16,
+              color: "inherit",
             }}
           >
             ×

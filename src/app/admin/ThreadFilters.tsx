@@ -20,8 +20,8 @@ const ESCALATED_OPTIONS = [
 ];
 
 const SORT_OPTIONS = [
-  { value: "updated_at:desc", label: "Latest Update" },
-  { value: "updated_at:asc", label: "Oldest Update" },
+  { value: "updated_at:desc", label: "Latest Activity" },
+  { value: "updated_at:asc", label: "Oldest Activity" },
   { value: "created_at:desc", label: "Newest Created" },
   { value: "created_at:asc", label: "Oldest Created" },
 ];
@@ -54,39 +54,71 @@ export default function ThreadFilters() {
 
   const hasActiveFilters = currentState || currentEscalated || currentIntent;
 
+  const selectStyle = {
+    padding: "8px 12px",
+    borderRadius: 4,
+    border: "1px solid #cbd6e2",
+    fontSize: 14,
+    backgroundColor: "#ffffff",
+    color: "#33475b",
+    cursor: "pointer",
+    minWidth: 140,
+  };
+
+  const selectActiveStyle = {
+    ...selectStyle,
+    borderColor: "#0091ae",
+    backgroundColor: "#e5f5f8",
+  };
+
+  const inputStyle = {
+    padding: "8px 12px",
+    borderRadius: 4,
+    border: "1px solid #cbd6e2",
+    fontSize: 14,
+    backgroundColor: "#ffffff",
+    color: "#33475b",
+    width: 160,
+  };
+
+  const inputActiveStyle = {
+    ...inputStyle,
+    borderColor: "#0091ae",
+    backgroundColor: "#e5f5f8",
+  };
+
+  const labelStyle = {
+    fontSize: 12,
+    fontWeight: 500 as const,
+    color: "#516f90",
+    textTransform: "uppercase" as const,
+    letterSpacing: "0.5px",
+  };
+
   return (
     <div
       style={{
         display: "flex",
         flexWrap: "wrap",
-        gap: 12,
-        alignItems: "center",
-        padding: 16,
-        backgroundColor: "#f9fafb",
-        borderRadius: 8,
+        gap: 16,
+        alignItems: "flex-end",
+        padding: "16px 20px",
+        backgroundColor: "#ffffff",
+        border: "1px solid #cbd6e2",
+        borderRadius: 4,
         marginBottom: 16,
       }}
     >
-      {/* State Filter */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <label
-          htmlFor="state-filter"
-          style={{ fontSize: 13, color: "#6b7280", fontWeight: 500 }}
-        >
-          Status:
+      {/* Status Filter */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <label htmlFor="state-filter" style={labelStyle}>
+          Status
         </label>
         <select
           id="state-filter"
           value={currentState}
           onChange={(e) => updateFilter("state", e.target.value)}
-          style={{
-            padding: "6px 10px",
-            borderRadius: 6,
-            border: currentState ? "2px solid #3b82f6" : "1px solid #d1d5db",
-            fontSize: 13,
-            backgroundColor: "white",
-            cursor: "pointer",
-          }}
+          style={currentState ? selectActiveStyle : selectStyle}
         >
           {STATES.map((s) => (
             <option key={s.value} value={s.value}>
@@ -97,25 +129,15 @@ export default function ThreadFilters() {
       </div>
 
       {/* Escalated Filter */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <label
-          htmlFor="escalated-filter"
-          style={{ fontSize: 13, color: "#6b7280", fontWeight: 500 }}
-        >
-          Escalated:
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <label htmlFor="escalated-filter" style={labelStyle}>
+          Escalated
         </label>
         <select
           id="escalated-filter"
           value={currentEscalated}
           onChange={(e) => updateFilter("escalated", e.target.value)}
-          style={{
-            padding: "6px 10px",
-            borderRadius: 6,
-            border: currentEscalated ? "2px solid #ef4444" : "1px solid #d1d5db",
-            fontSize: 13,
-            backgroundColor: currentEscalated === "yes" ? "#fef2f2" : "white",
-            cursor: "pointer",
-          }}
+          style={currentEscalated ? selectActiveStyle : selectStyle}
         >
           {ESCALATED_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
@@ -126,12 +148,9 @@ export default function ThreadFilters() {
       </div>
 
       {/* Intent Filter */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <label
-          htmlFor="intent-filter"
-          style={{ fontSize: 13, color: "#6b7280", fontWeight: 500 }}
-        >
-          Intent:
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <label htmlFor="intent-filter" style={labelStyle}>
+          Intent
         </label>
         <input
           id="intent-filter"
@@ -139,36 +158,23 @@ export default function ThreadFilters() {
           placeholder="e.g. TECH_SUPPORT"
           value={currentIntent}
           onChange={(e) => updateFilter("intent", e.target.value)}
-          style={{
-            padding: "6px 10px",
-            borderRadius: 6,
-            border: currentIntent ? "2px solid #8b5cf6" : "1px solid #d1d5db",
-            fontSize: 13,
-            width: 140,
-          }}
+          style={currentIntent ? inputActiveStyle : inputStyle}
         />
       </div>
 
+      {/* Spacer */}
+      <div style={{ flex: 1 }} />
+
       {/* Sort */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
-        <label
-          htmlFor="sort-select"
-          style={{ fontSize: 13, color: "#6b7280", fontWeight: 500 }}
-        >
-          Sort:
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <label htmlFor="sort-select" style={labelStyle}>
+          Sort by
         </label>
         <select
           id="sort-select"
           value={currentSort}
           onChange={(e) => updateFilter("sort", e.target.value)}
-          style={{
-            padding: "6px 10px",
-            borderRadius: 6,
-            border: "1px solid #d1d5db",
-            fontSize: 13,
-            backgroundColor: "white",
-            cursor: "pointer",
-          }}
+          style={selectStyle}
         >
           {SORT_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
@@ -183,13 +189,14 @@ export default function ThreadFilters() {
         <button
           onClick={clearFilters}
           style={{
-            padding: "6px 12px",
-            borderRadius: 6,
-            border: "1px solid #d1d5db",
-            backgroundColor: "white",
-            fontSize: 13,
-            color: "#6b7280",
+            padding: "8px 14px",
+            borderRadius: 4,
+            border: "1px solid #cbd6e2",
+            backgroundColor: "#ffffff",
+            fontSize: 14,
+            color: "#516f90",
             cursor: "pointer",
+            fontWeight: 500,
           }}
         >
           Clear Filters

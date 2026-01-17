@@ -9,14 +9,14 @@ import { lookupCustomerByEmail } from "@/lib/shopify/customer";
 
 export const dynamic = "force-dynamic";
 
-// Inline color styles for state badges (avoiding Tailwind dynamic class issues)
+// HubSpot-inspired color styles for state badges
 const STATE_COLORS: Record<ThreadState, { bg: string; text: string }> = {
-  NEW: { bg: "#dbeafe", text: "#1e40af" },
-  AWAITING_INFO: { bg: "#fef3c7", text: "#92400e" },
-  IN_PROGRESS: { bg: "#ede9fe", text: "#6b21a8" },
-  ESCALATED: { bg: "#fee2e2", text: "#991b1b" },
-  HUMAN_HANDLING: { bg: "#ffedd5", text: "#9a3412" },
-  RESOLVED: { bg: "#dcfce7", text: "#166534" },
+  NEW: { bg: "#e5f5f8", text: "#0091ae" },
+  AWAITING_INFO: { bg: "#fef6e7", text: "#b36b00" },
+  IN_PROGRESS: { bg: "#eaf0f6", text: "#516f90" },
+  ESCALATED: { bg: "#fde8e9", text: "#c93b41" },
+  HUMAN_HANDLING: { bg: "#fef6e7", text: "#b36b00" },
+  RESOLVED: { bg: "#e5f8f4", text: "#00a182" },
 };
 
 const STATE_LABELS: Record<ThreadState, string> = {
@@ -277,33 +277,68 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: "system-ui", maxWidth: 900 }}>
-      <a href="/admin">← Back</a>
-      <h1>{thread?.subject || "(no subject)"}</h1>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8 }}>
-        <span
+    <div style={{ padding: 24, maxWidth: 960, margin: "0 auto" }}>
+      {/* Header */}
+      <div style={{ marginBottom: 24 }}>
+        <a
+          href="/admin"
           style={{
-            padding: "4px 12px",
-            borderRadius: 9999,
-            fontSize: 12,
-            fontWeight: 600,
-            backgroundColor: stateColors.bg,
-            color: stateColors.text,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            fontSize: 14,
+            color: "#0091ae",
+            textDecoration: "none",
+            marginBottom: 16,
           }}
         >
-          {stateLabel}
-        </span>
+          ← Back to Inbox
+        </a>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 600, color: "#33475b", margin: 0 }}>
+              {thread?.subject || "(no subject)"}
+            </h1>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
+              <span
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: 3,
+                  fontSize: 12,
+                  fontWeight: 500,
+                  backgroundColor: stateColors.bg,
+                  color: stateColors.text,
+                }}
+              >
+                {stateLabel}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Thread Intents Section */}
       {(activeIntents.length > 0 || resolvedIntents.length > 0) && (
-        <div style={{ marginTop: 16, padding: 12, backgroundColor: "#f9fafb", borderRadius: 8 }}>
-          <h4 style={{ margin: "0 0 8px 0", fontSize: 14, fontWeight: 600 }}>
+        <div style={{
+          padding: 16,
+          backgroundColor: "#ffffff",
+          borderRadius: 4,
+          border: "1px solid #cbd6e2",
+          marginBottom: 16,
+        }}>
+          <div style={{
+            fontSize: 12,
+            fontWeight: 500,
+            color: "#516f90",
+            textTransform: "uppercase",
+            letterSpacing: "0.5px",
+            marginBottom: 12,
+          }}>
             Intents ({activeIntents.length} active, {resolvedIntents.length} resolved)
-          </h4>
+          </div>
 
           {activeIntents.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: resolvedIntents.length > 0 ? 8 : 0 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: resolvedIntents.length > 0 ? 12 : 0 }}>
               {activeIntents.map((intent) => (
                 <span
                   key={intent.id}
@@ -312,12 +347,12 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
                     alignItems: "center",
                     gap: 4,
                     padding: "4px 10px",
-                    borderRadius: 6,
+                    borderRadius: 3,
                     fontSize: 12,
                     fontWeight: 500,
-                    backgroundColor: "#dbeafe",
-                    color: "#1e40af",
-                    border: "1px solid #93c5fd",
+                    backgroundColor: "#e5f5f8",
+                    color: "#0091ae",
+                    border: "1px solid #b0d6e0",
                   }}
                   title={intent.description || undefined}
                 >
@@ -340,12 +375,12 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
                     alignItems: "center",
                     gap: 4,
                     padding: "4px 10px",
-                    borderRadius: 6,
+                    borderRadius: 3,
                     fontSize: 12,
                     fontWeight: 500,
-                    backgroundColor: "#f3f4f6",
-                    color: "#6b7280",
-                    border: "1px solid #d1d5db",
+                    backgroundColor: "#eaf0f6",
+                    color: "#7c98b6",
+                    border: "1px solid #cbd6e2",
                     textDecoration: "line-through",
                   }}
                   title={`Resolved: ${intent.resolved_at ? new Date(intent.resolved_at).toLocaleString() : "N/A"}`}
@@ -359,7 +394,7 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
       )}
 
       {activeIntents.length === 0 && resolvedIntents.length === 0 && thread?.last_intent && (
-        <div style={{ marginTop: 8, opacity: 0.7 }}>
+        <div style={{ marginTop: 8, fontSize: 13, color: "#7c98b6" }}>
           Legacy intent: {thread.last_intent}
         </div>
       )}
@@ -370,50 +405,89 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
         previousTickets={previousTickets}
       />
 
-      <h2 style={{ marginTop: 24 }}>Messages</h2>
-      <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 16 }}>
-        Showing newest first
-      </p>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {messages?.map((m) => (
-          <MessageBubble
-            key={m.id}
-            direction={m.direction as "inbound" | "outbound"}
-            fromEmail={m.from_email}
-            createdAt={m.created_at}
-            bodyText={m.body_text}
-            bodyHtml={m.body_html}
-          />
-        ))}
+      {/* Messages Section */}
+      <div style={{
+        backgroundColor: "#ffffff",
+        border: "1px solid #cbd6e2",
+        borderRadius: 4,
+        marginTop: 24,
+        overflow: "hidden",
+      }}>
+        <div style={{
+          padding: "12px 16px",
+          backgroundColor: "#f5f8fa",
+          borderBottom: "1px solid #cbd6e2",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}>
+          <h2 style={{ fontSize: 14, fontWeight: 600, color: "#33475b", margin: 0 }}>Messages</h2>
+          <span style={{ fontSize: 12, color: "#7c98b6" }}>Showing newest first</span>
+        </div>
+        <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+          {messages?.map((m) => (
+            <MessageBubble
+              key={m.id}
+              direction={m.direction as "inbound" | "outbound"}
+              fromEmail={m.from_email}
+              createdAt={m.created_at}
+              bodyText={m.body_text}
+              bodyHtml={m.body_html}
+            />
+          ))}
+        </div>
       </div>
 
-      <h2 style={{ marginTop: 24 }}>Proposed Reply</h2>
-      {shouldBlockDraft ? (
-        <div
-          style={{
-            border: "2px solid #ef4444",
-            backgroundColor: "#fef2f2",
-            padding: 16,
-            borderRadius: 8,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-            <span style={{ fontSize: 20 }}>⚠️</span>
-            <strong style={{ color: "#dc2626" }}>Draft Blocked</strong>
-          </div>
-          <p style={{ color: "#991b1b", margin: 0 }}>{draftBlockReason}</p>
-          {intentRequiresVerification && !isVerificationComplete && (
-            <p style={{ color: "#64748b", marginTop: 12, fontSize: 14 }}>
-              Verify the customer before this draft can be sent.
-              {verification?.status === "pending" && " Ask the customer for their order number."}
-            </p>
+      {/* Proposed Reply Section */}
+      <div style={{
+        backgroundColor: "#ffffff",
+        border: "1px solid #cbd6e2",
+        borderRadius: 4,
+        marginTop: 24,
+        overflow: "hidden",
+      }}>
+        <div style={{
+          padding: "12px 16px",
+          backgroundColor: "#f5f8fa",
+          borderBottom: "1px solid #cbd6e2",
+        }}>
+          <h2 style={{ fontSize: 14, fontWeight: 600, color: "#33475b", margin: 0 }}>Proposed Reply</h2>
+        </div>
+        <div style={{ padding: 16 }}>
+          {shouldBlockDraft ? (
+            <div
+              style={{
+                border: "1px solid #f2545b",
+                backgroundColor: "#fde8e9",
+                padding: 16,
+                borderRadius: 4,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <strong style={{ color: "#c93b41" }}>Draft Blocked</strong>
+              </div>
+              <p style={{ color: "#c93b41", margin: 0, fontSize: 14 }}>{draftBlockReason}</p>
+              {intentRequiresVerification && !isVerificationComplete && (
+                <p style={{ color: "#516f90", marginTop: 12, fontSize: 13 }}>
+                  Verify the customer before this draft can be sent.
+                  {verification?.status === "pending" && " Ask the customer for their order number."}
+                </p>
+              )}
+            </div>
+          ) : (
+            <pre style={{
+              whiteSpace: "pre-wrap",
+              margin: 0,
+              fontFamily: "inherit",
+              fontSize: 14,
+              lineHeight: 1.6,
+              color: "#33475b",
+            }}>
+              {latestDraft || "(no draft generated)"}
+            </pre>
           )}
         </div>
-      ) : (
-        <div style={{ border: "1px solid #ddd", padding: 12 }}>
-          <pre style={{ whiteSpace: "pre-wrap" }}>{latestDraft || "(no draft generated)"}</pre>
-        </div>
-      )}
+      </div>
 
       {/* Agent Reasoning Section */}
       <AgentReasoning
@@ -444,33 +518,46 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
       />
 
       {stateHistory && stateHistory.length > 0 && (
-        <>
-          <h2 style={{ marginTop: 24 }}>State History</h2>
-          <div style={{ fontSize: 14 }}>
+        <div style={{
+          backgroundColor: "#ffffff",
+          border: "1px solid #cbd6e2",
+          borderRadius: 4,
+          marginTop: 24,
+          overflow: "hidden",
+        }}>
+          <div style={{
+            padding: "12px 16px",
+            backgroundColor: "#f5f8fa",
+            borderBottom: "1px solid #cbd6e2",
+          }}>
+            <h2 style={{ fontSize: 14, fontWeight: 600, color: "#33475b", margin: 0 }}>State History</h2>
+          </div>
+          <div style={{ padding: 0 }}>
             {stateHistory.map((h, i) => (
               <div
                 key={i}
                 style={{
-                  padding: "8px 0",
-                  borderBottom: "1px solid #eee",
+                  padding: "12px 16px",
+                  borderBottom: i < stateHistory.length - 1 ? "1px solid #eaf0f6" : "none",
                   display: "flex",
-                  gap: 12,
+                  gap: 16,
                   alignItems: "center",
+                  fontSize: 13,
                 }}
               >
-                <span style={{ opacity: 0.5, fontSize: 12 }}>
+                <span style={{ color: "#7c98b6", fontSize: 12, minWidth: 140 }}>
                   {new Date(h.timestamp).toLocaleString()}
                 </span>
-                <span>
+                <span style={{ color: "#33475b", fontWeight: 500 }}>
                   {h.from} → {h.to}
                 </span>
                 {h.reason && (
-                  <span style={{ opacity: 0.7, fontSize: 12 }}>({h.reason})</span>
+                  <span style={{ color: "#516f90", fontSize: 12 }}>({h.reason})</span>
                 )}
               </div>
             ))}
           </div>
-        </>
+        </div>
       )}
 
       {/* Testing & Feedback Actions */}

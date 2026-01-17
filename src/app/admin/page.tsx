@@ -7,14 +7,14 @@ import ThreadFilters from "./ThreadFilters";
 
 export const dynamic = "force-dynamic";
 
-// Inline color styles for state badges
+// HubSpot-inspired color palette for state badges
 const STATE_COLORS: Record<ThreadState, { bg: string; text: string }> = {
-  NEW: { bg: "#dbeafe", text: "#1e40af" },
-  AWAITING_INFO: { bg: "#fef3c7", text: "#92400e" },
-  IN_PROGRESS: { bg: "#ede9fe", text: "#6b21a8" },
-  ESCALATED: { bg: "#fee2e2", text: "#991b1b" },
-  HUMAN_HANDLING: { bg: "#ffedd5", text: "#9a3412" },
-  RESOLVED: { bg: "#dcfce7", text: "#166534" },
+  NEW: { bg: "#e5f5f8", text: "#0091ae" },
+  AWAITING_INFO: { bg: "#fef6e7", text: "#b36b00" },
+  IN_PROGRESS: { bg: "#eaf0f6", text: "#516f90" },
+  ESCALATED: { bg: "#fde8e9", text: "#c93b41" },
+  HUMAN_HANDLING: { bg: "#fef6e7", text: "#b36b00" },
+  RESOLVED: { bg: "#e5f8f4", text: "#00a182" },
 };
 
 const STATE_LABELS: Record<ThreadState, string> = {
@@ -107,98 +107,61 @@ export default async function AdminPage({
     .select("*", { count: "exact", head: true })
     .eq("status", "pending");
 
-  // Threads already sorted by updated_at from the query
-
   return (
-    <div style={{ padding: 24, fontFamily: "system-ui", maxWidth: 900 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h1>Support Inbox</h1>
-        <div style={{ display: "flex", gap: 12 }}>
-          <a
-            href="/admin/intents"
-            style={{
-              padding: "8px 16px",
-              backgroundColor: "#f3f4f6",
-              color: "#374151",
-              borderRadius: 6,
-              textDecoration: "none",
-              fontSize: 14,
-              fontWeight: 500,
-              border: "1px solid #d1d5db",
-            }}
-          >
-            Intents
-          </a>
-          <a
-            href="/admin/kb"
-            style={{
-              padding: "8px 16px",
-              backgroundColor: "#f3f4f6",
-              color: "#374151",
-              borderRadius: 6,
-              textDecoration: "none",
-              fontSize: 14,
-              fontWeight: 500,
-              border: "1px solid #d1d5db",
-            }}
-          >
-            Knowledge Base
-          </a>
-          <a
-            href="/admin/instructions"
-            style={{
-              padding: "8px 16px",
-              backgroundColor: "#f3f4f6",
-              color: "#374151",
-              borderRadius: 6,
-              textDecoration: "none",
-              fontSize: 14,
-              fontWeight: 500,
-              border: "1px solid #d1d5db",
-            }}
-          >
-            Agent Instructions
-          </a>
+    <div style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
+      {/* Page Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+        <div>
+          <h1 style={{ fontSize: 24, fontWeight: 600, color: "#33475b", margin: 0 }}>Support Inbox</h1>
+          <p style={{ fontSize: 14, color: "#516f90", marginTop: 4, marginBottom: 0 }}>
+            {threads?.length || 0} tickets
+            {(stateFilter || escalatedFilter || intentFilter) && (
+              <span style={{ color: "#0091ae" }}> (filtered)</span>
+            )}
+          </p>
+        </div>
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <GmailPollButton />
           <a
             href="/admin/new"
             style={{
-              padding: "8px 16px",
-              backgroundColor: "#1e40af",
+              padding: "9px 16px",
+              backgroundColor: "#ff7a59",
               color: "white",
-              borderRadius: 6,
+              borderRadius: 4,
               textDecoration: "none",
               fontSize: 14,
               fontWeight: 500,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
             }}
           >
-            + New Thread
+            + New Ticket
           </a>
         </div>
       </div>
+
       <AgentSettingsPanel />
 
-      {/* Thread Filters */}
-      <Suspense fallback={<div style={{ padding: 16, backgroundColor: "#f9fafb", borderRadius: 8, marginBottom: 16 }}>Loading filters...</div>}>
-        <ThreadFilters />
-      </Suspense>
-
-      {/* Dashboard Widgets */}
+      {/* Stats Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24 }}>
         {/* Active Observations */}
         <div
           style={{
-            padding: 16,
-            borderRadius: 8,
-            backgroundColor: (observationCount ?? 0) > 0 ? "#fff7ed" : "#f9fafb",
-            border: (observationCount ?? 0) > 0 ? "2px solid #fb923c" : "1px solid #e5e7eb",
+            padding: 20,
+            borderRadius: 4,
+            backgroundColor: "#ffffff",
+            border: (observationCount ?? 0) > 0 ? "1px solid #f5c26b" : "1px solid #cbd6e2",
+            borderLeft: (observationCount ?? 0) > 0 ? "4px solid #f5c26b" : "4px solid #cbd6e2",
           }}
         >
-          <div style={{ fontSize: 32, fontWeight: 700, color: (observationCount ?? 0) > 0 ? "#ea580c" : "#6b7280" }}>
+          <div style={{ fontSize: 32, fontWeight: 600, color: (observationCount ?? 0) > 0 ? "#b36b00" : "#516f90", lineHeight: 1.2 }}>
             {observationCount ?? 0}
           </div>
-          <div style={{ fontSize: 14, color: "#6b7280" }}>Active Observations</div>
+          <div style={{ fontSize: 14, color: "#516f90", marginTop: 4 }}>Active Observations</div>
           {(observationCount ?? 0) > 0 && (
-            <div style={{ fontSize: 12, color: "#9a3412", marginTop: 4 }}>
+            <div style={{ fontSize: 12, color: "#b36b00", marginTop: 8 }}>
               Lina is watching
             </div>
           )}
@@ -207,18 +170,19 @@ export default async function AdminPage({
         {/* Recent Escalations */}
         <div
           style={{
-            padding: 16,
-            borderRadius: 8,
-            backgroundColor: (escalationCount ?? 0) > 0 ? "#fef2f2" : "#f9fafb",
-            border: (escalationCount ?? 0) > 0 ? "2px solid #f87171" : "1px solid #e5e7eb",
+            padding: 20,
+            borderRadius: 4,
+            backgroundColor: "#ffffff",
+            border: (escalationCount ?? 0) > 0 ? "1px solid #f2545b" : "1px solid #cbd6e2",
+            borderLeft: (escalationCount ?? 0) > 0 ? "4px solid #f2545b" : "4px solid #cbd6e2",
           }}
         >
-          <div style={{ fontSize: 32, fontWeight: 700, color: (escalationCount ?? 0) > 0 ? "#dc2626" : "#6b7280" }}>
+          <div style={{ fontSize: 32, fontWeight: 600, color: (escalationCount ?? 0) > 0 ? "#c93b41" : "#516f90", lineHeight: 1.2 }}>
             {escalationCount ?? 0}
           </div>
-          <div style={{ fontSize: 14, color: "#6b7280" }}>Escalations (24h)</div>
+          <div style={{ fontSize: 14, color: "#516f90", marginTop: 4 }}>Escalations (24h)</div>
           {(escalationCount ?? 0) > 0 && (
-            <div style={{ fontSize: 12, color: "#991b1b", marginTop: 4 }}>
+            <div style={{ fontSize: 12, color: "#c93b41", marginTop: 8 }}>
               Emails sent to Rob
             </div>
           )}
@@ -227,131 +191,189 @@ export default async function AdminPage({
         {/* Pending Learning */}
         <div
           style={{
-            padding: 16,
-            borderRadius: 8,
-            backgroundColor: (proposalCount ?? 0) > 0 ? "#eff6ff" : "#f9fafb",
-            border: (proposalCount ?? 0) > 0 ? "2px solid #3b82f6" : "1px solid #e5e7eb",
+            padding: 20,
+            borderRadius: 4,
+            backgroundColor: "#ffffff",
+            border: (proposalCount ?? 0) > 0 ? "1px solid #0091ae" : "1px solid #cbd6e2",
+            borderLeft: (proposalCount ?? 0) > 0 ? "4px solid #0091ae" : "4px solid #cbd6e2",
           }}
         >
-          <div style={{ fontSize: 32, fontWeight: 700, color: (proposalCount ?? 0) > 0 ? "#2563eb" : "#6b7280" }}>
+          <div style={{ fontSize: 32, fontWeight: 600, color: (proposalCount ?? 0) > 0 ? "#0091ae" : "#516f90", lineHeight: 1.2 }}>
             {proposalCount ?? 0}
           </div>
-          <div style={{ fontSize: 14, color: "#6b7280" }}>Learning Proposals</div>
+          <div style={{ fontSize: 14, color: "#516f90", marginTop: 4 }}>Learning Proposals</div>
           {(proposalCount ?? 0) > 0 && (
-            <div style={{ fontSize: 12, color: "#1d4ed8", marginTop: 4 }}>
+            <div style={{ fontSize: 12, color: "#0091ae", marginTop: 8 }}>
               Pending review
             </div>
           )}
         </div>
       </div>
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <p style={{ opacity: 0.6, margin: 0 }}>
-          {threads?.length || 0} threads
-          {(stateFilter || escalatedFilter || intentFilter) && (
-            <span style={{ color: "#3b82f6" }}> (filtered)</span>
-          )}
-          {" · "}
-          sorted by {sortField === "updated_at" ? "update time" : "creation time"}
-          {sortDirection === "desc" ? " (newest first)" : " (oldest first)"}
-        </p>
-        <GmailPollButton />
-      </div>
-      <ul style={{ listStyle: "none", padding: 0 }}>
-        {threads?.map((t) => {
-          const state = (t.state as ThreadState) || "NEW";
-          const colors = STATE_COLORS[state];
-          const label = STATE_LABELS[state];
-          const verification = verificationMap.get(t.id);
-          const isVerifiedCustomer = verification?.status === "verified";
+      {/* Thread Filters */}
+      <Suspense fallback={<div style={{ padding: 16, backgroundColor: "#ffffff", borderRadius: 4, border: "1px solid #cbd6e2", marginBottom: 16 }}>Loading filters...</div>}>
+        <ThreadFilters />
+      </Suspense>
 
-          return (
-            <li
-              key={t.id}
-              style={{
-                margin: "12px 0",
-                padding: 12,
-                border: isVerifiedCustomer ? "1px solid #86efac" : "1px solid #eee",
-                borderRadius: 8,
-                backgroundColor: isVerifiedCustomer ? "#f0fdf4" : "transparent",
-                borderLeft: state === "ESCALATED"
-                  ? "4px solid #991b1b"
-                  : t.human_handling_mode
-                  ? "4px solid #fb923c"
-                  : isVerifiedCustomer
-                  ? "4px solid #22c55e"
-                  : undefined,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <span
-                  style={{
-                    padding: "2px 8px",
-                    borderRadius: 9999,
-                    fontSize: 11,
-                    fontWeight: 600,
-                    backgroundColor: colors.bg,
-                    color: colors.text,
-                  }}
-                >
-                  {label}
-                </span>
-                {isVerifiedCustomer && (
-                  <span
+      {/* Thread Table */}
+      <div style={{ backgroundColor: "#ffffff", border: "1px solid #cbd6e2", borderRadius: 4, overflow: "hidden" }}>
+        {/* Table Header */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 140px 180px 160px",
+            gap: 16,
+            padding: "12px 16px",
+            backgroundColor: "#f5f8fa",
+            borderBottom: "1px solid #cbd6e2",
+            fontSize: 12,
+            fontWeight: 500,
+            textTransform: "uppercase",
+            letterSpacing: "0.5px",
+            color: "#516f90",
+          }}
+        >
+          <div>Subject</div>
+          <div>Status</div>
+          <div>Last Activity</div>
+          <div>Customer</div>
+        </div>
+
+        {/* Thread Rows */}
+        {threads?.length === 0 ? (
+          <div style={{ padding: 48, textAlign: "center", color: "#516f90" }}>
+            <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 8 }}>No tickets found</div>
+            <div style={{ fontSize: 14 }}>Try adjusting your filters or check back later.</div>
+          </div>
+        ) : (
+          threads?.map((t) => {
+            const state = (t.state as ThreadState) || "NEW";
+            const colors = STATE_COLORS[state];
+            const label = STATE_LABELS[state];
+            const verification = verificationMap.get(t.id);
+            const isVerifiedCustomer = verification?.status === "verified";
+            const isEscalated = state === "ESCALATED" || t.human_handling_mode;
+
+            return (
+              <div
+                key={t.id}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 140px 180px 160px",
+                  gap: 16,
+                  padding: "14px 16px",
+                  borderBottom: "1px solid #eaf0f6",
+                  alignItems: "center",
+                  backgroundColor: isEscalated ? "#fef6e7" : "#ffffff",
+                  borderLeft: isEscalated ? "3px solid #f2545b" : "3px solid transparent",
+                }}
+              >
+                {/* Subject */}
+                <div>
+                  <a
+                    href={`/admin/thread/${t.id}`}
                     style={{
-                      padding: "2px 8px",
-                      borderRadius: 9999,
-                      fontSize: 11,
-                      fontWeight: 600,
-                      backgroundColor: "#dcfce7",
-                      color: "#166534",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
-                    }}
-                    title={verification?.customerName || "Verified Customer"}
-                  >
-                    ✓ Verified
-                  </span>
-                )}
-                {t.human_handling_mode && (
-                  <span
-                    style={{
-                      padding: "2px 8px",
-                      borderRadius: 9999,
-                      fontSize: 11,
-                      fontWeight: 600,
-                      backgroundColor: "#fff7ed",
-                      color: "#9a3412",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
+                      fontWeight: 500,
+                      color: "#0091ae",
+                      textDecoration: "none",
+                      fontSize: 14,
                     }}
                   >
-                    👁 Observing
-                  </span>
-                )}
-                <a
-                  href={`/admin/thread/${t.id}`}
-                  style={{ fontWeight: 500, color: "#1e40af", textDecoration: "none" }}
-                >
-                  {t.subject || "(no subject)"}
-                </a>
-              </div>
-              {t.summary && (
-                <div style={{ fontSize: 13, marginTop: 4, marginLeft: isVerifiedCustomer ? 150 : t.human_handling_mode ? 140 : 70, color: "#4b5563" }}>
-                  {t.summary}
+                    {t.subject || "(no subject)"}
+                  </a>
+                  {t.summary && (
+                    <div style={{ fontSize: 13, color: "#516f90", marginTop: 4, lineHeight: 1.4 }}>
+                      {t.summary.length > 80 ? t.summary.substring(0, 80) + "..." : t.summary}
+                    </div>
+                  )}
                 </div>
-              )}
-              <div style={{ opacity: 0.5, fontSize: 12, marginTop: 4, marginLeft: isVerifiedCustomer ? 150 : t.human_handling_mode ? 140 : 70 }}>
-                {new Date(t.updated_at).toLocaleString()}
-                {t.human_handler && <span> • Handler: {t.human_handler}</span>}
-                {verification?.customerName && <span> • {verification.customerName}</span>}
+
+                {/* Status */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <span
+                    style={{
+                      padding: "3px 8px",
+                      borderRadius: 3,
+                      fontSize: 12,
+                      fontWeight: 500,
+                      backgroundColor: colors.bg,
+                      color: colors.text,
+                      display: "inline-block",
+                      width: "fit-content",
+                    }}
+                  >
+                    {label}
+                  </span>
+                  {t.human_handling_mode && (
+                    <span
+                      style={{
+                        padding: "3px 8px",
+                        borderRadius: 3,
+                        fontSize: 11,
+                        fontWeight: 500,
+                        backgroundColor: "#fef6e7",
+                        color: "#b36b00",
+                        display: "inline-block",
+                        width: "fit-content",
+                      }}
+                    >
+                      Observing
+                    </span>
+                  )}
+                </div>
+
+                {/* Last Activity */}
+                <div style={{ fontSize: 13, color: "#516f90" }}>
+                  {new Date(t.updated_at).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                  {" at "}
+                  {new Date(t.updated_at).toLocaleTimeString("en-US", {
+                    hour: "numeric",
+                    minute: "2-digit",
+                    hour12: true,
+                  })}
+                  {t.human_handler && (
+                    <div style={{ fontSize: 12, color: "#7c98b6", marginTop: 2 }}>
+                      Handler: {t.human_handler.split("@")[0]}
+                    </div>
+                  )}
+                </div>
+
+                {/* Customer */}
+                <div style={{ fontSize: 13, color: "#516f90" }}>
+                  {isVerifiedCustomer ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: "50%",
+                          backgroundColor: "#00a182",
+                          display: "inline-block",
+                        }}
+                      />
+                      <span style={{ color: "#33475b" }}>{verification?.customerName || "Verified"}</span>
+                    </div>
+                  ) : (
+                    <span style={{ color: "#7c98b6" }}>--</span>
+                  )}
+                </div>
               </div>
-            </li>
-          );
-        })}
-      </ul>
+            );
+          })
+        )}
+      </div>
+
+      {/* Footer Info */}
+      <div style={{ marginTop: 16, fontSize: 13, color: "#7c98b6", textAlign: "center" }}>
+        Showing {threads?.length || 0} tickets
+        {" · "}
+        Sorted by {sortField === "updated_at" ? "last activity" : "created date"}
+        {sortDirection === "desc" ? " (newest first)" : " (oldest first)"}
+      </div>
     </div>
   );
 }

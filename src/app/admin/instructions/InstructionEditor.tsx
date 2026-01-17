@@ -63,18 +63,19 @@ export function InstructionEditor({
   return (
     <div
       style={{
-        border: "1px solid #e5e7eb",
-        borderRadius: 8,
+        border: "1px solid #cbd6e2",
+        borderRadius: 4,
         marginBottom: 16,
         overflow: "hidden",
+        backgroundColor: "#ffffff",
       }}
     >
       {/* Header */}
       <div
         style={{
           padding: "12px 16px",
-          backgroundColor: "#f9fafb",
-          borderBottom: "1px solid #e5e7eb",
+          backgroundColor: "#f5f8fa",
+          borderBottom: expanded || isEditing ? "1px solid #cbd6e2" : "none",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
@@ -83,12 +84,12 @@ export function InstructionEditor({
         onClick={() => !isEditing && setExpanded(!expanded)}
       >
         <div>
-          <h3 style={{ margin: 0, fontSize: 16 }}>{title}</h3>
-          <span style={{ fontSize: 12, color: "#6b7280" }}>
+          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#33475b" }}>{title}</h3>
+          <span style={{ fontSize: 12, color: "#7c98b6" }}>
             {sectionKey} • v{version} • Updated {new Date(updatedAt).toLocaleDateString()}
           </span>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {!isEditing && (
             <button
               onClick={(e) => {
@@ -97,19 +98,20 @@ export function InstructionEditor({
                 setIsEditing(true);
               }}
               style={{
-                padding: "6px 12px",
-                backgroundColor: "#3b82f6",
+                padding: "6px 14px",
+                backgroundColor: "#0091ae",
                 color: "white",
                 border: "none",
                 borderRadius: 4,
                 cursor: "pointer",
                 fontSize: 13,
+                fontWeight: 500,
               }}
             >
               Edit
             </button>
           )}
-          <span style={{ color: "#9ca3af", fontSize: 18 }}>
+          <span style={{ color: "#7c98b6", fontSize: 12 }}>
             {expanded ? "▼" : "▶"}
           </span>
         </div>
@@ -127,11 +129,11 @@ export function InstructionEditor({
                   width: "100%",
                   minHeight: 300,
                   padding: 12,
-                  border: "1px solid #d1d5db",
-                  borderRadius: 6,
+                  border: "1px solid #cbd6e2",
+                  borderRadius: 4,
                   fontFamily: "monospace",
                   fontSize: 13,
-                  lineHeight: 1.5,
+                  lineHeight: 1.6,
                   resize: "vertical",
                 }}
               />
@@ -141,12 +143,13 @@ export function InstructionEditor({
                   disabled={isSaving || content === initialContent}
                   style={{
                     padding: "8px 16px",
-                    backgroundColor: isSaving ? "#9ca3af" : "#22c55e",
+                    backgroundColor: isSaving ? "#cbd6e2" : "#00a182",
                     color: "white",
                     border: "none",
                     borderRadius: 4,
                     cursor: isSaving ? "not-allowed" : "pointer",
-                    fontWeight: 600,
+                    fontWeight: 500,
+                    fontSize: 14,
                   }}
                 >
                   {isSaving ? "Saving..." : "Save Changes"}
@@ -155,10 +158,13 @@ export function InstructionEditor({
                   onClick={handleCancel}
                   style={{
                     padding: "8px 16px",
-                    backgroundColor: "#e5e7eb",
-                    border: "none",
+                    backgroundColor: "#eaf0f6",
+                    color: "#516f90",
+                    border: "1px solid #cbd6e2",
                     borderRadius: 4,
                     cursor: "pointer",
+                    fontWeight: 500,
+                    fontSize: 14,
                   }}
                 >
                   Cancel
@@ -169,11 +175,11 @@ export function InstructionEditor({
             <pre
               style={{
                 whiteSpace: "pre-wrap",
-                fontFamily: "system-ui",
+                fontFamily: "system-ui, sans-serif",
                 fontSize: 14,
                 lineHeight: 1.6,
                 margin: 0,
-                color: "#374151",
+                color: "#33475b",
               }}
             >
               {content}
@@ -184,7 +190,7 @@ export function InstructionEditor({
 
       {/* Preview when collapsed */}
       {!expanded && !isEditing && (
-        <div style={{ padding: "8px 16px", color: "#6b7280", fontSize: 13 }}>
+        <div style={{ padding: "10px 16px", color: "#7c98b6", fontSize: 13 }}>
           {previewContent}
         </div>
       )}
