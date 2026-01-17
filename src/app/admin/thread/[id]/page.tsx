@@ -5,7 +5,10 @@ import { AgentReasoning } from "./AgentReasoning";
 import { CustomerContextPanel, type CustomerContextData, type SupportTicket } from "./CustomerContextPanel";
 import { MessageBubble } from "./MessageBubble";
 import { ThreadRefresher } from "./ThreadRefresher";
+import { OrderEventsTimeline } from "./OrderEventsTimeline";
 import { lookupCustomerByEmail } from "@/lib/shopify/customer";
+import { getOrderEvents } from "@/lib/shopify/orderEvents";
+import type { OrderEvent } from "@/lib/shopify/types";
 // Verification requirements now determined dynamically by LLM during classification
 
 export const dynamic = "force-dynamic";
@@ -191,6 +194,36 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
           state: t.state || "UNKNOWN",
           createdAt: t.created_at,
         }));
+    }
+  }
+
+  // Fetch order events from Shopify if we have an order number
+  let orderEvents: OrderEvent[] = [];
+  let orderNumber: string | null = null;
+
+  // Try to get order number from verification, thread subject, or recent orders
+  if (verification?.order_number) {
+    orderNumber = verification.order_number;
+  } else if (thread?.subject) {
+    // Try to extract order number from subject (e.g., "Order #1234" or "#1234")
+    const orderMatch = thread.subject.match(/#?(\d{4,})/);
+    if (orderMatch) {
+      orderNumber = orderMatch[1];
+    }
+  }
+
+  // Also check recent orders from customer context
+  if (!orderNumber && customerContext?.recentOrders?.length) {
+    // Use the most recent order
+    orderNumber = customerContext.recentOrders[0].orderNumber;
+  }
+
+  // Fetch order events if we have an order number
+  if (orderNumber) {
+    try {
+      orderEvents = await getOrderEvents(orderNumber);
+    } catch (error) {
+      console.error("Error fetching order events:", error);
     }
   }
 
@@ -408,6 +441,14 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
         customer={customerContext}
         previousTickets={previousTickets}
       />
+
+      {/* Order Events Timeline */}
+      {orderNumber && orderEvents.length > 0 && (
+        <OrderEventsTimeline
+          events={orderEvents}
+          orderNumber={`#${orderNumber}`}
+        />
+      )}
 
       {/* Messages Section */}
       <div style={{

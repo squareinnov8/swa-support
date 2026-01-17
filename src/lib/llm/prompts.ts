@@ -100,6 +100,8 @@ type OrderContext = {
   }>;
   shippingCity?: string;
   shippingState?: string;
+  // Full order status summary including returns and refunds
+  orderStatusSummary?: string;
 };
 
 /**
@@ -222,6 +224,13 @@ export function buildUserPrompt(params: {
       prompt += "\n### NOTE: Order has NOT shipped yet (only mention if customer asks about shipping).\n";
     } else if (orderContext.fulfillmentStatus === "FULFILLED" && (!orderContext.tracking || orderContext.tracking.length === 0)) {
       prompt += "\n### NOTE: Order marked as fulfilled but no tracking number on file.\n";
+    }
+
+    // Add full order status summary with returns/refunds if available
+    if (orderContext.orderStatusSummary) {
+      prompt += "\n### FULL ORDER STATUS (including returns, refunds, delivery status):\n";
+      prompt += orderContext.orderStatusSummary + "\n";
+      prompt += "\nIMPORTANT: Use this information to provide accurate status updates. If a return is in progress, acknowledge it. If a refund was issued, confirm it.\n";
     }
 
     prompt += "\n";

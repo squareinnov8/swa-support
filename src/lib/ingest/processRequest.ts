@@ -30,6 +30,7 @@ import type { IngestRequest, IngestResult, MessageAttachment } from "./types";
 import { syncInteractionToHubSpot, isHubSpotConfigured } from "@/lib/hubspot";
 import { recordObservation } from "@/lib/collaboration";
 import type { ExtractedAttachmentContent } from "@/lib/attachments";
+import { getOrderTimeline, buildOrderStatusSummary } from "@/lib/shopify/orderEvents";
 
 /**
  * Process an ingest request from any channel.
@@ -497,6 +498,20 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
     const conversationHistory = await getConversationHistory(threadId);
 
     // Build order context from verified order (for action-oriented responses)
+    // Fetch full order timeline including returns/refunds from Shopify
+    let orderStatusSummary: string | undefined;
+    if (verification?.order?.number) {
+      try {
+        const orderTimeline = await getOrderTimeline(verification.order.number);
+        if (orderTimeline) {
+          orderStatusSummary = buildOrderStatusSummary(orderTimeline);
+          console.log(`[Ingest] Order timeline for ${verification.order.number}:`, orderStatusSummary);
+        }
+      } catch (error) {
+        console.error("[Ingest] Error fetching order timeline:", error);
+      }
+    }
+
     const orderContext = verification?.order
       ? {
           orderNumber: verification.order.number,
@@ -510,6 +525,8 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
           })),
           shippingCity: verification.order.shippingCity,
           shippingState: verification.order.shippingState,
+          // Include full order status summary with return/refund info
+          orderStatusSummary,
         }
       : undefined;
 

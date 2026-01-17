@@ -45,6 +45,8 @@ export type OrderContext = {
   }>;
   shippingCity?: string;
   shippingState?: string;
+  // Full order status summary including returns and refunds
+  orderStatusSummary?: string;
 };
 
 /**

@@ -83,3 +83,131 @@ export type ShopifyGraphQLResponse<T> = {
     path?: string[];
   }>;
 };
+
+// === Order Events Timeline Types ===
+
+export type ShopifyMoney = {
+  amount: string;
+  currencyCode: string;
+};
+
+export type ShopifyRefundLineItem = {
+  quantity: number;
+  lineItem: {
+    title: string;
+    sku: string | null;
+  };
+  restockType: string; // NO_RESTOCK, CANCEL, RETURN, LEGACY_RESTOCK
+};
+
+export type ShopifyRefund = {
+  id: string;
+  createdAt: string;
+  note: string | null;
+  totalRefundedSet: {
+    shopMoney: ShopifyMoney;
+  };
+  refundLineItems: ShopifyRefundLineItem[];
+};
+
+export type ShopifyReturnLineItem = {
+  id: string;
+  quantity: number;
+  fulfillmentLineItem: {
+    lineItem: {
+      title: string;
+      sku: string | null;
+    };
+  } | null;
+  returnReason: string | null;
+  customerNote: string | null;
+};
+
+export type ShopifyReverseFulfillmentOrder = {
+  id: string;
+  status: string; // OPEN, IN_PROGRESS, CLOSED, CANCELLED
+  inProgressAt: string | null;
+  closedAt: string | null;
+  reverseFulfillmentOrderLineItems: Array<{
+    id: string;
+    totalQuantity: number;
+    dispositions: Array<{
+      quantity: number;
+      type: string; // RESTOCKED, MISSING, DAMAGED, NOT_RESTOCKED
+    }>;
+  }>;
+};
+
+export type ShopifyReturn = {
+  id: string;
+  status: string; // REQUESTED, IN_PROGRESS, CLOSED, CANCELLED
+  name: string; // Return reference like "#R1234"
+  createdAt: string;
+  returnLineItems: ShopifyReturnLineItem[];
+  reverseFulfillmentOrders: ShopifyReverseFulfillmentOrder[];
+};
+
+export type ShopifyFulfillmentWithDelivery = ShopifyFulfillment & {
+  displayStatus?: string;
+  deliveredAt?: string | null;
+  estimatedDeliveryAt?: string | null;
+  inTransitAt?: string | null;
+};
+
+export type ShopifyOrderTimeline = {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: string;
+  processedAt: string | null;
+  displayFinancialStatus: string;
+  displayFulfillmentStatus: string;
+  cancelledAt: string | null;
+  cancelReason: string | null;
+  totalPriceSet: { shopMoney: ShopifyMoney } | null;
+  subtotalPriceSet: { shopMoney: ShopifyMoney } | null;
+  totalRefundedSet: { shopMoney: ShopifyMoney } | null;
+  shippingAddress?: ShopifyShippingAddress;
+  fulfillments: ShopifyFulfillmentWithDelivery[];
+  refunds: ShopifyRefund[];
+  returns: ShopifyReturn[];
+  lineItems: ShopifyLineItem[];
+  customer?: {
+    id: string;
+    email: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    tags: string[];
+    note: string | null;
+  };
+};
+
+// Unified order event for timeline display
+export type OrderEventType =
+  | "order_created"
+  | "payment_captured"
+  | "fulfillment_created"
+  | "in_transit"
+  | "delivered"
+  | "return_requested"
+  | "return_in_progress"
+  | "return_closed"
+  | "refund_processed"
+  | "order_cancelled";
+
+export type OrderEvent = {
+  type: OrderEventType;
+  timestamp: string;
+  title: string;
+  description: string;
+  metadata?: {
+    trackingNumber?: string;
+    trackingUrl?: string;
+    carrier?: string;
+    amount?: string;
+    currency?: string;
+    items?: string[];
+    returnReason?: string;
+    refundNote?: string;
+  };
+};
