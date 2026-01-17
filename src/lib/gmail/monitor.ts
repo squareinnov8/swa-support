@@ -28,6 +28,7 @@ import {
   sendEscalationEmail,
   shouldSendEscalationEmail,
   isGmailSendConfigured,
+  applyEscalationLabel,
   type EscalationContext,
 } from "@/lib/escalation";
 import {
@@ -684,6 +685,43 @@ async function handleHubSpotSync(
   if (ingestResult.action === "ESCALATE" || ingestResult.action === "ESCALATE_WITH_DRAFT") {
     result.escalated = true;
 
+    // Get Gmail thread ID for label and observation mode
+    const { data: threadData } = await supabase
+      .from("threads")
+      .select("gmail_thread_id")
+      .eq("id", ingestResult.thread_id)
+      .single();
+
+    const gmailThreadId = threadData?.gmail_thread_id;
+
+    // Apply the support-escalation Gmail label
+    if (gmailThreadId) {
+      try {
+        await applyEscalationLabel(gmailThreadId);
+        console.log(`[Monitor] Applied escalation label to Gmail thread ${gmailThreadId}`);
+      } catch (labelError) {
+        console.error("Failed to apply escalation label:", labelError);
+      }
+    }
+
+    // Enter observation mode so Lina can learn from Rob's responses
+    if (gmailThreadId) {
+      try {
+        await enterObservationMode({
+          type: "admin_takeover",
+          threadId: ingestResult.thread_id,
+          gmailThreadId,
+          handler: "rob@squarewheelsauto.com",
+          channel: "email",
+          timestamp: new Date(),
+          content: `Escalated: ${ingestResult.intent}`,
+        });
+        console.log(`[Monitor] Entered observation mode for thread ${ingestResult.thread_id}`);
+      } catch (obsError) {
+        console.error("Failed to enter observation mode:", obsError);
+      }
+    }
+
     // Get Rob's owner ID
     const robOwnerId = await getRobOwnerId();
 
@@ -748,18 +786,65 @@ async function handleHubSpotSync(
             `${thread.subject}: ${latestMessage.body.slice(0, 200)}`
           );
 
-          // Get troubleshooting steps from messages (look for what agent tried)
+          // Extract detailed troubleshooting steps and questions from agent messages
           const troubleshootingAttempted: string[] = [];
+          const questionsAsked: string[] = [];
+
           for (const msg of messages || []) {
-            if (msg.direction === "outbound") {
-              // Extract key actions from agent responses (simplified extraction)
-              if (msg.body_text?.includes("verify") || msg.body_text?.includes("confirm")) {
-                troubleshootingAttempted.push("Requested verification/confirmation");
+            if (msg.direction === "outbound" && msg.body_text) {
+              const text = msg.body_text;
+
+              // Extract questions (sentences ending with ?)
+              const questionMatches = text.match(/[^.!?]*\?/g);
+              if (questionMatches) {
+                for (const q of questionMatches) {
+                  const cleanQuestion = q.trim();
+                  if (cleanQuestion.length > 10 && cleanQuestion.length < 200) {
+                    questionsAsked.push(cleanQuestion);
+                  }
+                }
               }
-              if (msg.body_text?.includes("order") && msg.body_text?.includes("number")) {
+
+              // Extract troubleshooting actions/steps
+              if (text.includes("verify") || text.includes("confirm")) {
+                troubleshootingAttempted.push("Requested verification/confirmation from customer");
+              }
+              if (text.includes("order") && (text.includes("number") || text.includes("#"))) {
                 troubleshootingAttempted.push("Asked for order number");
               }
+              if (text.includes("tracking") || text.includes("shipment")) {
+                troubleshootingAttempted.push("Provided tracking/shipping information");
+              }
+              if (text.includes("firmware") || text.includes("update")) {
+                troubleshootingAttempted.push("Discussed firmware/update process");
+              }
+              if (text.includes("reset") || text.includes("restart")) {
+                troubleshootingAttempted.push("Suggested reset/restart");
+              }
+              if (text.includes("return") || text.includes("refund")) {
+                troubleshootingAttempted.push("Discussed return/refund policy");
+              }
+              if (text.includes("vehicle") || text.includes("car") || text.includes("fitment")) {
+                troubleshootingAttempted.push("Asked about vehicle/fitment details");
+              }
+              if (text.includes("KB:") || text.includes("knowledge base")) {
+                troubleshootingAttempted.push("Referenced KB documentation");
+              }
+              if (text.includes("escalat") || text.includes("team member")) {
+                troubleshootingAttempted.push("Mentioned escalation to team");
+              }
             }
+          }
+
+          // Deduplicate troubleshooting steps
+          const uniqueTroubleshooting = [...new Set(troubleshootingAttempted)];
+
+          // Limit questions to most recent 5
+          const recentQuestions = questionsAsked.slice(-5);
+
+          // Add questions asked to troubleshooting for email context
+          if (recentQuestions.length > 0) {
+            uniqueTroubleshooting.push(`Questions asked: ${recentQuestions.length} questions including: "${recentQuestions[0]}"`);
           }
 
           // Generate escalation email content
@@ -767,21 +852,14 @@ async function handleHubSpotSync(
             ingestResult.thread_id,
             customerProfile,
             escalationContext.escalationReason,
-            troubleshootingAttempted
+            uniqueTroubleshooting
           );
 
-          // Get Gmail thread ID for threading
-          const { data: threadData } = await supabase
-            .from("threads")
-            .select("gmail_thread_id")
-            .eq("id", ingestResult.thread_id)
-            .single();
-
-          // Send the email
+          // Send the email (use gmailThreadId from earlier fetch)
           await sendEscalationEmail(
             ingestResult.thread_id,
             emailContent,
-            threadData?.gmail_thread_id || undefined
+            gmailThreadId || undefined
           );
 
           console.log(`[Monitor] Sent escalation email for thread ${ingestResult.thread_id}`);

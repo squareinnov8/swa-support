@@ -182,3 +182,89 @@ export function isGmailSendConfigured(): boolean {
     process.env.GOOGLE_REDIRECT_URI
   );
 }
+
+const SUPPORT_ESCALATION_LABEL = "support-escalation";
+
+/**
+ * Find or create the support-escalation Gmail label
+ */
+async function getOrCreateEscalationLabel(
+  gmail: ReturnType<typeof createGmailClient>
+): Promise<string> {
+  // List all labels
+  const labelsResponse = await gmail.users.labels.list({ userId: "me" });
+  const labels = labelsResponse.data.labels || [];
+
+  // Check if label exists
+  const existingLabel = labels.find(
+    (l) => l.name?.toLowerCase() === SUPPORT_ESCALATION_LABEL.toLowerCase()
+  );
+  if (existingLabel?.id) {
+    return existingLabel.id;
+  }
+
+  // Create the label
+  const createResponse = await gmail.users.labels.create({
+    userId: "me",
+    requestBody: {
+      name: SUPPORT_ESCALATION_LABEL,
+      labelListVisibility: "labelShow",
+      messageListVisibility: "show",
+      color: {
+        backgroundColor: "#fb4c2f", // Red background
+        textColor: "#ffffff",
+      },
+    },
+  });
+
+  if (!createResponse.data.id) {
+    throw new Error("Failed to create escalation label");
+  }
+
+  console.log(`[Escalation] Created Gmail label: ${SUPPORT_ESCALATION_LABEL}`);
+  return createResponse.data.id;
+}
+
+/**
+ * Apply the support-escalation label to a Gmail thread
+ */
+export async function applyEscalationLabel(
+  gmailThreadId: string
+): Promise<boolean> {
+  try {
+    const tokens = await getGmailTokens();
+    const gmail = createGmailClient(tokens);
+
+    // Get or create the escalation label
+    const labelId = await getOrCreateEscalationLabel(gmail);
+
+    // Get all messages in the thread
+    const threadResponse = await gmail.users.threads.get({
+      userId: "me",
+      id: gmailThreadId,
+    });
+
+    const messages = threadResponse.data.messages || [];
+
+    // Apply label to all messages in the thread
+    for (const message of messages) {
+      if (message.id) {
+        await gmail.users.messages.modify({
+          userId: "me",
+          id: message.id,
+          requestBody: {
+            addLabelIds: [labelId],
+          },
+        });
+      }
+    }
+
+    console.log(
+      `[Escalation] Applied ${SUPPORT_ESCALATION_LABEL} label to thread ${gmailThreadId} (${messages.length} messages)`
+    );
+    return true;
+  } catch (error) {
+    console.error(`[Escalation] Failed to apply label:`, error);
+    return false;
+  }
+}

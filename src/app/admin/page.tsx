@@ -2,6 +2,8 @@ import { supabase } from "@/lib/db";
 import { type ThreadState } from "@/lib/threads/stateMachine";
 import AgentSettingsPanel from "./AgentSettingsPanel";
 import { GmailPollButton } from "./GmailPollButton";
+import { Suspense } from "react";
+import ThreadFilters from "./ThreadFilters";
 
 export const dynamic = "force-dynamic";
 
@@ -24,13 +26,54 @@ const STATE_LABELS: Record<ThreadState, string> = {
   RESOLVED: "Resolved",
 };
 
-export default async function AdminPage() {
-  // Fetch threads sorted by latest update (for inbox workflow)
-  const { data: threads } = await supabase
+type SearchParams = {
+  state?: string;
+  escalated?: string;
+  intent?: string;
+  sort?: string;
+};
+
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const params = await searchParams;
+  const stateFilter = params.state || "";
+  const escalatedFilter = params.escalated || "";
+  const intentFilter = params.intent || "";
+  const sortParam = params.sort || "updated_at:desc";
+
+  // Parse sort parameter
+  const [sortField, sortDirection] = sortParam.split(":") as [string, "asc" | "desc"];
+
+  // Build query with filters
+  let query = supabase
     .from("threads")
-    .select("id,subject,state,last_intent,updated_at,created_at,human_handling_mode,human_handler,summary,verification_status")
-    .order("updated_at", { ascending: false })
-    .limit(50);
+    .select("id,subject,state,last_intent,updated_at,created_at,human_handling_mode,human_handler,summary,verification_status");
+
+  // Apply state filter
+  if (stateFilter) {
+    query = query.eq("state", stateFilter);
+  }
+
+  // Apply escalated filter
+  if (escalatedFilter === "yes") {
+    query = query.or("state.eq.ESCALATED,human_handling_mode.eq.true");
+  } else if (escalatedFilter === "no") {
+    query = query.neq("state", "ESCALATED").neq("human_handling_mode", true);
+  }
+
+  // Apply intent filter (partial match)
+  if (intentFilter) {
+    query = query.ilike("last_intent", `%${intentFilter}%`);
+  }
+
+  // Apply sorting
+  query = query.order(sortField as "updated_at" | "created_at", { ascending: sortDirection === "asc" });
+
+  // Execute query
+  const { data: threads } = await query.limit(50);
 
   // Fetch verification data for threads that have it
   const threadIds = threads?.map(t => t.id) || [];
@@ -134,6 +177,11 @@ export default async function AdminPage() {
       </div>
       <AgentSettingsPanel />
 
+      {/* Thread Filters */}
+      <Suspense fallback={<div style={{ padding: 16, backgroundColor: "#f9fafb", borderRadius: 8, marginBottom: 16 }}>Loading filters...</div>}>
+        <ThreadFilters />
+      </Suspense>
+
       {/* Dashboard Widgets */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24 }}>
         {/* Active Observations */}
@@ -199,7 +247,13 @@ export default async function AdminPage() {
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <p style={{ opacity: 0.6, margin: 0 }}>
-          {threads?.length || 0} threads (sorted by latest update)
+          {threads?.length || 0} threads
+          {(stateFilter || escalatedFilter || intentFilter) && (
+            <span style={{ color: "#3b82f6" }}> (filtered)</span>
+          )}
+          {" · "}
+          sorted by {sortField === "updated_at" ? "update time" : "creation time"}
+          {sortDirection === "desc" ? " (newest first)" : " (oldest first)"}
         </p>
         <GmailPollButton />
       </div>

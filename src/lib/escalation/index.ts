@@ -22,4 +22,5 @@ export {
   sendEscalationEmail,
   shouldSendEscalationEmail,
   isGmailSendConfigured,
+  applyEscalationLabel,
 } from "./emailSender";

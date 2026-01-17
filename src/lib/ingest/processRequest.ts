@@ -611,6 +611,20 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
     }
   }
 
+  // 6.5. Add escalation notice to customer draft if escalating
+  // This tells the customer we're escalating without CC'ing Rob
+  if (action === "ESCALATE_WITH_DRAFT") {
+    const escalationNotice = `\n\nI've escalated this to Rob, our team lead, who will follow up with you directly to help resolve this.\n\n– Lina`;
+
+    if (draft) {
+      // Remove existing "– Lina" signoff if present, then add escalation notice
+      draft = draft.replace(/\n*–\s*Lina\s*$/i, "").trim() + escalationNotice;
+    } else {
+      // No draft exists yet - create an escalation acknowledgment
+      draft = `Thank you for reaching out. I've reviewed your message and I've escalated this to Rob, our team lead, who will follow up with you directly to help resolve this.\n\n– Lina`;
+    }
+  }
+
   // 7. Calculate next state using state machine
   const transitionContext = {
     currentState,
