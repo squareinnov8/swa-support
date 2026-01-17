@@ -70,108 +70,102 @@ export default async function IntentsPage() {
   const unknownCount = unknownIntent ? usageByIntent[unknownIntent.id] || 0 : 0;
 
   return (
-    <div style={{ padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 1100 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 600, color: "#33475b" }}>Intent Management</h1>
-          <p style={{ color: "#7c98b6", marginTop: 4, fontSize: 14 }}>
-            Define intents for Lina to classify customer messages
-          </p>
+    <div style={{ padding: "0 0 24px 0", maxWidth: 1100, margin: "0 auto" }}>
+      {/* Page Header */}
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "16px 20px",
+        borderBottom: "1px solid #dfe3eb",
+        backgroundColor: "#fff",
+      }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+          <h1 style={{ fontSize: 20, fontWeight: 500, color: "#33475b", margin: 0 }}>Intents</h1>
+          <span style={{ fontSize: 13, color: "#7c98b6" }}>
+            {intents?.length || 0} total · {intents?.filter((i) => i.is_active).length || 0} active
+          </span>
         </div>
         <a
           href="/admin"
           style={{
-            color: "#0091ae",
+            color: "#0073aa",
             textDecoration: "none",
-            fontSize: 14,
-            fontWeight: 500,
+            fontSize: 13,
           }}
         >
-          ← Back to Inbox
+          ← Tickets
         </a>
       </div>
 
-      {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 32 }}>
-        <div style={{ padding: 16, backgroundColor: "#ffffff", borderRadius: 4, border: "1px solid #cbd6e2" }}>
-          <div style={{ fontSize: 28, fontWeight: 600, color: "#33475b" }}>{intents?.length || 0}</div>
-          <div style={{ fontSize: 13, color: "#7c98b6", marginTop: 4 }}>Total Intents</div>
-        </div>
-        <div style={{ padding: 16, backgroundColor: "#ffffff", borderRadius: 4, border: "1px solid #cbd6e2" }}>
-          <div style={{ fontSize: 28, fontWeight: 600, color: "#00a182" }}>
-            {intents?.filter((i) => i.is_active).length || 0}
+      <div style={{ padding: "16px 20px" }}>
+        {/* Stats Row */}
+        <div style={{ display: "flex", gap: 24, marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid #eaf0f6" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 18, fontWeight: 600, color: "#33475b" }}>
+              {intents?.length || 0}
+            </span>
+            <span style={{ fontSize: 13, color: "#516f90" }}>Total</span>
           </div>
-          <div style={{ fontSize: 13, color: "#7c98b6", marginTop: 4 }}>Active</div>
-        </div>
-        <div style={{ padding: 16, backgroundColor: unknownCount > 0 ? "#fef6e7" : "#ffffff", borderRadius: 4, border: unknownCount > 0 ? "1px solid #f5c26b" : "1px solid #cbd6e2" }}>
-          <div style={{ fontSize: 28, fontWeight: 600, color: unknownCount > 0 ? "#b36b00" : "#7c98b6" }}>
-            {unknownCount}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 18, fontWeight: 600, color: "#00a854" }}>
+              {intents?.filter((i) => i.is_active).length || 0}
+            </span>
+            <span style={{ fontSize: 13, color: "#516f90" }}>Active</span>
           </div>
-          <div style={{ fontSize: 13, color: unknownCount > 0 ? "#b36b00" : "#7c98b6", marginTop: 4 }}>UNKNOWN Threads</div>
-        </div>
-        <div style={{ padding: 16, backgroundColor: "#ffffff", borderRadius: 4, border: "1px solid #cbd6e2" }}>
-          <div style={{ fontSize: 28, fontWeight: 600, color: "#0091ae" }}>
-            {Object.keys(byCategory).length}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{
+              fontSize: 18,
+              fontWeight: 600,
+              color: unknownCount > 0 ? "#bf5600" : "#99acc2",
+            }}>
+              {unknownCount}
+            </span>
+            <span style={{ fontSize: 13, color: "#516f90" }}>Unclassified</span>
           </div>
-          <div style={{ fontSize: 13, color: "#7c98b6", marginTop: 4 }}>Categories</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 18, fontWeight: 600, color: "#0073aa" }}>
+              {Object.keys(byCategory).length}
+            </span>
+            <span style={{ fontSize: 13, color: "#516f90" }}>Categories</span>
+          </div>
         </div>
-      </div>
 
-      {/* Add New Intent Form */}
-      <div
-        style={{
-          marginBottom: 32,
-          border: "1px solid #cbd6e2",
-          borderRadius: 4,
-          overflow: "hidden",
-          backgroundColor: "#ffffff",
-        }}
-      >
-        <div
-          style={{
-            padding: "12px 16px",
-            backgroundColor: "#f5f8fa",
-            borderBottom: "1px solid #cbd6e2",
-          }}
-        >
-          <h2
-            style={{
-              margin: 0,
-              fontSize: 14,
-              fontWeight: 500,
-              color: "#516f90",
-              textTransform: "uppercase",
-              letterSpacing: "0.5px",
-            }}
-          >
-            Add New Intent
-          </h2>
-        </div>
-        <div style={{ padding: 20 }}>
+        {/* Add New Intent */}
+        <div style={{ marginBottom: 24 }}>
           <IntentForm categories={[...sortedCategories, ...otherCategories]} />
         </div>
-      </div>
 
-      {/* Intent List by Category */}
-      {[...sortedCategories, ...otherCategories].map((category) => (
-        <div key={category} style={{ marginBottom: 32 }}>
-          <h2 style={{
-            fontSize: 15,
-            fontWeight: 600,
-            marginBottom: 12,
-            color: category === "escalation" ? "#c93b41" : "#33475b",
-          }}>
-            {CATEGORY_LABELS[category] || category}
-            <span style={{ fontWeight: 400, color: "#7c98b6", marginLeft: 8 }}>
-              ({byCategory[category]?.length || 0})
-            </span>
-          </h2>
-          <IntentList
-            intents={byCategory[category] || []}
-            usageByIntent={usageByIntent}
-          />
-        </div>
-      ))}
+        {/* Intent List by Category */}
+        {[...sortedCategories, ...otherCategories].map((category) => (
+          <div key={category} style={{ marginBottom: 24 }}>
+            <div style={{
+              fontSize: 13,
+              fontWeight: 600,
+              marginBottom: 8,
+              color: category === "escalation" ? "#d63638" : "#516f90",
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}>
+              {CATEGORY_LABELS[category] || category}
+              <span style={{
+                fontWeight: 400,
+                color: "#99acc2",
+                fontSize: 12,
+              }}>
+                {byCategory[category]?.length || 0}
+              </span>
+            </div>
+            <IntentList
+              intents={byCategory[category] || []}
+              usageByIntent={usageByIntent}
+            />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

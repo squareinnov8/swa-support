@@ -69,41 +69,39 @@ export default function IntentForm({ categories }: IntentFormProps) {
       <button
         onClick={() => setExpanded(true)}
         style={{
-          padding: "10px 20px",
-          backgroundColor: "#0091ae",
+          padding: "6px 12px",
+          backgroundColor: "#0073aa",
           color: "white",
           border: "none",
-          borderRadius: 4,
+          borderRadius: 3,
           cursor: "pointer",
-          fontSize: 14,
-          fontWeight: 500,
+          fontSize: 13,
         }}
       >
-        + Add New Intent
+        + Add intent
       </button>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} style={{ backgroundColor: "#fafbfc", padding: 16, borderRadius: 3 }}>
       {error && (
         <div style={{
-          backgroundColor: "#fde8e9",
-          color: "#c93b41",
-          padding: 12,
-          borderRadius: 4,
-          marginBottom: 16,
-          fontSize: 14,
-          border: "1px solid #f2545b",
+          backgroundColor: "#fff0f0",
+          color: "#d63638",
+          padding: "8px 12px",
+          borderRadius: 3,
+          marginBottom: 12,
+          fontSize: 13,
         }}>
           {error}
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
         <div>
-          <label style={{ display: "block", fontSize: 11, fontWeight: 500, marginBottom: 4, color: "#516f90", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-            Slug (ID) *
+          <label style={{ display: "block", fontSize: 11, fontWeight: 500, marginBottom: 3, color: "#516f90" }}>
+            Slug *
           </label>
           <input
             type="text"
@@ -116,17 +114,17 @@ export default function IntentForm({ categories }: IntentFormProps) {
             placeholder="PRODUCT_RESTOCK"
             style={{
               width: "100%",
-              padding: 8,
-              border: "1px solid #cbd6e2",
-              borderRadius: 4,
-              fontSize: 14,
+              padding: "6px 10px",
+              border: "1px solid #dfe3eb",
+              borderRadius: 3,
+              fontSize: 12,
               fontFamily: "monospace",
             }}
           />
         </div>
 
         <div>
-          <label style={{ display: "block", fontSize: 11, fontWeight: 500, marginBottom: 4, color: "#516f90", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+          <label style={{ display: "block", fontSize: 11, fontWeight: 500, marginBottom: 3, color: "#516f90" }}>
             Name *
           </label>
           <input
@@ -137,18 +135,18 @@ export default function IntentForm({ categories }: IntentFormProps) {
             placeholder="Product Restock Inquiry"
             style={{
               width: "100%",
-              padding: 8,
-              border: "1px solid #cbd6e2",
-              borderRadius: 4,
-              fontSize: 14,
+              padding: "6px 10px",
+              border: "1px solid #dfe3eb",
+              borderRadius: 3,
+              fontSize: 13,
             }}
           />
         </div>
       </div>
 
-      <div style={{ marginBottom: 16 }}>
-        <label style={{ display: "block", fontSize: 11, fontWeight: 500, marginBottom: 4, color: "#516f90", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-          Description (helps LLM understand when to use this intent)
+      <div style={{ marginBottom: 12 }}>
+        <label style={{ display: "block", fontSize: 11, fontWeight: 500, marginBottom: 3, color: "#516f90" }}>
+          Description
         </label>
         <textarea
           value={form.description}
@@ -157,51 +155,48 @@ export default function IntentForm({ categories }: IntentFormProps) {
           placeholder="Customer asking when a product will be back in stock"
           style={{
             width: "100%",
-            padding: 8,
-            border: "1px solid #cbd6e2",
-            borderRadius: 4,
-            fontSize: 14,
+            padding: "6px 10px",
+            border: "1px solid #dfe3eb",
+            borderRadius: 3,
+            fontSize: 13,
             resize: "vertical",
           }}
         />
       </div>
 
-      <div style={{ marginBottom: 16 }}>
-        <label style={{ display: "block", fontSize: 11, fontWeight: 500, marginBottom: 4, color: "#516f90", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-          Example phrases (one per line)
+      <div style={{ marginBottom: 12 }}>
+        <label style={{ display: "block", fontSize: 11, fontWeight: 500, marginBottom: 3, color: "#516f90" }}>
+          Examples (one per line)
         </label>
         <textarea
           value={form.examples}
           onChange={(e) => setForm({ ...form, examples: e.target.value })}
           rows={3}
-          placeholder="when will it be back in stock&#10;restock date&#10;out of stock"
+          placeholder="when will it be back in stock&#10;restock date"
           style={{
             width: "100%",
-            padding: 8,
-            border: "1px solid #cbd6e2",
-            borderRadius: 4,
-            fontSize: 13,
+            padding: "6px 10px",
+            border: "1px solid #dfe3eb",
+            borderRadius: 3,
+            fontSize: 12,
             fontFamily: "monospace",
             resize: "vertical",
           }}
         />
       </div>
 
-      <div style={{ display: "flex", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
-        <div>
-          <label style={{ display: "block", fontSize: 11, fontWeight: 500, marginBottom: 4, color: "#516f90", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-            Category
-          </label>
+      <div style={{ display: "flex", gap: 16, marginBottom: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <label style={{ fontSize: 12, color: "#516f90" }}>Category:</label>
           <select
             value={form.category}
             onChange={(e) => setForm({ ...form, category: e.target.value })}
             style={{
-              padding: 8,
-              border: "1px solid #cbd6e2",
-              borderRadius: 4,
-              fontSize: 14,
-              minWidth: 150,
-              backgroundColor: "#ffffff",
+              padding: "5px 8px",
+              border: "1px solid #dfe3eb",
+              borderRadius: 3,
+              fontSize: 13,
+              backgroundColor: "#fff",
             }}
           >
             {categories.map((cat) => (
@@ -211,71 +206,68 @@ export default function IntentForm({ categories }: IntentFormProps) {
           </select>
         </div>
 
-        <div>
-          <label style={{ display: "block", fontSize: 11, fontWeight: 500, marginBottom: 4, color: "#516f90", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-            Priority
-          </label>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <label style={{ fontSize: 12, color: "#516f90" }}>Priority:</label>
           <input
             type="number"
             value={form.priority}
             onChange={(e) => setForm({ ...form, priority: parseInt(e.target.value) || 0 })}
             style={{
-              width: 80,
-              padding: 8,
-              border: "1px solid #cbd6e2",
-              borderRadius: 4,
-              fontSize: 14,
+              width: 60,
+              padding: "5px 8px",
+              border: "1px solid #dfe3eb",
+              borderRadius: 3,
+              fontSize: 13,
             }}
           />
         </div>
 
-        <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginTop: 20 }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
           <input
             type="checkbox"
             checked={form.requires_verification}
             onChange={(e) => setForm({ ...form, requires_verification: e.target.checked })}
           />
-          <span style={{ fontSize: 13, color: "#33475b" }}>Requires Verification</span>
+          <span style={{ fontSize: 12, color: "#33475b" }}>Verify</span>
         </label>
 
-        <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginTop: 20 }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
           <input
             type="checkbox"
             checked={form.auto_escalate}
             onChange={(e) => setForm({ ...form, auto_escalate: e.target.checked })}
           />
-          <span style={{ fontSize: 13, color: "#33475b" }}>Auto-Escalate</span>
+          <span style={{ fontSize: 12, color: "#33475b" }}>Escalate</span>
         </label>
       </div>
 
-      <div style={{ display: "flex", gap: 8 }}>
+      <div style={{ display: "flex", gap: 6 }}>
         <button
           type="submit"
           disabled={saving}
           style={{
-            padding: "10px 20px",
-            backgroundColor: saving ? "#cbd6e2" : "#00a182",
+            padding: "6px 14px",
+            backgroundColor: saving ? "#99acc2" : "#00a854",
             color: "white",
             border: "none",
-            borderRadius: 4,
+            borderRadius: 3,
             cursor: saving ? "not-allowed" : "pointer",
-            fontSize: 14,
-            fontWeight: 500,
+            fontSize: 13,
           }}
         >
-          {saving ? "Creating..." : "Create Intent"}
+          {saving ? "..." : "Create"}
         </button>
         <button
           type="button"
           onClick={() => setExpanded(false)}
           style={{
-            padding: "10px 20px",
-            backgroundColor: "#eaf0f6",
+            padding: "6px 14px",
+            backgroundColor: "transparent",
             color: "#516f90",
-            border: "1px solid #cbd6e2",
-            borderRadius: 4,
+            border: "1px solid #dfe3eb",
+            borderRadius: 3,
             cursor: "pointer",
-            fontSize: 14,
+            fontSize: 13,
           }}
         >
           Cancel

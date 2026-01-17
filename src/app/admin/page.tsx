@@ -108,271 +108,244 @@ export default async function AdminPage({
     .eq("status", "pending");
 
   return (
-    <div style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
-      {/* Page Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <div>
-          <h1 style={{ fontSize: 24, fontWeight: 600, color: "#33475b", margin: 0 }}>Support Inbox</h1>
-          <p style={{ fontSize: 14, color: "#516f90", marginTop: 4, marginBottom: 0 }}>
-            {threads?.length || 0} tickets
+    <div style={{ padding: "0 0 24px 0", maxWidth: 1200, margin: "0 auto" }}>
+      {/* Page Header - more compact */}
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "16px 20px",
+        borderBottom: "1px solid #dfe3eb",
+        backgroundColor: "#fff",
+      }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+          <h1 style={{ fontSize: 20, fontWeight: 500, color: "#33475b", margin: 0 }}>Tickets</h1>
+          <span style={{ fontSize: 13, color: "#7c98b6" }}>
+            {threads?.length || 0} total
             {(stateFilter || escalatedFilter || intentFilter) && (
-              <span style={{ color: "#0091ae" }}> (filtered)</span>
+              <span style={{ color: "#0091ae", marginLeft: 4 }}>• filtered</span>
             )}
-          </p>
+          </span>
         </div>
-        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <GmailPollButton />
           <a
             href="/admin/new"
             style={{
-              padding: "9px 16px",
-              backgroundColor: "#ff7a59",
+              padding: "7px 12px",
+              backgroundColor: "#ff5c35",
               color: "white",
-              borderRadius: 4,
+              borderRadius: 3,
               textDecoration: "none",
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: 500,
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
             }}
           >
-            + New Ticket
+            Create ticket
           </a>
         </div>
       </div>
 
-      <AgentSettingsPanel />
+      <div style={{ padding: "16px 20px" }}>
+        <AgentSettingsPanel />
 
-      {/* Stats Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24 }}>
-        {/* Active Observations */}
-        <div
-          style={{
-            padding: 20,
-            borderRadius: 4,
-            backgroundColor: "#ffffff",
-            border: (observationCount ?? 0) > 0 ? "1px solid #f5c26b" : "1px solid #cbd6e2",
-            borderLeft: (observationCount ?? 0) > 0 ? "4px solid #f5c26b" : "4px solid #cbd6e2",
-          }}
-        >
-          <div style={{ fontSize: 32, fontWeight: 600, color: (observationCount ?? 0) > 0 ? "#b36b00" : "#516f90", lineHeight: 1.2 }}>
-            {observationCount ?? 0}
+        {/* Stats Row - inline compact version */}
+        <div style={{ display: "flex", gap: 24, marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid #eaf0f6" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{
+              fontSize: 18,
+              fontWeight: 600,
+              color: (observationCount ?? 0) > 0 ? "#bf5600" : "#99acc2",
+            }}>
+              {observationCount ?? 0}
+            </span>
+            <span style={{ fontSize: 13, color: "#516f90" }}>Watching</span>
           </div>
-          <div style={{ fontSize: 14, color: "#516f90", marginTop: 4 }}>Active Observations</div>
-          {(observationCount ?? 0) > 0 && (
-            <div style={{ fontSize: 12, color: "#b36b00", marginTop: 8 }}>
-              Lina is watching
-            </div>
-          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{
+              fontSize: 18,
+              fontWeight: 600,
+              color: (escalationCount ?? 0) > 0 ? "#d63638" : "#99acc2",
+            }}>
+              {escalationCount ?? 0}
+            </span>
+            <span style={{ fontSize: 13, color: "#516f90" }}>Escalated (24h)</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{
+              fontSize: 18,
+              fontWeight: 600,
+              color: (proposalCount ?? 0) > 0 ? "#0073aa" : "#99acc2",
+            }}>
+              {proposalCount ?? 0}
+            </span>
+            <span style={{ fontSize: 13, color: "#516f90" }}>To review</span>
+          </div>
         </div>
 
-        {/* Recent Escalations */}
-        <div
-          style={{
-            padding: 20,
-            borderRadius: 4,
-            backgroundColor: "#ffffff",
-            border: (escalationCount ?? 0) > 0 ? "1px solid #f2545b" : "1px solid #cbd6e2",
-            borderLeft: (escalationCount ?? 0) > 0 ? "4px solid #f2545b" : "4px solid #cbd6e2",
-          }}
-        >
-          <div style={{ fontSize: 32, fontWeight: 600, color: (escalationCount ?? 0) > 0 ? "#c93b41" : "#516f90", lineHeight: 1.2 }}>
-            {escalationCount ?? 0}
-          </div>
-          <div style={{ fontSize: 14, color: "#516f90", marginTop: 4 }}>Escalations (24h)</div>
-          {(escalationCount ?? 0) > 0 && (
-            <div style={{ fontSize: 12, color: "#c93b41", marginTop: 8 }}>
-              Emails sent to Rob
-            </div>
-          )}
-        </div>
+        {/* Thread Filters */}
+        <Suspense fallback={<div style={{ marginBottom: 12, color: "#7c98b6", fontSize: 13 }}>Loading...</div>}>
+          <ThreadFilters />
+        </Suspense>
 
-        {/* Pending Learning */}
-        <div
-          style={{
-            padding: 20,
-            borderRadius: 4,
-            backgroundColor: "#ffffff",
-            border: (proposalCount ?? 0) > 0 ? "1px solid #0091ae" : "1px solid #cbd6e2",
-            borderLeft: (proposalCount ?? 0) > 0 ? "4px solid #0091ae" : "4px solid #cbd6e2",
-          }}
-        >
-          <div style={{ fontSize: 32, fontWeight: 600, color: (proposalCount ?? 0) > 0 ? "#0091ae" : "#516f90", lineHeight: 1.2 }}>
-            {proposalCount ?? 0}
-          </div>
-          <div style={{ fontSize: 14, color: "#516f90", marginTop: 4 }}>Learning Proposals</div>
-          {(proposalCount ?? 0) > 0 && (
-            <div style={{ fontSize: 12, color: "#0091ae", marginTop: 8 }}>
-              Pending review
-            </div>
-          )}
-        </div>
-      </div>
+        {/* Thread Table - clean HubSpot style */}
+        <table style={{ width: "100%", borderCollapse: "collapse", backgroundColor: "#fff" }}>
+          <thead>
+            <tr style={{ borderBottom: "1px solid #dfe3eb" }}>
+              <th style={{ textAlign: "left", padding: "10px 12px", fontSize: 11, fontWeight: 600, color: "#516f90", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                Ticket
+              </th>
+              <th style={{ textAlign: "left", padding: "10px 12px", fontSize: 11, fontWeight: 600, color: "#516f90", textTransform: "uppercase", letterSpacing: "0.5px", width: 110 }}>
+                Status
+              </th>
+              <th style={{ textAlign: "left", padding: "10px 12px", fontSize: 11, fontWeight: 600, color: "#516f90", textTransform: "uppercase", letterSpacing: "0.5px", width: 150 }}>
+                Last activity
+              </th>
+              <th style={{ textAlign: "left", padding: "10px 12px", fontSize: 11, fontWeight: 600, color: "#516f90", textTransform: "uppercase", letterSpacing: "0.5px", width: 140 }}>
+                Contact
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {threads?.length === 0 ? (
+              <tr>
+                <td colSpan={4} style={{ padding: "40px 12px", textAlign: "center", color: "#7c98b6", fontSize: 14 }}>
+                  No tickets match your filters
+                </td>
+              </tr>
+            ) : (
+              threads?.map((t) => {
+                const state = (t.state as ThreadState) || "NEW";
+                const colors = STATE_COLORS[state];
+                const label = STATE_LABELS[state];
+                const verification = verificationMap.get(t.id);
+                const isVerifiedCustomer = verification?.status === "verified";
+                const isEscalated = state === "ESCALATED" || t.human_handling_mode;
 
-      {/* Thread Filters */}
-      <Suspense fallback={<div style={{ padding: 16, backgroundColor: "#ffffff", borderRadius: 4, border: "1px solid #cbd6e2", marginBottom: 16 }}>Loading filters...</div>}>
-        <ThreadFilters />
-      </Suspense>
-
-      {/* Thread Table */}
-      <div style={{ backgroundColor: "#ffffff", border: "1px solid #cbd6e2", borderRadius: 4, overflow: "hidden" }}>
-        {/* Table Header */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 140px 180px 160px",
-            gap: 16,
-            padding: "12px 16px",
-            backgroundColor: "#f5f8fa",
-            borderBottom: "1px solid #cbd6e2",
-            fontSize: 12,
-            fontWeight: 500,
-            textTransform: "uppercase",
-            letterSpacing: "0.5px",
-            color: "#516f90",
-          }}
-        >
-          <div>Subject</div>
-          <div>Status</div>
-          <div>Last Activity</div>
-          <div>Customer</div>
-        </div>
-
-        {/* Thread Rows */}
-        {threads?.length === 0 ? (
-          <div style={{ padding: 48, textAlign: "center", color: "#516f90" }}>
-            <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 8 }}>No tickets found</div>
-            <div style={{ fontSize: 14 }}>Try adjusting your filters or check back later.</div>
-          </div>
-        ) : (
-          threads?.map((t) => {
-            const state = (t.state as ThreadState) || "NEW";
-            const colors = STATE_COLORS[state];
-            const label = STATE_LABELS[state];
-            const verification = verificationMap.get(t.id);
-            const isVerifiedCustomer = verification?.status === "verified";
-            const isEscalated = state === "ESCALATED" || t.human_handling_mode;
-
-            return (
-              <div
-                key={t.id}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 140px 180px 160px",
-                  gap: 16,
-                  padding: "14px 16px",
-                  borderBottom: "1px solid #eaf0f6",
-                  alignItems: "center",
-                  backgroundColor: isEscalated ? "#fef6e7" : "#ffffff",
-                  borderLeft: isEscalated ? "3px solid #f2545b" : "3px solid transparent",
-                }}
-              >
-                {/* Subject */}
-                <div>
-                  <a
-                    href={`/admin/thread/${t.id}`}
+                return (
+                  <tr
+                    key={t.id}
                     style={{
-                      fontWeight: 500,
-                      color: "#0091ae",
-                      textDecoration: "none",
-                      fontSize: 14,
+                      borderBottom: "1px solid #eaf0f6",
+                      backgroundColor: isEscalated ? "#fff8f6" : "transparent",
                     }}
                   >
-                    {t.subject || "(no subject)"}
-                  </a>
-                  {t.summary && (
-                    <div style={{ fontSize: 13, color: "#516f90", marginTop: 4, lineHeight: 1.4 }}>
-                      {t.summary.length > 80 ? t.summary.substring(0, 80) + "..." : t.summary}
-                    </div>
-                  )}
-                </div>
+                    {/* Ticket */}
+                    <td style={{ padding: "12px", verticalAlign: "top" }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                        {isEscalated && (
+                          <span style={{
+                            width: 3,
+                            height: 40,
+                            backgroundColor: "#d63638",
+                            borderRadius: 2,
+                            flexShrink: 0,
+                            marginTop: 2,
+                          }} />
+                        )}
+                        <div>
+                          <a
+                            href={`/admin/thread/${t.id}`}
+                            style={{
+                              fontWeight: 500,
+                              color: "#0073aa",
+                              textDecoration: "none",
+                              fontSize: 14,
+                              lineHeight: 1.3,
+                            }}
+                          >
+                            {t.subject || "(no subject)"}
+                          </a>
+                          {t.summary && (
+                            <div style={{ fontSize: 13, color: "#7c98b6", marginTop: 3, lineHeight: 1.4 }}>
+                              {t.summary.length > 100 ? t.summary.substring(0, 100) + "…" : t.summary}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
 
-                {/* Status */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  <span
-                    style={{
-                      padding: "3px 8px",
-                      borderRadius: 3,
-                      fontSize: 12,
-                      fontWeight: 500,
-                      backgroundColor: colors.bg,
-                      color: colors.text,
-                      display: "inline-block",
-                      width: "fit-content",
-                    }}
-                  >
-                    {label}
-                  </span>
-                  {t.human_handling_mode && (
-                    <span
-                      style={{
-                        padding: "3px 8px",
-                        borderRadius: 3,
-                        fontSize: 11,
-                        fontWeight: 500,
-                        backgroundColor: "#fef6e7",
-                        color: "#b36b00",
-                        display: "inline-block",
-                        width: "fit-content",
-                      }}
-                    >
-                      Observing
-                    </span>
-                  )}
-                </div>
-
-                {/* Last Activity */}
-                <div style={{ fontSize: 13, color: "#516f90" }}>
-                  {new Date(t.updated_at).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
-                  {" at "}
-                  {new Date(t.updated_at).toLocaleTimeString("en-US", {
-                    hour: "numeric",
-                    minute: "2-digit",
-                    hour12: true,
-                  })}
-                  {t.human_handler && (
-                    <div style={{ fontSize: 12, color: "#7c98b6", marginTop: 2 }}>
-                      Handler: {t.human_handler.split("@")[0]}
-                    </div>
-                  )}
-                </div>
-
-                {/* Customer */}
-                <div style={{ fontSize: 13, color: "#516f90" }}>
-                  {isVerifiedCustomer ? (
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    {/* Status */}
+                    <td style={{ padding: "12px", verticalAlign: "top" }}>
                       <span
                         style={{
-                          width: 6,
-                          height: 6,
-                          borderRadius: "50%",
-                          backgroundColor: "#00a182",
-                          display: "inline-block",
+                          padding: "2px 6px",
+                          borderRadius: 2,
+                          fontSize: 11,
+                          fontWeight: 500,
+                          backgroundColor: colors.bg,
+                          color: colors.text,
+                          whiteSpace: "nowrap",
                         }}
-                      />
-                      <span style={{ color: "#33475b" }}>{verification?.customerName || "Verified"}</span>
-                    </div>
-                  ) : (
-                    <span style={{ color: "#7c98b6" }}>--</span>
-                  )}
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
+                      >
+                        {label}
+                      </span>
+                      {t.human_handling_mode && (
+                        <div style={{ marginTop: 4 }}>
+                          <span style={{
+                            padding: "2px 6px",
+                            borderRadius: 2,
+                            fontSize: 10,
+                            fontWeight: 500,
+                            backgroundColor: "#fff3cd",
+                            color: "#856404",
+                          }}>
+                            Watching
+                          </span>
+                        </div>
+                      )}
+                    </td>
 
-      {/* Footer Info */}
-      <div style={{ marginTop: 16, fontSize: 13, color: "#7c98b6", textAlign: "center" }}>
-        Showing {threads?.length || 0} tickets
-        {" · "}
-        Sorted by {sortField === "updated_at" ? "last activity" : "created date"}
-        {sortDirection === "desc" ? " (newest first)" : " (oldest first)"}
+                    {/* Last Activity */}
+                    <td style={{ padding: "12px", fontSize: 13, color: "#516f90", verticalAlign: "top" }}>
+                      <div>
+                        {new Date(t.updated_at).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                        <span style={{ color: "#99acc2", margin: "0 4px" }}>·</span>
+                        {new Date(t.updated_at).toLocaleTimeString("en-US", {
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                      </div>
+                      {t.human_handler && (
+                        <div style={{ fontSize: 12, color: "#99acc2", marginTop: 2 }}>
+                          {t.human_handler.split("@")[0]}
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Contact */}
+                    <td style={{ padding: "12px", fontSize: 13, verticalAlign: "top" }}>
+                      {isVerifiedCustomer ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{
+                            width: 7,
+                            height: 7,
+                            borderRadius: "50%",
+                            backgroundColor: "#00a854",
+                            flexShrink: 0,
+                          }} />
+                          <span style={{ color: "#33475b", fontWeight: 500 }}>
+                            {verification?.customerName || "Verified"}
+                          </span>
+                        </div>
+                      ) : (
+                        <span style={{ color: "#99acc2" }}>—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+
+        {/* Footer */}
+        <div style={{ padding: "12px", fontSize: 12, color: "#99acc2", borderTop: "1px solid #eaf0f6" }}>
+          {threads?.length || 0} tickets · {sortField === "updated_at" ? "Last activity" : "Created"} {sortDirection === "desc" ? "↓" : "↑"}
+        </div>
       </div>
     </div>
   );
