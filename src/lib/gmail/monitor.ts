@@ -7,7 +7,7 @@
 
 import { supabase } from "@/lib/db";
 import { createGmailClient, refreshTokenIfNeeded, type GmailTokens } from "@/lib/import/gmail/auth";
-import { fetchThread, downloadAttachment, type GmailThread, type GmailMessage, type GmailAttachment } from "@/lib/import/gmail/fetcher";
+import { fetchThread, listThreads, downloadAttachment, type GmailThread, type GmailMessage, type GmailAttachment } from "@/lib/import/gmail/fetcher";
 import { processIngestRequest } from "@/lib/ingest/processRequest";
 import type { IngestRequest, MessageAttachment } from "@/lib/ingest/types";
 import { processAttachment, type ExtractedAttachmentContent } from "@/lib/attachments";
@@ -593,6 +593,15 @@ async function processGmailThread(
   // (Existing threads were already synced above)
   if (!existingThread) {
     await syncGmailMessagesToThread(ingestResult.thread_id, thread);
+
+    // For new customers, fetch their historical threads from Gmail
+    // This builds support history for the customer context panel
+    const customerEmail = latestIncoming.from;
+    const isNew = await isNewCustomer(customerEmail);
+    if (isNew) {
+      console.log(`[Monitor] New customer detected: ${customerEmail}, fetching history...`);
+      await fetchCustomerHistory(tokens, customerEmail, gmailThreadId);
+    }
   }
 
   // Handle HubSpot integration
@@ -870,6 +879,122 @@ async function handleHubSpotSync(
       }
     }
   }
+}
+
+/**
+ * Check if this is a new customer (first thread we've processed from them)
+ */
+async function isNewCustomer(customerEmail: string): Promise<boolean> {
+  const { count } = await supabase
+    .from("messages")
+    .select("id", { count: "exact", head: true })
+    .eq("from_email", customerEmail)
+    .eq("direction", "inbound")
+    .limit(2);
+
+  // If we have 0 or 1 messages, they're effectively new (current message might be first)
+  return (count ?? 0) <= 1;
+}
+
+/**
+ * Fetch and ingest historical threads from a customer
+ * Called when we first see a new customer to build support history
+ */
+async function fetchCustomerHistory(
+  tokens: GmailTokens,
+  customerEmail: string,
+  excludeThreadId?: string
+): Promise<{ threadsFound: number; threadsIngested: number }> {
+  let threadsFound = 0;
+  let threadsIngested = 0;
+
+  try {
+    console.log(`[Monitor] Fetching history for customer: ${customerEmail}`);
+
+    // Search Gmail for threads from this customer
+    const result = await listThreads(tokens, {
+      query: `from:${customerEmail}`,
+      maxResults: 20, // Limit to avoid overwhelming the system
+    });
+
+    threadsFound = result.threads.length;
+    console.log(`[Monitor] Found ${threadsFound} historical threads for ${customerEmail}`);
+
+    for (const threadSummary of result.threads) {
+      // Skip the current thread we're already processing
+      if (excludeThreadId && threadSummary.threadId === excludeThreadId) {
+        continue;
+      }
+
+      // Check if we already have this thread
+      const { data: existing } = await supabase
+        .from("threads")
+        .select("id")
+        .eq("gmail_thread_id", threadSummary.threadId)
+        .maybeSingle();
+
+      if (existing) {
+        continue;
+      }
+
+      // Fetch and process the historical thread
+      try {
+        const thread = await fetchThread(tokens, threadSummary.threadId);
+        if (!thread || thread.messages.length === 0) {
+          continue;
+        }
+
+        // Find the first customer message
+        const customerMessage = thread.messages.find((m) => m.isIncoming);
+        if (!customerMessage) {
+          continue;
+        }
+
+        // Ingest as a historical thread (won't generate drafts for old resolved threads)
+        const ingestRequest: IngestRequest = {
+          channel: "email",
+          external_id: threadSummary.threadId,
+          from_identifier: customerMessage.from,
+          to_identifier: customerMessage.to[0],
+          subject: thread.subject,
+          body_text: customerMessage.body,
+          message_date: customerMessage.date,
+          metadata: {
+            gmail_thread_id: threadSummary.threadId,
+            gmail_message_id: customerMessage.id,
+            gmail_date: customerMessage.date.toISOString(),
+            historical_import: true,
+          },
+        };
+
+        const result = await processIngestRequest(ingestRequest);
+
+        // Update thread with Gmail ID and mark as resolved (historical)
+        await supabase
+          .from("threads")
+          .update({
+            gmail_thread_id: threadSummary.threadId,
+            state: "RESOLVED", // Historical threads are resolved
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", result.thread_id);
+
+        // Sync all messages from the thread
+        await syncGmailMessagesToThread(result.thread_id, thread);
+
+        threadsIngested++;
+        console.log(`[Monitor] Ingested historical thread: ${thread.subject}`);
+      } catch (err) {
+        console.error(`[Monitor] Failed to ingest historical thread ${threadSummary.threadId}:`, err);
+      }
+    }
+
+    console.log(`[Monitor] Customer history sync complete: ${threadsIngested}/${threadsFound} threads ingested`);
+  } catch (err) {
+    console.error(`[Monitor] Failed to fetch customer history:`, err);
+  }
+
+  return { threadsFound, threadsIngested };
 }
 
 /**
