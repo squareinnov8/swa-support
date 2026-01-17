@@ -192,18 +192,11 @@ export const GET_ORDER_TIMELINE = `
                 id
                 status
                 name
-                createdAt
                 returnLineItems(first: 10) {
                   edges {
                     node {
                       id
                       quantity
-                      fulfillmentLineItem {
-                        lineItem {
-                          title
-                          sku
-                        }
-                      }
                       returnReason
                       customerNote
                     }
@@ -214,20 +207,6 @@ export const GET_ORDER_TIMELINE = `
                     node {
                       id
                       status
-                      inProgressAt
-                      closedAt
-                      reverseFulfillmentOrderLineItems(first: 10) {
-                        edges {
-                          node {
-                            id
-                            totalQuantity
-                            dispositions {
-                              quantity
-                              type
-                            }
-                          }
-                        }
-                      }
                     }
                   }
                 }

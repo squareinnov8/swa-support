@@ -13,9 +13,6 @@ import type {
   ShopifyFulfillmentWithDelivery,
   ShopifyRefund,
   ShopifyReturn,
-  ShopifyRefundLineItem,
-  ShopifyReturnLineItem,
-  ShopifyReverseFulfillmentOrder,
   OrderEvent,
 } from "./types";
 
@@ -61,13 +58,11 @@ type TimelineResponse = {
               id: string;
               status: string;
               name: string;
-              createdAt: string;
               returnLineItems: {
                 edges: Array<{
                   node: {
                     id: string;
                     quantity: number;
-                    fulfillmentLineItem: { lineItem: { title: string; sku: string | null } } | null;
                     returnReason: string | null;
                     customerNote: string | null;
                   };
@@ -78,17 +73,6 @@ type TimelineResponse = {
                   node: {
                     id: string;
                     status: string;
-                    inProgressAt: string | null;
-                    closedAt: string | null;
-                    reverseFulfillmentOrderLineItems: {
-                      edges: Array<{
-                        node: {
-                          id: string;
-                          totalQuantity: number;
-                          dispositions: Array<{ quantity: number; type: string }>;
-                        };
-                      }>;
-                    };
                   };
                 }>;
               };
@@ -172,14 +156,10 @@ export async function getOrderTimeline(orderNumber: string): Promise<ShopifyOrde
       id: e.node.id,
       status: e.node.status,
       name: e.node.name,
-      createdAt: e.node.createdAt,
       returnLineItems: e.node.returnLineItems.edges.map((li) => li.node),
       reverseFulfillmentOrders: e.node.reverseFulfillmentOrders.edges.map((rfo) => ({
         id: rfo.node.id,
         status: rfo.node.status,
-        inProgressAt: rfo.node.inProgressAt,
-        closedAt: rfo.node.closedAt,
-        reverseFulfillmentOrderLineItems: rfo.node.reverseFulfillmentOrderLineItems.edges.map((rfoli) => rfoli.node),
       })),
     })) || [];
 
@@ -293,54 +273,56 @@ export function buildOrderEvents(order: ShopifyOrderTimeline): OrderEvent[] {
 
   // 4. Returns
   for (const ret of order.returns) {
-    const returnItems = ret.returnLineItems
-      .filter((li) => li.fulfillmentLineItem?.lineItem)
-      .map((li) => `${li.quantity}x ${li.fulfillmentLineItem?.lineItem.title}`);
-
     const returnReasons = ret.returnLineItems
       .map((li) => li.returnReason)
       .filter((r) => r)
       .join(", ");
 
-    // Return requested
-    events.push({
-      type: "return_requested",
-      timestamp: ret.createdAt,
-      title: `Return ${ret.name} requested`,
-      description: returnItems.length > 0
-        ? `Return requested for: ${returnItems.join(", ")}`
-        : "Return has been requested",
-      metadata: {
-        items: returnItems,
-        returnReason: returnReasons || undefined,
-      },
-    });
+    // Use order createdAt as fallback timestamp for returns (since Return.createdAt isn't available)
+    const returnTimestamp = order.createdAt;
 
-    // Return in progress (label issued, package on the way back)
+    // Return event - show current status
+    // Note: Shopify uses OPEN for "requested" status
+    if (ret.status === "REQUESTED" || ret.status === "OPEN") {
+      events.push({
+        type: "return_requested",
+        timestamp: returnTimestamp,
+        title: `Return ${ret.name} requested`,
+        description: "Return has been requested",
+        metadata: {
+          returnReason: returnReasons || undefined,
+        },
+      });
+    } else if (ret.status === "IN_PROGRESS") {
+      events.push({
+        type: "return_in_progress",
+        timestamp: returnTimestamp,
+        title: `Return ${ret.name} in progress`,
+        description: "Return label issued, awaiting package",
+        metadata: {
+          returnReason: returnReasons || undefined,
+        },
+      });
+    } else if (ret.status === "CLOSED") {
+      events.push({
+        type: "return_closed",
+        timestamp: returnTimestamp,
+        title: `Return ${ret.name} completed`,
+        description: "Return has been processed",
+        metadata: {
+          returnReason: returnReasons || undefined,
+        },
+      });
+    }
+
+    // Also check reverse fulfillment order status
     for (const rfo of ret.reverseFulfillmentOrders) {
-      if (rfo.inProgressAt) {
+      if (rfo.status === "IN_PROGRESS" && ret.status !== "IN_PROGRESS") {
         events.push({
           type: "return_in_progress",
-          timestamp: rfo.inProgressAt,
-          title: "Return in progress",
-          description: "Return label issued and package is on the way back",
-        });
-      }
-
-      // Return closed (received and processed)
-      if (rfo.closedAt) {
-        const dispositions = rfo.reverseFulfillmentOrderLineItems
-          .flatMap((li) => li.dispositions)
-          .map((d) => `${d.quantity} ${d.type.toLowerCase().replace(/_/g, " ")}`)
-          .join(", ");
-
-        events.push({
-          type: "return_closed",
-          timestamp: rfo.closedAt,
-          title: "Return completed",
-          description: dispositions
-            ? `Return received: ${dispositions}`
-            : "Return has been processed",
+          timestamp: returnTimestamp,
+          title: "Return shipping in progress",
+          description: "Return label issued, package on the way back",
         });
       }
     }

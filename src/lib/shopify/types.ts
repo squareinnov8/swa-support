@@ -113,12 +113,6 @@ export type ShopifyRefund = {
 export type ShopifyReturnLineItem = {
   id: string;
   quantity: number;
-  fulfillmentLineItem: {
-    lineItem: {
-      title: string;
-      sku: string | null;
-    };
-  } | null;
   returnReason: string | null;
   customerNote: string | null;
 };
@@ -126,23 +120,12 @@ export type ShopifyReturnLineItem = {
 export type ShopifyReverseFulfillmentOrder = {
   id: string;
   status: string; // OPEN, IN_PROGRESS, CLOSED, CANCELLED
-  inProgressAt: string | null;
-  closedAt: string | null;
-  reverseFulfillmentOrderLineItems: Array<{
-    id: string;
-    totalQuantity: number;
-    dispositions: Array<{
-      quantity: number;
-      type: string; // RESTOCKED, MISSING, DAMAGED, NOT_RESTOCKED
-    }>;
-  }>;
 };
 
 export type ShopifyReturn = {
   id: string;
   status: string; // REQUESTED, IN_PROGRESS, CLOSED, CANCELLED
   name: string; // Return reference like "#R1234"
-  createdAt: string;
   returnLineItems: ShopifyReturnLineItem[];
   reverseFulfillmentOrders: ShopifyReverseFulfillmentOrder[];
 };
