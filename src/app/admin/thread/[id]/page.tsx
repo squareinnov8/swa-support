@@ -4,6 +4,7 @@ import { ThreadActions } from "./ThreadActions";
 import { AgentReasoning } from "./AgentReasoning";
 import { CustomerContextPanel, type CustomerContextData, type SupportTicket } from "./CustomerContextPanel";
 import { MessageBubble } from "./MessageBubble";
+import { ThreadRefresher } from "./ThreadRefresher";
 import { lookupCustomerByEmail } from "@/lib/shopify/customer";
 // Verification requirements now determined dynamically by LLM during classification
 
@@ -278,6 +279,9 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
 
   return (
     <div style={{ padding: 24, maxWidth: 960, margin: "0 auto" }}>
+      {/* Auto-refresh from Gmail on page load */}
+      <ThreadRefresher threadId={threadId} />
+
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
         <a
