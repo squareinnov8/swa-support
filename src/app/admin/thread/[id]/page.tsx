@@ -610,11 +610,13 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
         threadId={threadId}
         latestDraft={latestDraft || null}
         latestEventId={latestEventId || null}
+        latestDraftGenerationId={latestDraftGen?.id || null}
         intent={thread?.last_intent || null}
         isHumanHandling={thread?.human_handling_mode === true}
         humanHandler={thread?.human_handler || null}
         draftBlocked={shouldBlockDraft}
         draftBlockReason={draftBlockReason}
+        canSendViaGmail={Boolean(thread?.gmail_thread_id)}
       />
     </div>
   );

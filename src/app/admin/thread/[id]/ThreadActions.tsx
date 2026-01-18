@@ -7,11 +7,13 @@ type ThreadActionsProps = {
   threadId: string;
   latestDraft: string | null;
   latestEventId: string | null;
+  latestDraftGenerationId: string | null;
   intent: string | null;
   isHumanHandling: boolean;
   humanHandler: string | null;
   draftBlocked?: boolean;
   draftBlockReason?: string | null;
+  canSendViaGmail?: boolean;
 };
 
 type ReplyResult = {
@@ -25,11 +27,13 @@ export function ThreadActions({
   threadId,
   latestDraft,
   latestEventId,
+  latestDraftGenerationId,
   intent,
   isHumanHandling,
   humanHandler,
   draftBlocked = false,
   draftBlockReason = null,
+  canSendViaGmail = false,
 }: ThreadActionsProps) {
   const router = useRouter();
   const [replyText, setReplyText] = useState("");
@@ -47,6 +51,8 @@ export function ThreadActions({
   const [showEndObservation, setShowEndObservation] = useState(false);
   const [resolutionSummary, setResolutionSummary] = useState("");
   const [resolutionType, setResolutionType] = useState<"resolved" | "escalated_further" | "returned_to_agent">("resolved");
+  const [sendAction, setSendAction] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [sendError, setSendError] = useState<string | null>(null);
 
   async function handleReply(e: React.FormEvent) {
     e.preventDefault();
@@ -178,6 +184,58 @@ export function ThreadActions({
       }
     } catch (err) {
       alert("Network error");
+    }
+  }
+
+  async function handleApproveAndSend() {
+    if (!latestDraft || !canSendViaGmail) return;
+
+    setSendAction("sending");
+    setSendError(null);
+
+    try {
+      // First submit approval feedback
+      const feedbackRes = await fetch("/api/admin/draft-feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          thread_id: threadId,
+          event_id: latestEventId,
+          draft_text: latestDraft,
+          intent,
+          rating: "approved",
+          feedback_notes: "",
+        }),
+      });
+
+      if (!feedbackRes.ok) {
+        const data = await feedbackRes.json();
+        throw new Error(data.error || "Failed to submit approval");
+      }
+
+      // Then send via Gmail
+      const sendRes = await fetch("/api/admin/send-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          thread_id: threadId,
+          draft_text: latestDraft,
+          draft_generation_id: latestDraftGenerationId,
+          was_edited: false,
+        }),
+      });
+
+      if (sendRes.ok) {
+        setSendAction("sent");
+        setFeedbackSubmitted(true);
+        router.refresh();
+      } else {
+        const data = await sendRes.json();
+        throw new Error(data.error || "Failed to send draft");
+      }
+    } catch (err) {
+      setSendAction("error");
+      setSendError(err instanceof Error ? err.message : "Unknown error");
     }
   }
 
@@ -366,13 +424,13 @@ export function ThreadActions({
               <div
                 style={{
                   padding: 12,
-                  backgroundColor: "#e5f8f4",
+                  backgroundColor: sendAction === "sent" ? "#e5f8f4" : "#e5f8f4",
                   borderRadius: 4,
                   color: "#00a182",
                   border: "1px solid #a8e4d0",
                 }}
               >
-                <strong>Feedback submitted!</strong>
+                <strong>{sendAction === "sent" ? "Draft sent via Gmail!" : "Feedback submitted!"}</strong>
                 {feedbackResult?.updatedSections && feedbackResult.updatedSections.length > 0 && (
                   <div style={{ marginTop: 8 }}>
                     Agent instructions updated:{" "}
@@ -389,33 +447,84 @@ export function ThreadActions({
                   </div>
                 )}
               </div>
+            ) : sendAction === "error" ? (
+              <div
+                style={{
+                  padding: 12,
+                  backgroundColor: "#fef0f0",
+                  borderRadius: 4,
+                  color: "#c93b41",
+                  border: "1px solid #f5c6c6",
+                  marginBottom: 12,
+                }}
+              >
+                <strong>Failed to send:</strong> {sendError}
+                <button
+                  onClick={() => {
+                    setSendAction("idle");
+                    setSendError(null);
+                  }}
+                  style={{
+                    marginLeft: 12,
+                    padding: "4px 8px",
+                    backgroundColor: "#ffffff",
+                    color: "#c93b41",
+                    border: "1px solid #c93b41",
+                    borderRadius: 3,
+                    cursor: "pointer",
+                    fontSize: 12,
+                  }}
+                >
+                  Retry
+                </button>
+              </div>
             ) : (
               <>
-                <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                  {canSendViaGmail && (
+                    <button
+                      onClick={handleApproveAndSend}
+                      disabled={sendAction === "sending"}
+                      style={{
+                        padding: "9px 16px",
+                        backgroundColor: sendAction === "sending" ? "#7ed4c3" : "#00a182",
+                        color: "white",
+                        border: "none",
+                        borderRadius: 4,
+                        cursor: sendAction === "sending" ? "not-allowed" : "pointer",
+                        fontWeight: 500,
+                        fontSize: 14,
+                      }}
+                    >
+                      {sendAction === "sending" ? "Sending..." : "Approve & Send"}
+                    </button>
+                  )}
                   <button
                     onClick={() => handleFeedback("approved")}
+                    disabled={sendAction === "sending"}
                     style={{
                       padding: "9px 16px",
-                      backgroundColor: "#00a182",
-                      color: "white",
-                      border: "none",
+                      backgroundColor: canSendViaGmail ? "#ffffff" : "#00a182",
+                      color: canSendViaGmail ? "#00a182" : "white",
+                      border: canSendViaGmail ? "1px solid #00a182" : "none",
                       borderRadius: 4,
-                      cursor: "pointer",
+                      cursor: sendAction === "sending" ? "not-allowed" : "pointer",
                       fontWeight: 500,
                       fontSize: 14,
                     }}
                   >
-                    Approve
+                    {canSendViaGmail ? "Approve Only" : "Approve"}
                   </button>
                   <button
                     onClick={() => setShowFeedbackForm(true)}
+                    disabled={sendAction === "sending"}
                     style={{
                       padding: "9px 16px",
                       backgroundColor: "#f5c26b",
                       color: "#6d4c00",
                       border: "none",
                       borderRadius: 4,
-                      cursor: "pointer",
+                      cursor: sendAction === "sending" ? "not-allowed" : "pointer",
                       fontWeight: 500,
                       fontSize: 14,
                     }}
@@ -424,13 +533,14 @@ export function ThreadActions({
                   </button>
                   <button
                     onClick={() => setShowFeedbackForm(true)}
+                    disabled={sendAction === "sending"}
                     style={{
                       padding: "9px 16px",
                       backgroundColor: "#f2545b",
                       color: "white",
                       border: "none",
                       borderRadius: 4,
-                      cursor: "pointer",
+                      cursor: sendAction === "sending" ? "not-allowed" : "pointer",
                       fontWeight: 500,
                       fontSize: 14,
                     }}
@@ -438,6 +548,11 @@ export function ThreadActions({
                     Reject
                   </button>
                 </div>
+                {!canSendViaGmail && (
+                  <div style={{ fontSize: 12, color: "#7c98b6", marginBottom: 8 }}>
+                    This thread cannot send via Gmail (no Gmail thread ID)
+                  </div>
+                )}
 
                 {showFeedbackForm && (
                   <div style={{ marginTop: 12 }}>

@@ -52,7 +52,8 @@ src/
 │       ├── agent/poll/     # Gmail polling endpoint (cron)
 │       ├── admin/          # Admin APIs (settings, KB, chat)
 │       ├── ingest/email/   # Email ingestion endpoint
-│       └── webhooks/       # Shopify webhooks
+│       ├── gmail/          # Gmail watch management
+│       └── webhooks/       # Shopify + Gmail push webhooks
 ├── lib/
 │   ├── ingest/             # Core ingestion pipeline
 │   │   └── processRequest.ts   # Main processing logic
@@ -70,7 +71,9 @@ src/
 │   │   └── embedDocs.ts    # Embedding generation
 │   ├── retrieval/          # Hybrid search (vector + keyword)
 │   ├── gmail/              # Gmail monitoring
-│   │   └── monitor.ts      # Polling and sync
+│   │   ├── monitor.ts      # Polling and sync
+│   │   ├── watch.ts        # Push notification watch management
+│   │   └── sendDraft.ts    # Send approved drafts via Gmail
 │   ├── shopify/            # Shopify integration
 │   ├── hubspot/            # HubSpot CRM sync
 │   ├── verification/       # Customer/order verification
@@ -142,10 +145,10 @@ SHOPIFY_ACCESS_TOKEN=
 
 ### Pending / Outstanding
 - [ ] **Gmail re-authentication required** - After inbox purge, need to re-auth at `/admin/gmail-setup`
-- [ ] Auto-send approved drafts (currently manual)
-- [ ] Email response threading (reply-to headers)
+- [x] Auto-send approved drafts via Gmail (see `/api/admin/send-draft`)
+- [x] Email response threading (reply-to headers in `sendDraft.ts`)
 - [ ] Rate limiting on API endpoints
-- [ ] Production CRON frequency (currently daily at 8am UTC)
+- [x] Gmail Push Notifications - Real-time email notifications via Pub/Sub (see `docs/gmail-push-setup.md`)
 
 ## Tech Debt & Known Issues
 
