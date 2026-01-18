@@ -43,14 +43,15 @@ npm run sync:catalog # Sync Shopify product catalog
 src/
 ├── app/
 │   ├── admin/              # Admin UI (inbox, KB, instructions)
-│   │   ├── page.tsx        # Main inbox view
+│   │   ├── page.tsx        # Main inbox view (with search & filters)
 │   │   ├── thread/[id]/    # Thread detail view
+│   │   ├── learning/       # Learning proposals review UI
 │   │   ├── kb/             # Knowledge base management
 │   │   ├── instructions/   # Agent instruction editor
 │   │   └── gmail-setup/    # Gmail OAuth setup
 │   └── api/
 │       ├── agent/poll/     # Gmail polling endpoint (cron)
-│       ├── admin/          # Admin APIs (settings, KB, chat)
+│       ├── admin/          # Admin APIs (settings, KB, chat, learning)
 │       ├── ingest/email/   # Email ingestion endpoint
 │       ├── gmail/          # Gmail watch management
 │       └── webhooks/       # Shopify + Gmail push webhooks
@@ -80,10 +81,14 @@ src/
 │   ├── collaboration/      # Human-AI collaboration
 │   │   ├── observationMode.ts  # Watch human handle tickets
 │   │   └── learningGenerator.ts # Generate learning proposals
+│   ├── learning/           # Learning extraction from resolved threads
+│   │   └── resolutionAnalyzer.ts # Analyze dialogues for learnings
 │   ├── threads/            # Thread state machine
+│   │   ├── stateMachine.ts # State transitions
+│   │   └── archiveThread.ts # Archive/unarchive logic
 │   └── responders/         # Policy gate, macros
 └── supabase/
-    └── migrations/         # Database migrations (001-020)
+    └── migrations/         # Database migrations (001-027)
 ```
 
 ### Key Data Flow
@@ -103,13 +108,15 @@ src/
 - `HUMAN_HANDLING` - agent is observing, human is responding
 
 ### Key Database Tables
-- `threads` - Support conversations
+- `threads` - Support conversations (with archive support)
 - `messages` - Individual messages
 - `events` - Audit log of all actions
 - `kb_docs` / `kb_chunks` - Knowledge base with embeddings
 - `agent_instructions` - Dynamic Lina behavior rules
 - `gmail_sync_state` - OAuth tokens and sync state
 - `customers` / `orders` - Synced from Shopify
+- `learning_proposals` - AI-generated KB/instruction proposals
+- `resolution_analyses` - Learning extraction from resolved threads
 
 ## Environment Variables
 
@@ -142,6 +149,9 @@ SHOPIFY_ACCESS_TOKEN=
 - [x] Thread summaries for CRM syndication
 - [x] Unified prompts (single source of truth in database)
 - [x] Admin authentication with Google OAuth (JWT sessions)
+- [x] Resolve & Archive with auto-learning extraction
+- [x] Learning proposals review UI (`/admin/learning`)
+- [x] Inbox search (subject + summary) and archive filters
 
 ### Pending / Outstanding
 - [ ] **Gmail re-authentication required** - After inbox purge, need to re-auth at `/admin/gmail-setup`
@@ -213,7 +223,7 @@ curl -X POST "https://support-agent-v2.vercel.app/api/agent/poll?force=true&fetc
 
 ## Database Migrations
 
-Migrations are in `supabase/migrations/` numbered 001-020:
+Migrations are in `supabase/migrations/` numbered 001-027:
 - 001-009: Core schema (threads, messages, KB, catalog)
 - 010: Agent instructions
 - 011-012: CRM integration
@@ -223,6 +233,8 @@ Migrations are in `supabase/migrations/` numbered 001-020:
 - 018: Admin-Lina chat persistence
 - 019: Fix agent instructions (truthfulness, Lina signoff)
 - 020: Thread summary field for CRM
+- 021-026: Various enhancements
+- 027: Resolve & archive with learning extraction
 
 To apply migrations:
 ```bash
@@ -236,6 +248,7 @@ npx supabase db push --linked
 | Login page | `/login` |
 | Inbox UI | `/admin` |
 | Thread detail | `/admin/thread/[id]` |
+| Learning proposals | `/admin/learning` |
 | KB management | `/admin/kb` |
 | Agent instructions | `/admin/instructions` |
 | Gmail setup | `/admin/gmail-setup` |
@@ -243,7 +256,11 @@ npx supabase db push --linked
 | Middleware | `src/middleware.ts` |
 | Poll API | `POST /api/agent/poll` |
 | Ingest API | `POST /api/ingest/email` |
+| Archive API | `POST /api/admin/threads/[id]/archive` |
+| Learning API | `GET /api/admin/learning/proposals` |
 | Main processing | `src/lib/ingest/processRequest.ts` |
 | Intent taxonomy | `src/lib/intents/taxonomy.ts` |
 | Prompts | `src/lib/llm/prompts.ts` |
 | State machine | `src/lib/threads/stateMachine.ts` |
+| Archive logic | `src/lib/threads/archiveThread.ts` |
+| Resolution analyzer | `src/lib/learning/resolutionAnalyzer.ts` |
