@@ -27,10 +27,12 @@ const STATE_LABELS: Record<ThreadState, string> = {
 };
 
 type SearchParams = {
+  q?: string;
   state?: string;
   escalated?: string;
   intent?: string;
   sort?: string;
+  archived?: string;
 };
 
 export default async function AdminPage({
@@ -39,10 +41,12 @@ export default async function AdminPage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
+  const searchQuery = params.q || "";
   const stateFilter = params.state || "";
   const escalatedFilter = params.escalated || "";
   const intentFilter = params.intent || "";
   const sortParam = params.sort || "updated_at:desc";
+  const archivedFilter = params.archived || "hide";
 
   // Parse sort parameter
   const [sortField, sortDirection] = sortParam.split(":") as [string, "asc" | "desc"];
@@ -50,7 +54,15 @@ export default async function AdminPage({
   // Build query with filters
   let query = supabase
     .from("threads")
-    .select("id,subject,state,last_intent,updated_at,created_at,human_handling_mode,human_handler,summary,verification_status");
+    .select("id,subject,state,last_intent,updated_at,created_at,human_handling_mode,human_handler,summary,verification_status,is_archived");
+
+  // Apply archived filter (default: hide archived)
+  if (archivedFilter === "hide") {
+    query = query.or("is_archived.is.null,is_archived.eq.false");
+  } else if (archivedFilter === "only") {
+    query = query.eq("is_archived", true);
+  }
+  // "show" means include all, no filter needed
 
   // Apply state filter
   if (stateFilter) {
@@ -67,6 +79,11 @@ export default async function AdminPage({
   // Apply intent filter (partial match)
   if (intentFilter) {
     query = query.ilike("last_intent", `%${intentFilter}%`);
+  }
+
+  // Apply search filter (searches subject and summary)
+  if (searchQuery) {
+    query = query.or(`subject.ilike.%${searchQuery}%,summary.ilike.%${searchQuery}%`);
   }
 
   // Apply sorting
@@ -122,7 +139,7 @@ export default async function AdminPage({
           <h1 style={{ fontSize: 20, fontWeight: 500, color: "#33475b", margin: 0 }}>Tickets</h1>
           <span style={{ fontSize: 13, color: "#7c98b6" }}>
             {threads?.length || 0} total
-            {(stateFilter || escalatedFilter || intentFilter) && (
+            {(searchQuery || stateFilter || escalatedFilter || intentFilter || archivedFilter !== "hide") && (
               <span style={{ color: "#0091ae", marginLeft: 4 }}>• filtered</span>
             )}
           </span>
@@ -171,7 +188,15 @@ export default async function AdminPage({
             </span>
             <span style={{ fontSize: 13, color: "#516f90" }}>Escalated (24h)</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <a
+            href="/admin/learning"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              textDecoration: "none",
+            }}
+          >
             <span style={{
               fontSize: 18,
               fontWeight: 600,
@@ -179,8 +204,8 @@ export default async function AdminPage({
             }}>
               {proposalCount ?? 0}
             </span>
-            <span style={{ fontSize: 13, color: "#516f90" }}>To review</span>
-          </div>
+            <span style={{ fontSize: 13, color: "#0073aa" }}>To review →</span>
+          </a>
         </div>
 
         {/* Thread Filters */}
@@ -221,13 +246,15 @@ export default async function AdminPage({
                 const verification = verificationMap.get(t.id);
                 const isVerifiedCustomer = verification?.status === "verified";
                 const isEscalated = state === "ESCALATED" || t.human_handling_mode;
+                const isArchived = t.is_archived === true;
 
                 return (
                   <tr
                     key={t.id}
                     style={{
                       borderBottom: "1px solid #eaf0f6",
-                      backgroundColor: isEscalated ? "#fff8f6" : "transparent",
+                      backgroundColor: isArchived ? "#f8f9fa" : isEscalated ? "#fff8f6" : "transparent",
+                      opacity: isArchived ? 0.7 : 1,
                     }}
                   >
                     {/* Ticket */}

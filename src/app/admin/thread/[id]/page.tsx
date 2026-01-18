@@ -617,6 +617,8 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
         draftBlocked={shouldBlockDraft}
         draftBlockReason={draftBlockReason}
         canSendViaGmail={Boolean(thread?.gmail_thread_id)}
+        isArchived={thread?.is_archived === true}
+        threadState={thread?.state || "NEW"}
       />
     </div>
   );

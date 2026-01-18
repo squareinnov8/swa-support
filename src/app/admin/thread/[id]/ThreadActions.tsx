@@ -14,6 +14,8 @@ type ThreadActionsProps = {
   draftBlocked?: boolean;
   draftBlockReason?: string | null;
   canSendViaGmail?: boolean;
+  isArchived?: boolean;
+  threadState?: string;
 };
 
 type ReplyResult = {
@@ -34,6 +36,8 @@ export function ThreadActions({
   draftBlocked = false,
   draftBlockReason = null,
   canSendViaGmail = false,
+  isArchived = false,
+  threadState = "NEW",
 }: ThreadActionsProps) {
   const router = useRouter();
   const [replyText, setReplyText] = useState("");
@@ -53,6 +57,13 @@ export function ThreadActions({
   const [resolutionType, setResolutionType] = useState<"resolved" | "escalated_further" | "returned_to_agent">("resolved");
   const [sendAction, setSendAction] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [sendError, setSendError] = useState<string | null>(null);
+  const [archiveAction, setArchiveAction] = useState<"idle" | "archiving" | "archived" | "error">("idle");
+  const [archiveResult, setArchiveResult] = useState<{
+    proposalsGenerated?: number;
+    proposalsAutoApproved?: number;
+    learningStatus?: string;
+  } | null>(null);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
 
   async function handleReply(e: React.FormEvent) {
     e.preventDefault();
@@ -239,8 +250,199 @@ export function ThreadActions({
     }
   }
 
+  async function handleResolveAndArchive() {
+    setArchiveAction("archiving");
+    setArchiveError(null);
+
+    try {
+      const res = await fetch(`/api/admin/threads/${threadId}/archive`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ triggerLearning: true }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setArchiveAction("archived");
+        setArchiveResult({
+          proposalsGenerated: data.proposalsGenerated,
+          proposalsAutoApproved: data.proposalsAutoApproved,
+          learningStatus: data.learningStatus,
+        });
+        router.refresh();
+      } else {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to archive thread");
+      }
+    } catch (err) {
+      setArchiveAction("error");
+      setArchiveError(err instanceof Error ? err.message : "Unknown error");
+    }
+  }
+
+  async function handleUnarchive() {
+    setArchiveAction("archiving");
+    setArchiveError(null);
+
+    try {
+      const res = await fetch(`/api/admin/threads/${threadId}/archive`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        setArchiveAction("idle");
+        setArchiveResult(null);
+        router.refresh();
+      } else {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to unarchive thread");
+      }
+    } catch (err) {
+      setArchiveAction("error");
+      setArchiveError(err instanceof Error ? err.message : "Unknown error");
+    }
+  }
+
   return (
     <div style={{ marginTop: 24 }}>
+      {/* Archive Controls */}
+      <div
+        style={{
+          padding: 16,
+          marginBottom: 24,
+          borderRadius: 4,
+          backgroundColor: isArchived || archiveAction === "archived" ? "#f0fdf4" : "#ffffff",
+          border: `1px solid ${isArchived || archiveAction === "archived" ? "#86efac" : "#cbd6e2"}`,
+          borderLeft: `4px solid ${isArchived || archiveAction === "archived" ? "#22c55e" : "#6b7280"}`,
+        }}
+      >
+        {isArchived || archiveAction === "archived" ? (
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "4px 10px",
+                  backgroundColor: "#22c55e",
+                  color: "white",
+                  borderRadius: 3,
+                  fontWeight: 500,
+                  fontSize: 13,
+                }}
+              >
+                Archived
+              </span>
+              <span style={{ color: "#166534", fontSize: 13 }}>
+                This thread has been resolved and archived
+              </span>
+            </div>
+
+            {archiveResult && (
+              <div style={{ marginBottom: 12, fontSize: 13, color: "#166534" }}>
+                {archiveResult.learningStatus === "completed" && (
+                  <>
+                    {archiveResult.proposalsGenerated} learning proposal(s) generated
+                    {archiveResult.proposalsAutoApproved ? ` (${archiveResult.proposalsAutoApproved} auto-approved)` : ""}
+                    {archiveResult.proposalsGenerated && archiveResult.proposalsGenerated > (archiveResult.proposalsAutoApproved || 0) && (
+                      <a href="/admin/learning" style={{ marginLeft: 8, color: "#0091ae" }}>
+                        Review proposals →
+                      </a>
+                    )}
+                  </>
+                )}
+                {archiveResult.learningStatus === "skipped" && (
+                  <span style={{ color: "#6b7280" }}>Learning extraction skipped (low quality)</span>
+                )}
+              </div>
+            )}
+
+            <button
+              onClick={handleUnarchive}
+              disabled={archiveAction === "archiving"}
+              style={{
+                padding: "9px 16px",
+                backgroundColor: "#ffffff",
+                color: "#516f90",
+                border: "1px solid #cbd6e2",
+                borderRadius: 4,
+                cursor: archiveAction === "archiving" ? "not-allowed" : "pointer",
+                fontWeight: 500,
+                fontSize: 14,
+              }}
+            >
+              {archiveAction === "archiving" ? "Processing..." : "Unarchive Thread"}
+            </button>
+          </>
+        ) : archiveAction === "error" ? (
+          <>
+            <div
+              style={{
+                padding: 12,
+                backgroundColor: "#fef0f0",
+                borderRadius: 4,
+                color: "#c93b41",
+                border: "1px solid #f5c6c6",
+                marginBottom: 12,
+              }}
+            >
+              <strong>Archive failed:</strong> {archiveError}
+            </div>
+            <button
+              onClick={() => {
+                setArchiveAction("idle");
+                setArchiveError(null);
+              }}
+              style={{
+                padding: "9px 16px",
+                backgroundColor: "#ffffff",
+                color: "#516f90",
+                border: "1px solid #cbd6e2",
+                borderRadius: 4,
+                cursor: "pointer",
+                fontWeight: 500,
+                fontSize: 14,
+              }}
+            >
+              Dismiss
+            </button>
+          </>
+        ) : (
+          <>
+            <div style={{ marginBottom: 12 }}>
+              <span style={{ fontWeight: 500, color: "#33475b", fontSize: 14 }}>
+                Resolve & Archive
+              </span>
+              <p style={{ margin: "6px 0 0", color: "#516f90", fontSize: 13 }}>
+                Mark as resolved and extract learnings from the conversation to improve Lina.
+              </p>
+            </div>
+            <button
+              onClick={handleResolveAndArchive}
+              disabled={archiveAction === "archiving" || threadState === "RESOLVED"}
+              style={{
+                padding: "9px 16px",
+                backgroundColor: archiveAction === "archiving" ? "#9ca3af" : "#22c55e",
+                color: "white",
+                border: "none",
+                borderRadius: 4,
+                cursor: archiveAction === "archiving" || threadState === "RESOLVED" ? "not-allowed" : "pointer",
+                fontWeight: 500,
+                fontSize: 14,
+              }}
+            >
+              {archiveAction === "archiving" ? "Archiving..." : "Resolve & Archive"}
+            </button>
+            {threadState === "RESOLVED" && (
+              <span style={{ marginLeft: 12, fontSize: 12, color: "#6b7280" }}>
+                Thread is already resolved
+              </span>
+            )}
+          </>
+        )}
+      </div>
+
       {/* Observation Mode Controls */}
       <div
         style={{

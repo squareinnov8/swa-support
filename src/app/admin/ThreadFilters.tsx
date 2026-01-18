@@ -26,14 +26,22 @@ const SORT_OPTIONS = [
   { value: "created_at:asc", label: "Oldest Created" },
 ];
 
+const ARCHIVED_OPTIONS = [
+  { value: "hide", label: "Active Only" },
+  { value: "show", label: "Include Archived" },
+  { value: "only", label: "Archived Only" },
+];
+
 export default function ThreadFilters() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  const currentSearch = searchParams.get("q") || "";
   const currentState = searchParams.get("state") || "";
   const currentEscalated = searchParams.get("escalated") || "";
   const currentSort = searchParams.get("sort") || "updated_at:desc";
   const currentIntent = searchParams.get("intent") || "";
+  const currentArchived = searchParams.get("archived") || "hide";
 
   const updateFilter = useCallback(
     (key: string, value: string) => {
@@ -52,7 +60,7 @@ export default function ThreadFilters() {
     router.push("/admin");
   }, [router]);
 
-  const hasActiveFilters = currentState || currentEscalated || currentIntent;
+  const hasActiveFilters = currentSearch || currentState || currentEscalated || currentIntent || currentArchived !== "hide";
 
   const selectStyle = {
     padding: "6px 10px",
@@ -96,6 +104,22 @@ export default function ThreadFilters() {
         marginBottom: 12,
       }}
     >
+      {/* Search */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <input
+          id="search-input"
+          type="text"
+          placeholder="Search tickets..."
+          value={currentSearch}
+          onChange={(e) => updateFilter("q", e.target.value)}
+          style={{
+            ...inputStyle,
+            width: 180,
+            ...(currentSearch ? { borderColor: "#0073aa", backgroundColor: "#f0f8ff" } : {}),
+          }}
+        />
+      </div>
+
       {/* Status Filter */}
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <label htmlFor="state-filter" style={{ fontSize: 13, color: "#516f90" }}>
@@ -147,6 +171,25 @@ export default function ThreadFilters() {
           onChange={(e) => updateFilter("intent", e.target.value)}
           style={currentIntent ? inputActiveStyle : inputStyle}
         />
+      </div>
+
+      {/* Archived Filter */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <label htmlFor="archived-filter" style={{ fontSize: 13, color: "#516f90" }}>
+          Show:
+        </label>
+        <select
+          id="archived-filter"
+          value={currentArchived}
+          onChange={(e) => updateFilter("archived", e.target.value)}
+          style={currentArchived !== "hide" ? selectActiveStyle : selectStyle}
+        >
+          {ARCHIVED_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Spacer */}

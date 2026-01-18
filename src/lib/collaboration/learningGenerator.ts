@@ -182,6 +182,12 @@ IMPORTANT:
 - Remove all PII: names, emails, order numbers, addresses, phone numbers
 - Make content generalizable - not tied to a specific customer
 
+## Confidence Score (0-1)
+For each proposal, assign a confidence score:
+- 0.9+: Specific steps, concrete facts, clearly generalizable
+- 0.7-0.9: Useful but may need editing
+- <0.7: Too vague or customer-specific
+
 Return JSON in this format:
 {
   "proposals": [
@@ -189,7 +195,8 @@ Return JSON in this format:
       "type": "kb_article" | "instruction_update",
       "title": "Short descriptive title",
       "summary": "1-2 sentence summary of what was learned",
-      "proposedContent": "Full content of the KB article or instruction"
+      "proposedContent": "Full content of the KB article or instruction",
+      "confidence": 0.0-1.0
     }
   ]
 }
