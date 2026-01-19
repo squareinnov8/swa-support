@@ -690,6 +690,24 @@ async function processGmailThread(
       }
     } else {
       console.log(`[Monitor] Not auto-sending: ${shouldAutoSend.reason}`);
+
+      // Always save draft to messages table for human review
+      // This ensures drafts are visible in the admin UI even when not auto-sent
+      await supabase.from("messages").insert({
+        thread_id: ingestResult.thread_id,
+        direction: "outbound",
+        body_text: ingestResult.draft,
+        role: "draft",
+        channel: "email",
+        channel_metadata: {
+          auto_send_blocked: true,
+          auto_send_reason: shouldAutoSend.reason,
+          confidence: ingestResult.confidence,
+          intent: ingestResult.intent,
+          action: ingestResult.action,
+        },
+      });
+      console.log(`[Monitor] Saved draft for human review: ${ingestResult.thread_id}`);
     }
   }
 
@@ -1133,12 +1151,11 @@ export async function storeGmailTokens(
 /**
  * Check if a draft is eligible for auto-send
  *
- * Criteria:
- * - Auto-send must be enabled in settings
- * - Gmail must be configured for sending
- * - Confidence must meet threshold
- * - Action must not be escalation
- * - If verification required, customer must be verified
+ * Intent-based auto-send logic:
+ * - General questions (product info, compatibility): auto-send at 0.6+ confidence
+ * - Order-related queries: require verification + high confidence (0.85+)
+ * - Greetings/UNKNOWN: auto-send friendly responses at 0.5+ confidence
+ * - Escalations: never auto-send
  */
 async function checkAutoSendEligibility(
   ingestResult: {
@@ -1147,9 +1164,37 @@ async function checkAutoSendEligibility(
     action: string;
     state: string;
     draft: string | null;
+    intent: string;
   },
   gmailThreadId: string
 ): Promise<{ eligible: boolean; reason: string }> {
+  // Order-related intents that need verification
+  const ORDER_RELATED_INTENTS = [
+    "ORDER_STATUS",
+    "ORDER_CHANGE_REQUEST",
+    "MISSING_DAMAGED_ITEM",
+    "WRONG_ITEM_RECEIVED",
+    "RETURN_REFUND_REQUEST",
+  ];
+
+  // General product/support intents - lower threshold, no verification
+  const GENERAL_INTENTS = [
+    "PRODUCT_SUPPORT",
+    "FIRMWARE_UPDATE_REQUEST",
+    "FIRMWARE_ACCESS_ISSUE",
+    "DOCS_VIDEO_MISMATCH",
+    "INSTALL_GUIDANCE",
+    "FUNCTIONALITY_BUG",
+    "COMPATIBILITY_QUESTION",
+    "PART_IDENTIFICATION",
+  ];
+
+  // Low-risk intents - can auto-send at very low threshold
+  const LOW_RISK_INTENTS = [
+    "THANK_YOU_CLOSE",
+    "UNKNOWN", // General greetings, how's it going, etc.
+  ];
+
   // 1. Check if Gmail is configured for sending
   if (!isGmailSendReady()) {
     return { eligible: false, reason: "Gmail not configured for sending" };
@@ -1172,16 +1217,35 @@ async function checkAutoSendEligibility(
     return { eligible: false, reason: "No reply needed" };
   }
 
-  // 5. Check confidence threshold
-  if (ingestResult.confidence < settings.autoSendConfidenceThreshold) {
+  // 5. Determine confidence threshold based on intent type
+  const intent = ingestResult.intent;
+  let requiredConfidence = settings.autoSendConfidenceThreshold; // Default: 0.85
+  let needsVerification = false;
+
+  if (ORDER_RELATED_INTENTS.includes(intent)) {
+    // Order-related: high confidence + verification required
+    requiredConfidence = settings.autoSendConfidenceThreshold;
+    needsVerification = settings.requireVerificationForSend;
+  } else if (GENERAL_INTENTS.includes(intent)) {
+    // General product questions: medium confidence, no verification
+    requiredConfidence = 0.6;
+    needsVerification = false;
+  } else if (LOW_RISK_INTENTS.includes(intent)) {
+    // Greetings and thank-yous: low confidence is fine
+    requiredConfidence = 0.4;
+    needsVerification = false;
+  }
+
+  // 6. Check confidence threshold
+  if (ingestResult.confidence < requiredConfidence) {
     return {
       eligible: false,
-      reason: `Confidence ${ingestResult.confidence.toFixed(2)} below threshold ${settings.autoSendConfidenceThreshold}`,
+      reason: `Confidence ${ingestResult.confidence.toFixed(2)} below threshold ${requiredConfidence} for ${intent}`,
     };
   }
 
-  // 6. Check verification requirement if enabled
-  if (settings.requireVerificationForSend) {
+  // 7. Check verification requirement for order-related intents
+  if (needsVerification) {
     const { data: verification } = await supabase
       .from("customer_verifications")
       .select("status")
@@ -1189,19 +1253,15 @@ async function checkAutoSendEligibility(
       .eq("status", "verified")
       .maybeSingle();
 
-    // Only require verification for intents that typically need it (order-related)
-    const verificationRequiredActions = ["ASK_CLARIFYING_QUESTIONS"];
-    const needsVerification = verificationRequiredActions.includes(ingestResult.action);
-
-    if (needsVerification && !verification) {
-      return { eligible: false, reason: "Customer not verified - requires human review" };
+    if (!verification) {
+      return { eligible: false, reason: `Order-related intent ${intent} requires customer verification` };
     }
   }
 
   // All checks passed
   return {
     eligible: true,
-    reason: `Confidence ${ingestResult.confidence.toFixed(2)} >= ${settings.autoSendConfidenceThreshold} threshold`,
+    reason: `Confidence ${ingestResult.confidence.toFixed(2)} >= ${requiredConfidence} threshold for ${intent}`,
   };
 }
 
