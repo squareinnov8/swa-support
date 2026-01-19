@@ -4,12 +4,12 @@
  * Extracts text and relevant information from email attachments.
  * Supports:
  * - PDF documents (order confirmations, invoices)
- * - Images (screenshots, photos) via Claude Vision
+ * - Images (screenshots, photos) via OpenAI Vision
  * - Text files
  * - HTML files
  */
 
-import Anthropic from "@anthropic-ai/sdk";
+import { getClient, isLLMConfigured } from "@/lib/llm/client";
 import type { GmailAttachment } from "@/lib/import/gmail/fetcher";
 
 // PDF parsing will be handled by pdf-parse if available
@@ -144,35 +144,33 @@ async function extractPdfText(content: Buffer): Promise<string | null> {
 }
 
 /**
- * Extract text and data from an image using Claude Vision
+ * Extract text and data from an image using OpenAI Vision
  */
 async function extractFromImage(
   content: Buffer,
   mimeType: string
 ): Promise<{ text: string; data?: ExtractedAttachmentContent["extractedData"] } | null> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    console.warn("ANTHROPIC_API_KEY not configured - skipping image analysis");
+  if (!isLLMConfigured()) {
+    console.warn("OPENAI_API_KEY not configured - skipping image analysis");
     return null;
   }
 
   try {
-    const anthropic = new Anthropic({ apiKey });
+    const client = getClient();
     const base64Image = content.toString("base64");
+    const dataUrl = `data:${mimeType};base64,${base64Image}`;
 
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
+    const response = await client.chat.completions.create({
+      model: "gpt-4o-mini",
       max_tokens: 1024,
       messages: [
         {
           role: "user",
           content: [
             {
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: mimeType as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
-                data: base64Image,
+              type: "image_url",
+              image_url: {
+                url: dataUrl,
               },
             },
             {
@@ -212,12 +210,11 @@ FULL_TEXT: [All readable text from the image]`,
       ],
     });
 
-    const textContent = response.content.find((c) => c.type === "text");
-    if (!textContent || textContent.type !== "text") {
+    const responseText = response.choices[0]?.message?.content ?? "";
+
+    if (!responseText) {
       return null;
     }
-
-    const responseText = textContent.text;
 
     // Parse the structured response
     const data: ExtractedAttachmentContent["extractedData"] = {};

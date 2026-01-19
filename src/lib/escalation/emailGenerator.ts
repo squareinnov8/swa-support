@@ -6,10 +6,8 @@
  */
 
 import { supabase } from "@/lib/db";
-import Anthropic from "@anthropic-ai/sdk";
+import { generate } from "@/lib/llm/client";
 import type { CustomerProfile, EscalationEmailContent } from "@/lib/collaboration/types";
-
-const anthropic = new Anthropic();
 
 /**
  * Build customer profile for escalation email
@@ -103,26 +101,21 @@ async function generateHistorySummary(
     `- ${t.created_at}: ${t.subject || "No subject"} (${t.last_intent || "unknown intent"}) - ${t.state}`
   ).join("\n");
 
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 200,
-    messages: [
-      {
-        role: "user",
-        content: `Given this customer's previous support history and their current issue, write a 1-2 sentence summary of what's most relevant.
+  const prompt = `Given this customer's previous support history and their current issue, write a 1-2 sentence summary of what's most relevant.
 
 Current Issue: ${currentIssue}
 
 Previous Tickets:
 ${threadSummaries}
 
-Response (1-2 sentences, be concise):`,
-      },
-    ],
+Response (1-2 sentences, be concise):`;
+
+  const result = await generate(prompt, {
+    maxTokens: 200,
+    temperature: 0.7,
   });
 
-  const text = response.content[0];
-  return text.type === "text" ? text.text : "";
+  return result.content;
 }
 
 /**
@@ -199,24 +192,19 @@ async function analyzeFrustrationLevel(
 
   if (!customerMessages) return "low";
 
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 50,
-    messages: [
-      {
-        role: "user",
-        content: `Analyze the customer frustration level in these messages. Respond with only: low, medium, or high
+  const prompt = `Analyze the customer frustration level in these messages. Respond with only: low, medium, or high
 
 Messages:
 ${customerMessages.substring(0, 2000)}
 
-Frustration level:`,
-      },
-    ],
+Frustration level:`;
+
+  const result = await generate(prompt, {
+    maxTokens: 50,
+    temperature: 0.3,
   });
 
-  const text = response.content[0];
-  const level = text.type === "text" ? text.text.toLowerCase().trim() : "medium";
+  const level = result.content.toLowerCase().trim();
 
   if (level.includes("high")) return "high";
   if (level.includes("low")) return "low";
@@ -231,29 +219,22 @@ async function generateRecommendations(
   escalationReason: string,
   customerProfile: CustomerProfile
 ): Promise<string[]> {
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 300,
-    messages: [
-      {
-        role: "user",
-        content: `Generate 3-4 specific recommendations for handling this escalation.
+  const prompt = `Generate 3-4 specific recommendations for handling this escalation.
 
 Issue Type: ${intent}
 Escalation Reason: ${escalationReason}
 Customer: ${customerProfile.name} (${customerProfile.orderHistory.count} orders, $${customerProfile.orderHistory.totalSpent.toFixed(2)} total)
 Verification: ${customerProfile.verificationStatus}
 
-Respond with a JSON array of strings:`,
-      },
-    ],
+Respond with a JSON array of strings:`;
+
+  const result = await generate(prompt, {
+    maxTokens: 300,
+    temperature: 0.7,
   });
 
-  const text = response.content[0];
-  if (text.type !== "text") return ["Review the conversation and respond directly"];
-
   try {
-    const match = text.text.match(/\[[\s\S]*\]/);
+    const match = result.content.match(/\[[\s\S]*\]/);
     if (match) {
       return JSON.parse(match[0]) as string[];
     }
@@ -274,23 +255,18 @@ async function generateThreadSummary(
     .map((m) => `[${m.direction === "inbound" ? "Customer" : "Support"}]: ${m.body_text.substring(0, 300)}`)
     .join("\n\n");
 
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 200,
-    messages: [
-      {
-        role: "user",
-        content: `Summarize this support conversation in 2-3 sentences:
+  const prompt = `Summarize this support conversation in 2-3 sentences:
 
 ${conversation}
 
-Summary:`,
-      },
-    ],
+Summary:`;
+
+  const result = await generate(prompt, {
+    maxTokens: 200,
+    temperature: 0.7,
   });
 
-  const text = response.content[0];
-  return text.type === "text" ? text.text : "Unable to generate summary";
+  return result.content || "Unable to generate summary";
 }
 
 /**

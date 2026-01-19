@@ -7,12 +7,10 @@
  * - Duplicate detection against existing KB
  */
 
-import Anthropic from "@anthropic-ai/sdk";
+import { generate } from "@/lib/llm/client";
 import { supabase } from "@/lib/db";
-import { embedText, formatEmbeddingForPg, isEmbeddingConfigured, cosineSimilarity } from "@/lib/retrieval/embed";
+import { embedText, formatEmbeddingForPg, isEmbeddingConfigured } from "@/lib/retrieval/embed";
 import { approveProposal } from "@/lib/collaboration/learningGenerator";
-
-const anthropic = new Anthropic();
 
 // ============================================
 // Types
@@ -340,7 +338,7 @@ async function getExistingKBSummary(intent: string | null): Promise<string> {
 }
 
 /**
- * Extract learnings using Claude
+ * Extract learnings using OpenAI
  */
 async function extractLearningsWithLLM(
   context: string,
@@ -404,25 +402,16 @@ Return JSON:
 If nothing worth learning, return: {"dialogueQuality": <score>, "proposals": []}`;
 
   try {
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 2000,
-      system: systemPrompt,
-      messages: [
-        {
-          role: "user",
-          content: `Analyze this resolved support conversation and extract learnings:\n\n${context}`,
-        },
-      ],
+    const userPrompt = `Analyze this resolved support conversation and extract learnings:\n\n${context}`;
+
+    const result = await generate(userPrompt, {
+      systemPrompt,
+      maxTokens: 2000,
+      temperature: 0.7,
     });
 
-    const content = response.content[0];
-    if (content.type !== "text") {
-      return { dialogueQuality: 0.5, proposals: [] };
-    }
-
     // Extract JSON from response
-    const jsonMatch = content.text.match(/\{[\s\S]*\}/);
+    const jsonMatch = result.content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       console.warn("[ResolutionAnalyzer] No JSON found in response");
       return { dialogueQuality: 0.5, proposals: [] };

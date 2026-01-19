@@ -14,7 +14,6 @@
     "sync:catalog": "tsx src/lib/catalog/sync.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.71.2",
     "@notionhq/client": "^5.6.0",
     "@supabase/supabase-js": "^2.89.0",
     "axios": "^1.13.2",

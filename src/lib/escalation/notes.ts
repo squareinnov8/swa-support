@@ -9,7 +9,7 @@
  */
 
 import { supabase } from "@/lib/db";
-import Anthropic from "@anthropic-ai/sdk";
+import { generate } from "@/lib/llm/client";
 
 // Inline types to avoid dependency on missing types file
 type ThreadInfo = {
@@ -65,8 +65,6 @@ export type EscalationNotes = {
 export async function generateEscalationNotes(
   context: EscalationContext
 ): Promise<EscalationNotes> {
-  const anthropic = new Anthropic();
-
   // Build conversation history for context
   const conversationText = context.messages
     .map((m) => {
@@ -119,15 +117,13 @@ Respond in JSON format:
   "instructionRecommendations": ["..."]
 }`;
 
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 1024,
-    messages: [{ role: "user", content: prompt }],
+  const result = await generate(prompt, {
+    maxTokens: 1024,
+    temperature: 0.7,
   });
 
   // Parse LLM response
-  const responseText =
-    response.content[0].type === "text" ? response.content[0].text : "";
+  const responseText = result.content;
 
   let analysis: {
     summary: string;

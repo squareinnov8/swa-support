@@ -6,11 +6,9 @@
  * - Instruction updates (patterns for Lina to follow)
  */
 
-import Anthropic from "@anthropic-ai/sdk";
+import { generate } from "@/lib/llm/client";
 import { supabase } from "@/lib/db";
 import type { LearningProposal, ObservedMessage } from "./types";
-
-const anthropic = new Anthropic();
 
 type ObservationRecord = {
   id: string;
@@ -155,7 +153,7 @@ function buildContextFromObservation(
 }
 
 /**
- * Generate proposals using Claude
+ * Generate proposals using OpenAI
  */
 async function generateProposalsWithLLM(
   context: string,
@@ -203,27 +201,17 @@ Return JSON in this format:
 
 If there's nothing worth learning from this interaction, return: {"proposals": []}`;
 
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 2000,
-    system: systemPrompt,
-    messages: [
-      {
-        role: "user",
-        content: `Analyze this human handling session and extract learnings:\n\n${context}`,
-      },
-    ],
-  });
+  const userPrompt = `Analyze this human handling session and extract learnings:\n\n${context}`;
 
-  // Parse response
-  const content = response.content[0];
-  if (content.type !== "text") {
-    return [];
-  }
+  const result = await generate(userPrompt, {
+    systemPrompt,
+    maxTokens: 2000,
+    temperature: 0.7,
+  });
 
   try {
     // Extract JSON from response
-    const jsonMatch = content.text.match(/\{[\s\S]*\}/);
+    const jsonMatch = result.content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       console.warn("[Learning] No JSON found in response");
       return [];
