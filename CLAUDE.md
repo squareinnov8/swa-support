@@ -261,6 +261,48 @@ All tool actions are logged to `lina_tool_actions` table with:
 - Result (success/failure, resource URLs)
 - Admin email and timestamp
 
+## Escalation Response Handling
+
+When Lina escalates an issue, Rob can reply directly to the escalation email to trigger actions.
+
+**Key Files:**
+- `src/lib/escalation/responseHandler.ts` - Parse and process Rob's replies
+- `src/lib/gmail/monitor.ts` - Detects escalation replies in Gmail polling
+
+**Response Tags:**
+Rob can use these tags in his reply to specify the action:
+
+| Tag | Action |
+|-----|--------|
+| (no tag) | Relay Rob's answer to customer as draft |
+| `[INSTRUCTION]` | Update agent behavior rules + send acknowledgment |
+| `[RESOLVE]` | Mark thread resolved + relay any content to customer |
+| `[DRAFT]` | Have Lina generate a draft based on Rob's guidance |
+| `[KB]` | Consider creating KB article (auto-detected for substantial content) |
+| `[TAKEOVER]` | Rob is handling directly - disable auto-responses |
+
+**Example Responses:**
+
+Simple relay (no tag):
+> We can do a one-time exception for the return. Let the customer know to ship it back and we'll process the refund when received.
+
+With instruction update:
+> [INSTRUCTION] When customers ask about returns after 30 days, we can make exceptions for defective products. Escalate to me for other cases.
+
+Mark resolved:
+> [RESOLVE] I've processed the refund directly in Stripe. Let them know it will appear in 5-7 business days.
+
+**Data Flow:**
+1. Gmail monitor detects email from `rob@squarewheelsauto.com`
+2. Checks if Gmail thread has pending escalation in `escalation_emails` table
+3. Parses response tags and content (removes quotes, signatures)
+4. Executes appropriate action using existing Lina tools
+5. Updates `escalation_emails.response_received` and logs event
+6. Syncs Rob's message to thread with `role: "internal"`
+
+**Automatic Learning:**
+For substantial responses (>100 chars), the system auto-considers KB article creation using LLM analysis. This enables learning from escalation responses without requiring the `[KB]` tag.
+
 ## Testing
 
 ```bash
@@ -340,3 +382,4 @@ npx supabase db push --linked
 | State machine | `src/lib/threads/stateMachine.ts` |
 | Archive logic | `src/lib/threads/archiveThread.ts` |
 | Resolution analyzer | `src/lib/learning/resolutionAnalyzer.ts` |
+| Escalation response handler | `src/lib/escalation/responseHandler.ts` |
