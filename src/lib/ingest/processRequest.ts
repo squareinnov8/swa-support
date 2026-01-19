@@ -47,6 +47,11 @@ import { getOrderTimeline, buildOrderStatusSummary } from "@/lib/shopify/orderEv
  * 8. Event logging
  */
 export async function processIngestRequest(req: IngestRequest): Promise<IngestResult> {
+  // Admin/internal email detection (used for classification override and verification bypass)
+  const ADMIN_EMAILS = ["rob@squarewheelsauto.com"];
+  const senderEmail = req.from_identifier?.toLowerCase() || "";
+  const isAdminEmail = ADMIN_EMAILS.includes(senderEmail);
+
   // 1. Upsert thread
   let threadId: string;
   let currentState: ThreadState = "NEW";
@@ -220,6 +225,15 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
     intent = classification.primary_intent;
     confidence = classification.intents[0]?.confidence || 0.5;
 
+    // Admin email override: never treat rob@squarewheelsauto.com as vendor spam
+    // This ensures the boss can communicate with Lina without being filtered out
+    if (isAdminEmail && intent === "VENDOR_SPAM") {
+      console.log(`[Ingest] Admin email ${senderEmail} classified as VENDOR_SPAM - overriding to UNKNOWN`);
+      intent = "UNKNOWN";
+      classification.primary_intent = "UNKNOWN";
+      // Remove any auto-close behavior
+    }
+
     // Log multi-intent detection
     if (classification.intents.length > 1) {
       console.log(
@@ -286,11 +300,10 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
   // 3.6. Customer verification for protected intents
   // Trust LLM's contextual assessment of whether verification is needed
   // IMPORTANT: Admin/internal emails bypass verification entirely
-  const ADMIN_EMAILS = ["rob@squarewheelsauto.com"];
   const INTERNAL_DOMAINS = ["squarewheelsauto.com"];
   const emailDomain = req.from_identifier?.toLowerCase().split("@")[1];
-  const isAdminEmail = ADMIN_EMAILS.includes(req.from_identifier?.toLowerCase() || "");
   const isInternalEmail = INTERNAL_DOMAINS.includes(emailDomain || "");
+  // Note: ADMIN_EMAILS and senderEmail already defined above in classification override
 
   // Skip verification for admin/internal emails - they're the boss, not customers
   const needsVerification =
