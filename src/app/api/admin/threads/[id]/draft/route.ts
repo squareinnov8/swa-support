@@ -153,11 +153,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .eq("thread_id", threadId)
       .eq("role", "draft");
 
-    // Re-classify the message to get current intent
+    // Get intent - prefer thread's stored intent over re-classifying
+    // This ensures we use the same intent that was determined during initial processing
     const customerMessage = latestMessage.body_text || "";
     const subject = thread.subject || "";
-    const classification = classifyIntent(subject, customerMessage);
-    const intent = classification.intent || "UNKNOWN";
+    let intent = thread.last_intent;
+
+    // Only re-classify if no stored intent
+    if (!intent || intent === "UNKNOWN") {
+      const classification = classifyIntent(subject, customerMessage);
+      intent = classification.intent || "UNKNOWN";
+    }
 
     // Get conversation history
     const conversationHistory = await getConversationHistory(threadId);
