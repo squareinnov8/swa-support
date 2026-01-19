@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 type ThreadActionsProps = {
   threadId: string;
   latestDraft: string | null;
+  latestDraftMessageId: string | null;
   latestEventId: string | null;
   latestDraftGenerationId: string | null;
   intent: string | null;
@@ -28,6 +29,7 @@ type ReplyResult = {
 export function ThreadActions({
   threadId,
   latestDraft,
+  latestDraftMessageId,
   latestEventId,
   latestDraftGenerationId,
   intent,
@@ -64,6 +66,8 @@ export function ThreadActions({
     learningStatus?: string;
   } | null>(null);
   const [archiveError, setArchiveError] = useState<string | null>(null);
+  const [draftAction, setDraftAction] = useState<"idle" | "deleting" | "regenerating" | "error">("idle");
+  const [draftError, setDraftError] = useState<string | null>(null);
 
   async function handleReply(e: React.FormEvent) {
     e.preventDefault();
@@ -300,6 +304,55 @@ export function ThreadActions({
     } catch (err) {
       setArchiveAction("error");
       setArchiveError(err instanceof Error ? err.message : "Unknown error");
+    }
+  }
+
+  async function handleDeleteDraft() {
+    if (!latestDraftMessageId && !latestDraft) return;
+
+    setDraftAction("deleting");
+    setDraftError(null);
+
+    try {
+      const url = latestDraftMessageId
+        ? `/api/admin/threads/${threadId}/draft?messageId=${latestDraftMessageId}`
+        : `/api/admin/threads/${threadId}/draft`;
+
+      const res = await fetch(url, { method: "DELETE" });
+
+      if (res.ok) {
+        setDraftAction("idle");
+        router.refresh();
+      } else {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete draft");
+      }
+    } catch (err) {
+      setDraftAction("error");
+      setDraftError(err instanceof Error ? err.message : "Unknown error");
+    }
+  }
+
+  async function handleRegenerateDraft() {
+    setDraftAction("regenerating");
+    setDraftError(null);
+
+    try {
+      const res = await fetch(`/api/admin/threads/${threadId}/draft`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (res.ok) {
+        setDraftAction("idle");
+        router.refresh();
+      } else {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to regenerate draft");
+      }
+    } catch (err) {
+      setDraftAction("error");
+      setDraftError(err instanceof Error ? err.message : "Unknown error");
     }
   }
 
@@ -753,6 +806,82 @@ export function ThreadActions({
                 {!canSendViaGmail && (
                   <div style={{ fontSize: 12, color: "#7c98b6", marginBottom: 8 }}>
                     This thread cannot send via Gmail (no Gmail thread ID)
+                  </div>
+                )}
+
+                {/* Draft Management Buttons */}
+                <div style={{
+                  display: "flex",
+                  gap: 8,
+                  marginTop: 16,
+                  paddingTop: 16,
+                  borderTop: "1px solid #eaf0f6",
+                }}>
+                  <button
+                    onClick={handleRegenerateDraft}
+                    disabled={draftAction !== "idle" || sendAction === "sending"}
+                    style={{
+                      padding: "7px 12px",
+                      backgroundColor: "#ffffff",
+                      color: "#0091ae",
+                      border: "1px solid #0091ae",
+                      borderRadius: 4,
+                      cursor: draftAction !== "idle" || sendAction === "sending" ? "not-allowed" : "pointer",
+                      fontWeight: 500,
+                      fontSize: 13,
+                    }}
+                  >
+                    {draftAction === "regenerating" ? "Regenerating..." : "Regenerate Draft"}
+                  </button>
+                  <button
+                    onClick={handleDeleteDraft}
+                    disabled={draftAction !== "idle" || sendAction === "sending"}
+                    style={{
+                      padding: "7px 12px",
+                      backgroundColor: "#ffffff",
+                      color: "#c93b41",
+                      border: "1px solid #c93b41",
+                      borderRadius: 4,
+                      cursor: draftAction !== "idle" || sendAction === "sending" ? "not-allowed" : "pointer",
+                      fontWeight: 500,
+                      fontSize: 13,
+                    }}
+                  >
+                    {draftAction === "deleting" ? "Deleting..." : "Delete Draft"}
+                  </button>
+                </div>
+
+                {draftAction === "error" && draftError && (
+                  <div
+                    style={{
+                      marginTop: 12,
+                      padding: 12,
+                      backgroundColor: "#fef0f0",
+                      borderRadius: 4,
+                      color: "#c93b41",
+                      border: "1px solid #f5c6c6",
+                      fontSize: 13,
+                    }}
+                  >
+                    <strong>Error:</strong> {draftError}
+                    <button
+                      onClick={() => {
+                        setDraftAction("idle");
+                        setDraftError(null);
+                      }}
+                      style={{
+                        marginLeft: 12,
+                        padding: "4px 8px",
+                        backgroundColor: "#ffffff",
+                        color: "#c93b41",
+                        border: "1px solid #c93b41",
+                        borderRadius: 3,
+                        cursor: "pointer",
+                        fontSize: 12,
+                      }}
+                    >
+                      Dismiss
+                    </button>
                   </div>
                 )}
 

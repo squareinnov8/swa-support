@@ -40,11 +40,16 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
   const stateColors = STATE_COLORS[state];
   const stateLabel = STATE_LABELS[state];
   // Fetch messages - newest first for better UX
-  const { data: messages } = await supabase
+  const { data: allMessages } = await supabase
     .from("messages")
     .select("*")
     .eq("thread_id", threadId)
     .order("created_at", { ascending: false });
+
+  // Separate draft messages from regular messages
+  const draftMessages = allMessages?.filter(m => m.role === "draft") || [];
+  const messages = allMessages?.filter(m => m.role !== "draft") || [];
+  const latestDraftMessage = draftMessages[0]; // Most recent draft
 
   // Get the customer email from the first inbound message
   const firstInboundMessage = messages?.slice().reverse().find(m => m.direction === "inbound");
@@ -58,7 +63,8 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
     .limit(10);
 
   const latestTriageEvent = events?.find((e) => e.type === "auto_triage");
-  const latestDraft = latestTriageEvent?.payload?.draft;
+  // Prefer draft from draft messages table, fall back to auto_triage event payload
+  const latestDraft = latestDraftMessage?.body_text || latestTriageEvent?.payload?.draft;
   const latestEventId = latestTriageEvent?.id;
 
   // Fetch draft generation details for agent reasoning
@@ -611,6 +617,7 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
       <ThreadActions
         threadId={threadId}
         latestDraft={latestDraft || null}
+        latestDraftMessageId={latestDraftMessage?.id || null}
         latestEventId={latestEventId || null}
         latestDraftGenerationId={latestDraftGen?.id || null}
         intent={thread?.last_intent || null}
