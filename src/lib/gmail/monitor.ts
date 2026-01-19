@@ -1014,8 +1014,16 @@ async function handleHubSpotSync(
 
 /**
  * Check if this is a new customer (first thread we've processed from them)
+ * Returns false for internal/admin emails to avoid fetching history for staff
  */
 async function isNewCustomer(customerEmail: string): Promise<boolean> {
+  // Don't treat internal emails as "new customers"
+  const INTERNAL_DOMAINS = ["squarewheelsauto.com"];
+  const emailDomain = customerEmail.toLowerCase().split("@")[1];
+  if (INTERNAL_DOMAINS.includes(emailDomain)) {
+    return false;
+  }
+
   const { count } = await supabase
     .from("messages")
     .select("id", { count: "exact", head: true })
@@ -1100,13 +1108,17 @@ async function fetchCustomerHistory(
 
         const result = await processIngestRequest(ingestRequest);
 
-        // Update thread with Gmail ID and mark as resolved (historical)
+        // Update thread with Gmail ID and mark as resolved + archived (historical)
+        // Use the email's actual date, not current system time
+        const emailDate = customerMessage.date.toISOString();
         await supabase
           .from("threads")
           .update({
             gmail_thread_id: threadSummary.threadId,
             state: "RESOLVED", // Historical threads are resolved
-            updated_at: new Date().toISOString(),
+            is_archived: true, // Historical threads don't appear in inbox
+            archived_at: emailDate,
+            updated_at: emailDate, // Use email date, not current time
           })
           .eq("id", result.thread_id);
 
