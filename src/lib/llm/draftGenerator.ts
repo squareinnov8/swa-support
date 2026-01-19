@@ -123,7 +123,7 @@ export async function generateDraft(input: DraftInput): Promise<DraftResult> {
       policyViolations: [],
       promptTokens: 0,
       completionTokens: 0,
-      error: "ANTHROPIC_API_KEY not configured",
+      error: "OPENAI_API_KEY not configured",
     };
   }
 
@@ -183,7 +183,7 @@ export async function generateDraft(input: DraftInput): Promise<DraftResult> {
       userPrompt += "\n\n" + NO_KB_FALLBACK_PROMPT;
     }
 
-    // 4. Generate draft with Claude
+    // 4. Generate draft with OpenAI
     const result = await generate(userPrompt, {
       systemPrompt,
       temperature: 0.7,
@@ -308,8 +308,8 @@ async function recordDraftGeneration(params: {
     intent: params.intent,
     kb_docs_used: params.kbDocsUsed,
     kb_chunks_used: params.kbChunksUsed.length > 0 ? params.kbChunksUsed : null,
-    llm_provider: "anthropic",
-    llm_model: "claude-sonnet-4-20250514",
+    llm_provider: "openai",
+    llm_model: "gpt-4o-mini",
     prompt_tokens: params.promptTokens,
     completion_tokens: params.completionTokens,
     raw_draft: params.rawDraft,
