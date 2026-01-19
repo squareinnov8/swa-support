@@ -96,7 +96,7 @@ export const LINA_ADMIN_TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
           customer_message: {
             type: "string",
             description:
-              "The complete message body to send - include greeting (e.g. 'Hi [Name],'), the information, and sign off with '– Lina'. Do NOT include a relay intro - that will be added automatically.",
+              "The complete natural message to send. Start with greeting (e.g. 'Hi [Name],'), then naturally mention you heard back from Rob/the team as part of the message body, include the information, and sign off with '– Lina'.",
           },
           attribution: {
             type: "string",
@@ -195,7 +195,7 @@ You have tools available to take real action. When Rob gives you information or 
 **Important guidelines:**
 - Always use a tool when Rob provides information that should be saved or actioned
 - Confirm what action you took after using a tool
-- For relay responses: Write the complete customer message with greeting and "– Lina" signature. A natural intro like "Great news! I heard back from Rob." will be added automatically before your message.
+- For relay responses: Write a complete, natural message starting with "Hi [Name]," then naturally work in that you heard back from Rob/the team, include the info, and end with "– Lina"
 - If unsure whether to create a KB article vs update instructions, ask Rob
 
 **DO NOT just acknowledge information without taking action** - if Rob shares something valuable, save it to the KB or update instructions so I can use it for future customers.

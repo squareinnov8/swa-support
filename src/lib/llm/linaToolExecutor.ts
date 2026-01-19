@@ -9,7 +9,6 @@ import { supabase } from "@/lib/db";
 import { createDoc } from "@/lib/kb/documents";
 import { embedText, formatEmbeddingForPg } from "@/lib/retrieval/embed";
 import { chunkMarkdown } from "@/lib/retrieval/chunk";
-import { getRelayTemplate } from "./linaTools";
 
 /**
  * Result of a tool execution
@@ -270,11 +269,9 @@ async function draftRelayResponse(
     return { success: false, message: "No thread ID provided for draft. Please specify the thread." };
   }
 
-  // Get a natural template for the relay message
-  const prefix = getRelayTemplate(attribution as "rob" | "technical_team" | "shipping_team" | "support_team");
-
-  // Construct the full message (customer_message should already include greeting and signature)
-  const fullMessage = `${prefix}${customer_message}`;
+  // Use the message as-is - Lina writes the complete natural message including
+  // greeting, relay context ("I heard back from Rob..."), content, and signature
+  const fullMessage = customer_message;
 
   // Insert as a draft message
   const { data: draft, error } = await supabase
