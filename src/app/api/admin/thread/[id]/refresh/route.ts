@@ -1,15 +1,17 @@
 /**
  * Thread Refresh API
  *
- * Re-polls Gmail for any new messages on a thread and triggers reprocessing.
- * Called automatically when loading a thread detail page.
+ * Syncs Gmail messages for a thread. Called automatically when loading a thread detail page.
+ * Does NOT reprocess existing messages - only syncs new messages from Gmail.
+ *
+ * Note: Reprocessing was removed to prevent duplicate messages being created.
+ * If you need to regenerate a draft, use the dedicated regenerate endpoint.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/db";
-import { createGmailClient, refreshTokenIfNeeded, type GmailTokens } from "@/lib/import/gmail/auth";
+import { refreshTokenIfNeeded, type GmailTokens } from "@/lib/import/gmail/auth";
 import { fetchThread } from "@/lib/import/gmail/fetcher";
-import { processIngestRequest } from "@/lib/ingest/processRequest";
 
 export async function POST(
   request: NextRequest,
@@ -40,56 +42,17 @@ export async function POST(
       newMessagesCount = syncResult.newMessages;
     }
 
-    // Get the latest inbound message for reprocessing
-    const { data: latestInbound } = await supabase
-      .from("messages")
-      .select("id, body_text, from_email, created_at")
-      .eq("thread_id", threadId)
-      .eq("direction", "inbound")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (!latestInbound) {
-      return NextResponse.json({
-        success: true,
-        newMessages: newMessagesCount,
-        reprocessed: false,
-        message: "No inbound messages to process",
-      });
-    }
-
-    // Skip reprocessing if thread is in human handling mode
-    if (thread.human_handling_mode) {
-      return NextResponse.json({
-        success: true,
-        newMessages: newMessagesCount,
-        reprocessed: false,
-        message: "Thread is in human handling mode - skipping reprocessing",
-      });
-    }
-
-    // Reprocess the thread through the ingest pipeline
-    const result = await processIngestRequest({
-      external_id: thread.external_thread_id || thread.gmail_thread_id || thread.id,
-      subject: thread.subject || "(no subject)",
-      body_text: latestInbound.body_text || "",
-      from_identifier: latestInbound.from_email || "customer@unknown.com",
-      channel: "email",
-      metadata: {
-        refresh: true,
-        original_channel: thread.channel,
-      },
-    });
+    // Note: We no longer automatically reprocess the thread to avoid creating duplicate messages.
+    // The sync above will bring in any new Gmail messages.
+    // If the user needs to regenerate a draft, they should use the explicit regenerate action.
 
     return NextResponse.json({
       success: true,
       newMessages: newMessagesCount,
-      reprocessed: true,
-      intent: result.intent,
-      action: result.action,
-      draft: result.draft,
-      state: result.state,
+      reprocessed: false,
+      message: newMessagesCount > 0
+        ? `Synced ${newMessagesCount} new message(s) from Gmail`
+        : "No new messages",
     });
   } catch (error) {
     console.error("Thread refresh error:", error);

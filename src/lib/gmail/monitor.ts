@@ -38,6 +38,8 @@ import {
   recordObservation,
   wasMessageGeneratedByAgent,
 } from "@/lib/collaboration";
+import { getAgentSettings } from "@/lib/settings";
+import { sendApprovedDraft, isGmailSendConfigured as isGmailSendReady } from "@/lib/gmail/sendDraft";
 
 export type MonitorResult = {
   success: boolean;
@@ -46,6 +48,7 @@ export type MonitorResult = {
   threadsSkipped: number;
   newMessagesFound: number;
   draftsGenerated: number;
+  draftsAutoSent: number;
   ticketsCreated: number;
   ticketsUpdated: number;
   escalations: number;
@@ -82,6 +85,7 @@ export async function runGmailMonitor(options?: { fetchRecent?: boolean; fetchDa
     threadsSkipped: 0,
     newMessagesFound: 0,
     draftsGenerated: 0,
+    draftsAutoSent: 0,
     ticketsCreated: 0,
     ticketsUpdated: 0,
     escalations: 0,
@@ -151,6 +155,9 @@ export async function runGmailMonitor(options?: { fetchRecent?: boolean; fetchDa
         }
         if (threadResult.draftGenerated) {
           result.draftsGenerated++;
+        }
+        if (threadResult.draftAutoSent) {
+          result.draftsAutoSent++;
         }
         if (threadResult.ticketCreated) {
           result.ticketsCreated++;
@@ -334,6 +341,7 @@ async function getNewMessages(
 type ThreadProcessResult = {
   newMessage: boolean;
   draftGenerated: boolean;
+  draftAutoSent: boolean;
   ticketCreated: boolean;
   ticketUpdated: boolean;
   escalated: boolean;
@@ -415,6 +423,7 @@ async function processGmailThread(
   const result: ThreadProcessResult = {
     newMessage: false,
     draftGenerated: false,
+    draftAutoSent: false,
     ticketCreated: false,
     ticketUpdated: false,
     escalated: false,
@@ -503,18 +512,32 @@ async function processGmailThread(
     return result;
   }
 
-  // Check if we've already processed this message
+  // Check if we've already PROCESSED this message (not just synced)
+  // Messages synced from Gmail have synced_from_gmail=true in metadata
+  // Only skip if we find a PROCESSED message (without synced_from_gmail flag)
   const { data: existingMessage } = await supabase
     .from("messages")
-    .select("id")
+    .select("id, channel_metadata")
     .eq("channel_metadata->>gmail_message_id", latestIncoming.id)
     .maybeSingle();
 
+  // Skip only if message exists AND was actually processed (not just synced)
   if (existingMessage) {
-    // Already processed
-    result.skipped = true;
-    result.skipReason = "Already processed";
-    return result;
+    const metadata = existingMessage.channel_metadata as Record<string, unknown> | null;
+    const wasSyncedOnly = metadata?.synced_from_gmail === true;
+
+    if (!wasSyncedOnly) {
+      // Already processed through ingest pipeline
+      result.skipped = true;
+      result.skipReason = "Already processed";
+      return result;
+    }
+    // Message was only synced, not processed - delete it so processIngestRequest can insert properly
+    console.log(`[Monitor] Message ${latestIncoming.id} was synced but not processed, removing synced version...`);
+    await supabase
+      .from("messages")
+      .delete()
+      .eq("id", existingMessage.id);
   }
 
   result.newMessage = true;
@@ -578,6 +601,37 @@ async function processGmailThread(
 
   if (ingestResult.draft) {
     result.draftGenerated = true;
+
+    // Check if we should auto-send this draft
+    const shouldAutoSend = await checkAutoSendEligibility(ingestResult, gmailThreadId);
+    if (shouldAutoSend.eligible) {
+      console.log(`[Monitor] Auto-sending draft for thread ${ingestResult.thread_id}: ${shouldAutoSend.reason}`);
+
+      const sendResult = await sendApprovedDraft({
+        threadId: ingestResult.thread_id,
+        draftText: ingestResult.draft,
+      });
+
+      if (sendResult.success) {
+        console.log(`[Monitor] Auto-sent draft successfully, Gmail message ID: ${sendResult.gmailMessageId}`);
+        result.draftAutoSent = true;
+        // Log auto-send event
+        await supabase.from("events").insert({
+          thread_id: ingestResult.thread_id,
+          type: "auto_send",
+          payload: {
+            gmail_message_id: sendResult.gmailMessageId,
+            confidence: ingestResult.confidence,
+            intent: ingestResult.intent,
+          },
+        });
+      } else {
+        console.error(`[Monitor] Auto-send failed: ${sendResult.error}`);
+        result.error = `Auto-send failed: ${sendResult.error}`;
+      }
+    } else {
+      console.log(`[Monitor] Not auto-sending: ${shouldAutoSend.reason}`);
+    }
   }
 
   // Update thread with Gmail ID
@@ -1015,6 +1069,81 @@ export async function storeGmailTokens(
       },
       { onConflict: "email_address" }
     );
+}
+
+/**
+ * Check if a draft is eligible for auto-send
+ *
+ * Criteria:
+ * - Auto-send must be enabled in settings
+ * - Gmail must be configured for sending
+ * - Confidence must meet threshold
+ * - Action must not be escalation
+ * - If verification required, customer must be verified
+ */
+async function checkAutoSendEligibility(
+  ingestResult: {
+    thread_id: string;
+    confidence: number;
+    action: string;
+    state: string;
+    draft: string | null;
+  },
+  gmailThreadId: string
+): Promise<{ eligible: boolean; reason: string }> {
+  // 1. Check if Gmail is configured for sending
+  if (!isGmailSendReady()) {
+    return { eligible: false, reason: "Gmail not configured for sending" };
+  }
+
+  // 2. Check agent settings
+  const settings = await getAgentSettings();
+
+  if (!settings.autoSendEnabled) {
+    return { eligible: false, reason: "Auto-send disabled in settings" };
+  }
+
+  // 3. Check if action is escalation (never auto-send escalations)
+  if (ingestResult.action === "ESCALATE" || ingestResult.action === "ESCALATE_WITH_DRAFT") {
+    return { eligible: false, reason: "Escalated - requires human review" };
+  }
+
+  // 4. Check if action is NO_REPLY (don't send empty replies)
+  if (ingestResult.action === "NO_REPLY") {
+    return { eligible: false, reason: "No reply needed" };
+  }
+
+  // 5. Check confidence threshold
+  if (ingestResult.confidence < settings.autoSendConfidenceThreshold) {
+    return {
+      eligible: false,
+      reason: `Confidence ${ingestResult.confidence.toFixed(2)} below threshold ${settings.autoSendConfidenceThreshold}`,
+    };
+  }
+
+  // 6. Check verification requirement if enabled
+  if (settings.requireVerificationForSend) {
+    const { data: verification } = await supabase
+      .from("customer_verifications")
+      .select("status")
+      .eq("thread_id", ingestResult.thread_id)
+      .eq("status", "verified")
+      .maybeSingle();
+
+    // Only require verification for intents that typically need it (order-related)
+    const verificationRequiredActions = ["ASK_CLARIFYING_QUESTIONS"];
+    const needsVerification = verificationRequiredActions.includes(ingestResult.action);
+
+    if (needsVerification && !verification) {
+      return { eligible: false, reason: "Customer not verified - requires human review" };
+    }
+  }
+
+  // All checks passed
+  return {
+    eligible: true,
+    reason: `Confidence ${ingestResult.confidence.toFixed(2)} >= ${settings.autoSendConfidenceThreshold} threshold`,
+  };
 }
 
 /**

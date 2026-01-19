@@ -168,32 +168,34 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
   }
 
   // Fetch previous support tickets for this customer (by email)
+  // We query messages directly to find all threads where this customer has sent messages
   const emailForTicketLookup = verification?.customer_email || customerEmail;
   if (emailForTicketLookup) {
-    const { data: customerThreads } = await supabase
-      .from("threads")
-      .select("id, subject, state, created_at")
-      .neq("id", threadId) // Exclude current thread
-      .order("created_at", { ascending: false })
-      .limit(10);
+    // Step 1: Find all threads where this email has sent messages
+    const { data: customerMessages } = await supabase
+      .from("messages")
+      .select("thread_id")
+      .eq("from_email", emailForTicketLookup)
+      .neq("thread_id", threadId) // Exclude current thread
+      .order("created_at", { ascending: false });
 
-    // Filter threads that have messages from this customer email
-    if (customerThreads) {
-      const { data: threadsWithEmail } = await supabase
-        .from("messages")
-        .select("thread_id")
-        .eq("from_email", emailForTicketLookup)
-        .in("thread_id", customerThreads.map(t => t.id));
+    // Get unique thread IDs
+    const customerThreadIds = [...new Set(customerMessages?.map(m => m.thread_id) || [])];
 
-      const customerThreadIds = new Set(threadsWithEmail?.map(m => m.thread_id) || []);
-      previousTickets = customerThreads
-        .filter(t => customerThreadIds.has(t.id))
-        .map(t => ({
-          id: t.id,
-          subject: t.subject || "(no subject)",
-          state: t.state || "UNKNOWN",
-          createdAt: t.created_at,
-        }));
+    // Step 2: Fetch thread details for those IDs (limit to 10 most relevant)
+    if (customerThreadIds.length > 0) {
+      const { data: customerThreads } = await supabase
+        .from("threads")
+        .select("id, subject, state, created_at")
+        .in("id", customerThreadIds.slice(0, 10))
+        .order("created_at", { ascending: false });
+
+      previousTickets = customerThreads?.map(t => ({
+        id: t.id,
+        subject: t.subject || "(no subject)",
+        state: t.state || "UNKNOWN",
+        createdAt: t.created_at,
+      })) || [];
     }
   }
 

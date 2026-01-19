@@ -152,10 +152,14 @@ SHOPIFY_ACCESS_TOKEN=
 - [x] Resolve & Archive with auto-learning extraction
 - [x] Learning proposals review UI (`/admin/learning`)
 - [x] Inbox search (subject + summary) and archive filters
+- [x] **Auto-send feature** - Automatic draft sending based on confidence threshold (see `agent_settings`)
+- [x] **Message sync fix** - Fixed race condition where synced messages were incorrectly marked as "already processed"
+- [x] **Duplicate message fix** - Thread refresh endpoint no longer calls `processIngestRequest()`, preventing duplicate messages on page load
+- [x] **Customer thread history** - Previous tickets query now correctly finds all customer threads regardless of recency
 
 ### Pending / Outstanding
 - [ ] **Gmail re-authentication required** - After inbox purge, need to re-auth at `/admin/gmail-setup`
-- [x] Auto-send approved drafts via Gmail (see `/api/admin/send-draft`)
+- [x] Auto-send approved drafts via Gmail (manual: `/api/admin/send-draft`, automatic: in monitor)
 - [x] Email response threading (reply-to headers in `sendDraft.ts`)
 - [ ] Rate limiting on API endpoints
 - [x] Gmail Push Notifications - Real-time email notifications via Pub/Sub (see `docs/gmail-push-setup.md`)
@@ -190,6 +194,28 @@ Instructions are stored in `agent_instructions` table with sections:
 - Always cite KB sources when making claims
 - Sign off as "– Lina"
 - Escalate chargebacks and flagged customers to Rob
+
+## Auto-Send Feature
+
+Lina can automatically send drafts without human approval when conditions are met.
+
+**Settings** (in `agent_settings` table):
+- `auto_send_enabled` - Master toggle (default: false)
+- `auto_send_confidence_threshold` - Minimum confidence to auto-send (default: 0.85)
+- `require_verification_for_send` - Require customer verification (default: true)
+
+**Auto-send eligibility criteria:**
+1. Auto-send must be enabled in settings
+2. Gmail must be configured for sending
+3. Confidence must meet or exceed threshold
+4. Action must NOT be escalation (`ESCALATE` or `ESCALATE_WITH_DRAFT`)
+5. Action must NOT be `NO_REPLY`
+6. If verification required, customer must be verified for protected intents
+
+**Never auto-sent:**
+- Escalated tickets (requires human review)
+- Low-confidence drafts
+- Chargebacks or flagged customers
 
 ## Testing
 
@@ -259,6 +285,9 @@ npx supabase db push --linked
 | Archive API | `POST /api/admin/threads/[id]/archive` |
 | Learning API | `GET /api/admin/learning/proposals` |
 | Main processing | `src/lib/ingest/processRequest.ts` |
+| Gmail monitor | `src/lib/gmail/monitor.ts` |
+| Auto-send logic | `src/lib/gmail/sendDraft.ts` |
+| Agent settings | `src/lib/settings/index.ts` |
 | Intent taxonomy | `src/lib/intents/taxonomy.ts` |
 | Prompts | `src/lib/llm/prompts.ts` |
 | State machine | `src/lib/threads/stateMachine.ts` |
