@@ -419,6 +419,18 @@ async function syncGmailMessagesToThread(
 
   if (synced > 0) {
     console.log(`[Monitor] Synced ${synced} messages for thread ${threadId} (${skipped} already existed)`);
+
+    // Update last_message_at to the latest synced message date
+    const latestMessageDate = gmailThread.messages
+      .map((m) => m.date)
+      .sort((a, b) => b.getTime() - a.getTime())[0];
+
+    if (latestMessageDate) {
+      await supabase
+        .from("threads")
+        .update({ last_message_at: latestMessageDate.toISOString() })
+        .eq("id", threadId);
+    }
   }
 
   return { synced, skipped };

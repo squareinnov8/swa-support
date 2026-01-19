@@ -45,7 +45,7 @@ export default async function AdminPage({
   const stateFilter = params.state || "";
   const escalatedFilter = params.escalated || "";
   const intentFilter = params.intent || "";
-  const sortParam = params.sort || "updated_at:desc";
+  const sortParam = params.sort || "last_message_at:desc";
   const archivedFilter = params.archived || "hide";
 
   // Parse sort parameter
@@ -54,7 +54,7 @@ export default async function AdminPage({
   // Build query with filters
   let query = supabase
     .from("threads")
-    .select("id,subject,state,last_intent,updated_at,created_at,human_handling_mode,human_handler,summary,verification_status,is_archived");
+    .select("id,subject,state,last_intent,updated_at,created_at,last_message_at,human_handling_mode,human_handler,summary,verification_status,is_archived");
 
   // Apply archived filter (default: hide archived)
   if (archivedFilter === "hide") {
@@ -87,7 +87,7 @@ export default async function AdminPage({
   }
 
   // Apply sorting
-  query = query.order(sortField as "updated_at" | "created_at", { ascending: sortDirection === "asc" });
+  query = query.order(sortField as "last_message_at" | "updated_at" | "created_at", { ascending: sortDirection === "asc" });
 
   // Execute query
   const { data: threads } = await query.limit(50);
@@ -323,15 +323,15 @@ export default async function AdminPage({
                       )}
                     </td>
 
-                    {/* Last Activity */}
+                    {/* Last Activity - uses last_message_at (excludes drafts) */}
                     <td style={{ padding: "12px", fontSize: 13, color: "#516f90", verticalAlign: "top" }}>
                       <div>
-                        {new Date(t.updated_at).toLocaleDateString("en-US", {
+                        {new Date(t.last_message_at || t.created_at).toLocaleDateString("en-US", {
                           month: "short",
                           day: "numeric",
                         })}
                         <span style={{ color: "#99acc2", margin: "0 4px" }}>·</span>
-                        {new Date(t.updated_at).toLocaleTimeString("en-US", {
+                        {new Date(t.last_message_at || t.created_at).toLocaleTimeString("en-US", {
                           hour: "numeric",
                           minute: "2-digit",
                         })}
@@ -371,7 +371,7 @@ export default async function AdminPage({
 
         {/* Footer */}
         <div style={{ padding: "12px", fontSize: 12, color: "#99acc2", borderTop: "1px solid #eaf0f6" }}>
-          {threads?.length || 0} tickets · {sortField === "updated_at" ? "Last activity" : "Created"} {sortDirection === "desc" ? "↓" : "↑"}
+          {threads?.length || 0} tickets · {sortField === "last_message_at" ? "Last message" : sortField === "updated_at" ? "Last updated" : "Created"} {sortDirection === "desc" ? "↓" : "↑"}
         </div>
       </div>
     </div>

@@ -292,11 +292,14 @@ export async function sendApprovedDraft(params: {
     }
 
     // 7. Update thread state to AWAITING_INFO (waiting for customer response)
+    // Also update last_message_at since this is now a real sent message
+    const sentAt = new Date().toISOString();
     const { error: threadError } = await supabase
       .from("threads")
       .update({
         state: "AWAITING_INFO",
-        updated_at: new Date().toISOString(),
+        updated_at: sentAt,
+        last_message_at: sentAt,
       })
       .eq("id", threadId);
 

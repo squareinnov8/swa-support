@@ -135,6 +135,13 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
     throw new Error(`Failed to insert message: ${messageError.message}`);
   }
 
+  // Update last_message_at for inbound messages (this is a real customer message, not a draft)
+  const messageTimestamp = req.message_date?.toISOString() || new Date().toISOString();
+  await supabase
+    .from("threads")
+    .update({ last_message_at: messageTimestamp })
+    .eq("id", threadId);
+
   // 2.5. Check if thread is in human handling mode (observation mode)
   // If so, record the observation and skip draft generation
   if (isHumanHandling) {
