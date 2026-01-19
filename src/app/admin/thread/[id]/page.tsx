@@ -39,6 +39,7 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
   const state = (thread?.state as ThreadState) || "NEW";
   const stateColors = STATE_COLORS[state];
   const stateLabel = STATE_LABELS[state];
+  const isArchived = thread?.is_archived === true;
   // Fetch messages - newest first for better UX
   const { data: allMessages } = await supabase
     .from("messages")
@@ -47,8 +48,15 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
     .order("created_at", { ascending: false });
 
   // Separate draft messages from regular messages
-  const draftMessages = allMessages?.filter(m => m.role === "draft") || [];
-  const messages = allMessages?.filter(m => m.role !== "draft") || [];
+  // Filter out messages with role="draft" OR relay_response metadata (catches legacy relay drafts)
+  const isDraftMessage = (m: { role?: string; channel_metadata?: { relay_response?: boolean; created_via?: string } }) => {
+    if (m.role === "draft") return true;
+    // Also catch relay drafts that may have been created before role was added
+    if (m.channel_metadata?.relay_response === true && m.channel_metadata?.created_via === "lina_tool") return true;
+    return false;
+  };
+  const draftMessages = allMessages?.filter(isDraftMessage) || [];
+  const messages = allMessages?.filter(m => !isDraftMessage(m)) || [];
   const latestDraftMessage = draftMessages[0]; // Most recent draft
 
   // Get the customer email from the first inbound message
@@ -319,32 +327,51 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
   }
 
   return (
-    <div style={{ padding: 24, maxWidth: 960, margin: "0 auto" }}>
+    <div style={{ minHeight: "100vh", backgroundColor: "#f5f8fa" }}>
       {/* Auto-refresh from Gmail on page load */}
       <ThreadRefresher threadId={threadId} />
 
-      {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <a
-          href="/admin"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            fontSize: 14,
-            color: "#0091ae",
-            textDecoration: "none",
-            marginBottom: 16,
-          }}
-        >
-          ← Back to Inbox
-        </a>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
-          <div>
-            <h1 style={{ fontSize: 22, fontWeight: 600, color: "#33475b", margin: 0 }}>
-              {thread?.subject || "(no subject)"}
-            </h1>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
+      {/* Sticky Header */}
+      <div style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 100,
+        backgroundColor: "#ffffff",
+        borderBottom: "1px solid #cbd6e2",
+        padding: "12px 24px",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+      }}>
+        <div style={{ maxWidth: 1400, margin: "0 auto" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 16, flex: 1, minWidth: 0 }}>
+              <a
+                href="/admin"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  fontSize: 13,
+                  color: "#0091ae",
+                  textDecoration: "none",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                ← Inbox
+              </a>
+              <div style={{ height: 20, width: 1, backgroundColor: "#cbd6e2" }} />
+              <h1 style={{
+                fontSize: 16,
+                fontWeight: 600,
+                color: "#33475b",
+                margin: 0,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}>
+                {thread?.subject || "(no subject)"}
+              </h1>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span
                 style={{
                   padding: "4px 10px",
@@ -357,278 +384,329 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
               >
                 {stateLabel}
               </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Thread Intents Section */}
-      {(activeIntents.length > 0 || resolvedIntents.length > 0) && (
-        <div style={{
-          padding: 16,
-          backgroundColor: "#ffffff",
-          borderRadius: 4,
-          border: "1px solid #cbd6e2",
-          marginBottom: 16,
-        }}>
-          <div style={{
-            fontSize: 12,
-            fontWeight: 500,
-            color: "#516f90",
-            textTransform: "uppercase",
-            letterSpacing: "0.5px",
-            marginBottom: 12,
-          }}>
-            Intents ({activeIntents.length} active, {resolvedIntents.length} resolved)
-          </div>
-
-          {activeIntents.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: resolvedIntents.length > 0 ? 12 : 0 }}>
-              {activeIntents.map((intent) => (
+              {isArchived && (
                 <span
-                  key={intent.id}
                   style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 4,
                     padding: "4px 10px",
                     borderRadius: 3,
                     fontSize: 12,
                     fontWeight: 500,
-                    backgroundColor: "#e5f5f8",
-                    color: "#0091ae",
-                    border: "1px solid #b0d6e0",
+                    backgroundColor: "#e5f8f4",
+                    color: "#00a182",
                   }}
-                  title={intent.description || undefined}
                 >
-                  <span>{intent.name}</span>
-                  <span style={{ opacity: 0.7, fontSize: 10 }}>
-                    ({Math.round((intent.confidence || 0) * 100)}%)
-                  </span>
+                  Archived
                 </span>
-              ))}
-            </div>
-          )}
-
-          {resolvedIntents.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {resolvedIntents.map((intent) => (
+              )}
+              {thread?.human_handling_mode && (
                 <span
-                  key={intent.id}
                   style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 4,
                     padding: "4px 10px",
                     borderRadius: 3,
                     fontSize: 12,
                     fontWeight: 500,
-                    backgroundColor: "#eaf0f6",
-                    color: "#7c98b6",
-                    border: "1px solid #cbd6e2",
-                    textDecoration: "line-through",
+                    backgroundColor: "#fef6e7",
+                    color: "#b36b00",
                   }}
-                  title={`Resolved: ${intent.resolved_at ? new Date(intent.resolved_at).toLocaleString() : "N/A"}`}
                 >
-                  <span>{intent.name}</span>
+                  Observing
                 </span>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {activeIntents.length === 0 && resolvedIntents.length === 0 && thread?.last_intent && (
-        <div style={{ marginTop: 8, fontSize: 13, color: "#7c98b6" }}>
-          Legacy intent: {thread.last_intent}
-        </div>
-      )}
-
-      {/* Customer Context Panel */}
-      <CustomerContextPanel
-        customer={customerContext}
-        previousTickets={previousTickets}
-      />
-
-      {/* Order Events Timeline */}
-      {orderNumber && orderEvents.length > 0 && (
-        <OrderEventsTimeline
-          events={orderEvents}
-          orderNumber={`#${orderNumber}`}
-        />
-      )}
-
-      {/* Messages Section */}
-      <div style={{
-        backgroundColor: "#ffffff",
-        border: "1px solid #cbd6e2",
-        borderRadius: 4,
-        marginTop: 24,
-        overflow: "hidden",
-      }}>
-        <div style={{
-          padding: "12px 16px",
-          backgroundColor: "#f5f8fa",
-          borderBottom: "1px solid #cbd6e2",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}>
-          <h2 style={{ fontSize: 14, fontWeight: 600, color: "#33475b", margin: 0 }}>Messages</h2>
-          <span style={{ fontSize: 12, color: "#7c98b6" }}>Showing newest first</span>
-        </div>
-        <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-          {messages?.map((m) => (
-            <MessageBubble
-              key={m.id}
-              direction={m.direction as "inbound" | "outbound"}
-              fromEmail={m.from_email}
-              createdAt={m.created_at}
-              bodyText={m.body_text}
-              bodyHtml={m.body_html}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Proposed Reply Section */}
-      <div style={{
-        backgroundColor: "#ffffff",
-        border: "1px solid #cbd6e2",
-        borderRadius: 4,
-        marginTop: 24,
-        overflow: "hidden",
-      }}>
-        <div style={{
-          padding: "12px 16px",
-          backgroundColor: "#f5f8fa",
-          borderBottom: "1px solid #cbd6e2",
-        }}>
-          <h2 style={{ fontSize: 14, fontWeight: 600, color: "#33475b", margin: 0 }}>Proposed Reply</h2>
-        </div>
-        <div style={{ padding: 16 }}>
-          {shouldBlockDraft ? (
-            <div
-              style={{
-                border: "1px solid #f2545b",
-                backgroundColor: "#fde8e9",
-                padding: 16,
-                borderRadius: 4,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                <strong style={{ color: "#c93b41" }}>Draft Blocked</strong>
-              </div>
-              <p style={{ color: "#c93b41", margin: 0, fontSize: 14 }}>{draftBlockReason}</p>
-              {intentRequiresVerification && !isVerificationComplete && (
-                <p style={{ color: "#516f90", marginTop: 12, fontSize: 13 }}>
-                  Verify the customer before this draft can be sent.
-                  {verification?.status === "pending" && " Ask the customer for their order number."}
-                </p>
               )}
             </div>
-          ) : (
-            <pre style={{
-              whiteSpace: "pre-wrap",
-              margin: 0,
-              fontFamily: "inherit",
-              fontSize: 14,
-              lineHeight: 1.6,
-              color: "#33475b",
-            }}>
-              {latestDraft || "(no draft generated)"}
-            </pre>
-          )}
+          </div>
         </div>
       </div>
 
-      {/* Agent Reasoning Section */}
-      <AgentReasoning
-        threadId={threadId}
-        intent={thread?.last_intent || null}
-        confidence={latestTriageEvent?.payload?.confidence ?? null}
-        kbDocs={kbDocsUsed}
-        verification={
-          verification
-            ? {
-                status: verification.status,
-                orderNumber: verification.order_number,
-                flags: verification.flags || [],
-              }
-            : null
-        }
-        draftInfo={
-          latestDraftGen
-            ? {
-                policyGatePassed: latestDraftGen.policy_gate_passed ?? true,
-                policyViolations: latestDraftGen.policy_violations || [],
-                promptTokens: latestDraftGen.prompt_tokens || 0,
-                completionTokens: latestDraftGen.completion_tokens || 0,
-                citations: latestDraftGen.citations || [],
-              }
-            : null
-        }
-      />
+      {/* Main Content Area - Two Column Layout */}
+      <div style={{ maxWidth: 1400, margin: "0 auto", padding: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 24 }}>
 
-      {stateHistory && stateHistory.length > 0 && (
-        <div style={{
-          backgroundColor: "#ffffff",
-          border: "1px solid #cbd6e2",
-          borderRadius: 4,
-          marginTop: 24,
-          overflow: "hidden",
-        }}>
-          <div style={{
-            padding: "12px 16px",
-            backgroundColor: "#f5f8fa",
-            borderBottom: "1px solid #cbd6e2",
-          }}>
-            <h2 style={{ fontSize: 14, fontWeight: 600, color: "#33475b", margin: 0 }}>State History</h2>
-          </div>
-          <div style={{ padding: 0 }}>
-            {stateHistory.map((h, i) => (
-              <div
-                key={i}
-                style={{
-                  padding: "12px 16px",
-                  borderBottom: i < stateHistory.length - 1 ? "1px solid #eaf0f6" : "none",
-                  display: "flex",
-                  gap: 16,
-                  alignItems: "center",
-                  fontSize: 13,
-                }}
-              >
-                <span style={{ color: "#7c98b6", fontSize: 12, minWidth: 140 }}>
-                  {new Date(h.timestamp).toLocaleString()}
+          {/* Left Column - Messages & Draft */}
+          <div style={{ minWidth: 0 }}>
+
+            {/* Intents Bar */}
+            {(activeIntents.length > 0 || resolvedIntents.length > 0 || thread?.last_intent) && (
+              <div style={{
+                padding: "10px 14px",
+                backgroundColor: "#ffffff",
+                borderRadius: 4,
+                border: "1px solid #cbd6e2",
+                marginBottom: 16,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                flexWrap: "wrap",
+              }}>
+                <span style={{ fontSize: 11, fontWeight: 500, color: "#7c98b6", textTransform: "uppercase" }}>
+                  Intents:
                 </span>
-                <span style={{ color: "#33475b", fontWeight: 500 }}>
-                  {h.from} → {h.to}
-                </span>
-                {h.reason && (
-                  <span style={{ color: "#516f90", fontSize: 12 }}>({h.reason})</span>
+                {activeIntents.map((intent) => (
+                  <span
+                    key={intent.id}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 3,
+                      padding: "3px 8px",
+                      borderRadius: 3,
+                      fontSize: 11,
+                      fontWeight: 500,
+                      backgroundColor: "#e5f5f8",
+                      color: "#0091ae",
+                      border: "1px solid #b0d6e0",
+                    }}
+                    title={intent.description || undefined}
+                  >
+                    {intent.name}
+                    <span style={{ opacity: 0.7 }}>
+                      {Math.round((intent.confidence || 0) * 100)}%
+                    </span>
+                  </span>
+                ))}
+                {resolvedIntents.map((intent) => (
+                  <span
+                    key={intent.id}
+                    style={{
+                      padding: "3px 8px",
+                      borderRadius: 3,
+                      fontSize: 11,
+                      fontWeight: 500,
+                      backgroundColor: "#eaf0f6",
+                      color: "#7c98b6",
+                      border: "1px solid #cbd6e2",
+                      textDecoration: "line-through",
+                    }}
+                  >
+                    {intent.name}
+                  </span>
+                ))}
+                {activeIntents.length === 0 && resolvedIntents.length === 0 && thread?.last_intent && (
+                  <span style={{ fontSize: 12, color: "#7c98b6" }}>
+                    {thread.last_intent}
+                  </span>
                 )}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+            )}
 
-      {/* Testing & Feedback Actions */}
-      <ThreadActions
-        threadId={threadId}
-        latestDraft={latestDraft || null}
-        latestDraftMessageId={latestDraftMessage?.id || null}
-        latestEventId={latestEventId || null}
-        latestDraftGenerationId={latestDraftGen?.id || null}
-        intent={thread?.last_intent || null}
-        isHumanHandling={thread?.human_handling_mode === true}
-        humanHandler={thread?.human_handler || null}
-        draftBlocked={shouldBlockDraft}
-        draftBlockReason={draftBlockReason}
-        canSendViaGmail={Boolean(thread?.gmail_thread_id)}
-        isArchived={thread?.is_archived === true}
-        threadState={thread?.state || "NEW"}
-      />
+            {/* Messages Section */}
+            <div style={{
+              backgroundColor: "#ffffff",
+              border: "1px solid #cbd6e2",
+              borderRadius: 4,
+              overflow: "hidden",
+            }}>
+              <div style={{
+                padding: "12px 16px",
+                backgroundColor: "#f5f8fa",
+                borderBottom: "1px solid #cbd6e2",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}>
+                <h2 style={{ fontSize: 14, fontWeight: 600, color: "#33475b", margin: 0 }}>
+                  Conversation
+                </h2>
+                <span style={{ fontSize: 12, color: "#7c98b6" }}>
+                  {messages?.length || 0} messages
+                </span>
+              </div>
+              <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+                {messages && messages.length > 0 ? (
+                  messages.map((m) => (
+                    <MessageBubble
+                      key={m.id}
+                      direction={m.direction as "inbound" | "outbound"}
+                      fromEmail={m.from_email}
+                      createdAt={m.created_at}
+                      bodyText={m.body_text}
+                      bodyHtml={m.body_html}
+                    />
+                  ))
+                ) : (
+                  <p style={{ color: "#7c98b6", fontSize: 13, margin: 0 }}>No messages yet</p>
+                )}
+              </div>
+            </div>
+
+            {/* Draft Reply Section */}
+            <div style={{
+              backgroundColor: "#ffffff",
+              border: latestDraft ? "2px solid #0091ae" : "1px solid #cbd6e2",
+              borderRadius: 4,
+              marginTop: 16,
+              overflow: "hidden",
+            }}>
+              <div style={{
+                padding: "12px 16px",
+                backgroundColor: latestDraft ? "#e5f5f8" : "#f5f8fa",
+                borderBottom: "1px solid #cbd6e2",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}>
+                <h2 style={{ fontSize: 14, fontWeight: 600, color: latestDraft ? "#0091ae" : "#33475b", margin: 0 }}>
+                  {latestDraft ? "Draft Reply" : "No Draft"}
+                </h2>
+                {latestDraftMessage && (
+                  <span style={{ fontSize: 11, color: "#7c98b6" }}>
+                    {latestDraftMessage.channel_metadata?.relay_response ? "Relay Response" : "Auto-generated"}
+                  </span>
+                )}
+              </div>
+              <div style={{ padding: 16 }}>
+                {shouldBlockDraft ? (
+                  <div
+                    style={{
+                      border: "1px solid #f2545b",
+                      backgroundColor: "#fde8e9",
+                      padding: 14,
+                      borderRadius: 4,
+                    }}
+                  >
+                    <strong style={{ color: "#c93b41", fontSize: 13 }}>Draft Blocked</strong>
+                    <p style={{ color: "#c93b41", margin: "8px 0 0", fontSize: 13 }}>{draftBlockReason}</p>
+                    {intentRequiresVerification && !isVerificationComplete && (
+                      <p style={{ color: "#516f90", marginTop: 8, fontSize: 12 }}>
+                        Verify customer before sending.
+                        {verification?.status === "pending" && " Ask for order number."}
+                      </p>
+                    )}
+                  </div>
+                ) : latestDraft ? (
+                  <pre style={{
+                    whiteSpace: "pre-wrap",
+                    margin: 0,
+                    fontFamily: "inherit",
+                    fontSize: 14,
+                    lineHeight: 1.6,
+                    color: "#33475b",
+                  }}>
+                    {latestDraft}
+                  </pre>
+                ) : (
+                  <p style={{ color: "#7c98b6", fontSize: 13, margin: 0 }}>
+                    No draft has been generated for this thread.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Thread Actions */}
+            <ThreadActions
+              threadId={threadId}
+              latestDraft={latestDraft || null}
+              latestDraftMessageId={latestDraftMessage?.id || null}
+              latestEventId={latestEventId || null}
+              latestDraftGenerationId={latestDraftGen?.id || null}
+              intent={thread?.last_intent || null}
+              isHumanHandling={thread?.human_handling_mode === true}
+              humanHandler={thread?.human_handler || null}
+              draftBlocked={shouldBlockDraft}
+              draftBlockReason={draftBlockReason}
+              canSendViaGmail={Boolean(thread?.gmail_thread_id)}
+              isArchived={thread?.is_archived === true}
+              threadState={thread?.state || "NEW"}
+            />
+
+            {/* Agent Reasoning - Collapsible */}
+            <AgentReasoning
+              threadId={threadId}
+              intent={thread?.last_intent || null}
+              confidence={latestTriageEvent?.payload?.confidence ?? null}
+              kbDocs={kbDocsUsed}
+              verification={
+                verification
+                  ? {
+                      status: verification.status,
+                      orderNumber: verification.order_number,
+                      flags: verification.flags || [],
+                    }
+                  : null
+              }
+              draftInfo={
+                latestDraftGen
+                  ? {
+                      policyGatePassed: latestDraftGen.policy_gate_passed ?? true,
+                      policyViolations: latestDraftGen.policy_violations || [],
+                      promptTokens: latestDraftGen.prompt_tokens || 0,
+                      completionTokens: latestDraftGen.completion_tokens || 0,
+                      citations: latestDraftGen.citations || [],
+                    }
+                  : null
+              }
+            />
+
+            {/* State History */}
+            {stateHistory && stateHistory.length > 0 && (
+              <div style={{
+                backgroundColor: "#ffffff",
+                border: "1px solid #cbd6e2",
+                borderRadius: 4,
+                marginTop: 16,
+                overflow: "hidden",
+              }}>
+                <div style={{
+                  padding: "12px 16px",
+                  backgroundColor: "#f5f8fa",
+                  borderBottom: "1px solid #cbd6e2",
+                }}>
+                  <h2 style={{ fontSize: 14, fontWeight: 600, color: "#33475b", margin: 0 }}>State History</h2>
+                </div>
+                <div style={{ padding: 0 }}>
+                  {stateHistory.map((h, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        padding: "10px 16px",
+                        borderBottom: i < stateHistory.length - 1 ? "1px solid #eaf0f6" : "none",
+                        display: "flex",
+                        gap: 12,
+                        alignItems: "center",
+                        fontSize: 12,
+                      }}
+                    >
+                      <span style={{ color: "#7c98b6", minWidth: 120 }}>
+                        {new Date(h.timestamp).toLocaleString()}
+                      </span>
+                      <span style={{ color: "#33475b", fontWeight: 500 }}>
+                        {h.from} → {h.to}
+                      </span>
+                      {h.reason && (
+                        <span style={{ color: "#516f90" }}>({h.reason})</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right Column - Customer Context */}
+          <div style={{ minWidth: 0 }}>
+            {/* Customer Context Panel */}
+            <div style={{
+              position: "sticky",
+              top: 80,
+            }}>
+              <CustomerContextPanel
+                customer={customerContext}
+                previousTickets={previousTickets}
+              />
+
+              {/* Order Events Timeline */}
+              {orderNumber && orderEvents.length > 0 && (
+                <div style={{ marginTop: 16 }}>
+                  <OrderEventsTimeline
+                    events={orderEvents}
+                    orderNumber={`#${orderNumber}`}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+        </div>
+      </div>
     </div>
   );
 }
