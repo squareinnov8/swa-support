@@ -7,13 +7,17 @@
  * - Includes truthfulness constraints
  * - Persists conversation history
  * - Provides KB context for grounded responses
+ * - **Tool calling** - Lina can take actions (create KB articles, update instructions, draft responses)
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import OpenAI from "openai";
 import { supabase } from "@/lib/db";
-import { generate, isLLMConfigured } from "@/lib/llm/client";
+import { isLLMConfigured, getClient } from "@/lib/llm/client";
 import { buildAdminChatPrompt } from "@/lib/llm/prompts";
 import { hybridSearch } from "@/lib/retrieval/search";
+import { LINA_ADMIN_TOOLS, TOOL_SYSTEM_PROMPT } from "@/lib/llm/linaTools";
+import { executeLinaTool, type ToolResult } from "@/lib/llm/linaToolExecutor";
 import type { Intent } from "@/lib/intents/taxonomy";
 
 /**
@@ -191,11 +195,13 @@ export async function POST(request: NextRequest) {
     // Build dynamic system prompt with truthfulness constraints
     const baseSystemPrompt = await buildAdminChatPrompt(intent);
 
-    // Add thread-specific context to the system prompt
+    // Add thread-specific context and tool instructions to the system prompt
     const systemPrompt = `${baseSystemPrompt}
+${TOOL_SYSTEM_PROMPT}
 
 ## Current Thread Context
 
+**Thread ID:** ${threadId}
 **Subject:** ${thread.subject || "(no subject)"}
 **State:** ${thread.state}
 **Intent:** ${intent}
@@ -220,32 +226,110 @@ ${verification ? `- Status: ${verification.status}\n- Order: ${verification.orde
 ## KB Articles Relevant to Admin's Question
 ${searchResults.length > 0 ? searchResults.map((r) => `[KB: ${r.doc.title}] (${(r.score * 100).toFixed(0)}% match): ${r.chunk?.content?.slice(0, 200) || r.doc.body.slice(0, 200)}...`).join("\n\n") : "No relevant KB articles found for this question"}`;
 
-    // Build chat history for the LLM
-    const chatContext = persistedHistory
-      .map((msg) => `${msg.role === "admin" ? "Rob" : "Lina"}: ${msg.content}`)
-      .join("\n\n");
+    // Build chat history for the LLM (OpenAI format)
+    const openaiMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+      { role: "system", content: systemPrompt },
+    ];
 
-    const userPrompt = chatContext
-      ? `${chatContext}\n\nRob: ${message}`
-      : `Rob: ${message}`;
+    // Add persisted history
+    for (const msg of persistedHistory) {
+      openaiMessages.push({
+        role: msg.role === "admin" ? "user" : "assistant",
+        content: msg.role === "admin" ? `Rob: ${msg.content}` : msg.content,
+      });
+    }
 
-    // Generate response
-    const result = await generate(userPrompt, {
-      systemPrompt,
-      temperature: 0.7,
-      maxTokens: 1000,
+    // Add current message
+    openaiMessages.push({
+      role: "user",
+      content: `Rob: ${message}`,
     });
 
+    // Generate response with tool calling capability
+    const client = getClient();
+    const toolsUsed: Array<{ name: string; result: ToolResult }> = [];
+
+    let response = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      max_tokens: 1500,
+      temperature: 0.7,
+      messages: openaiMessages,
+      tools: LINA_ADMIN_TOOLS,
+      tool_choice: "auto",
+    });
+
+    // Handle tool calls (may be multiple rounds)
+    let iterations = 0;
+    const maxIterations = 3; // Prevent infinite loops
+
+    while (
+      response.choices[0]?.finish_reason === "tool_calls" &&
+      iterations < maxIterations
+    ) {
+      const toolCalls = response.choices[0].message.tool_calls || [];
+
+      // Add assistant's response with tool calls to messages
+      openaiMessages.push(response.choices[0].message);
+
+      // Execute each tool call
+      for (const toolCall of toolCalls) {
+        // Type guard for standard function tool calls
+        if (toolCall.type !== "function") continue;
+
+        const toolName = toolCall.function.name;
+        let toolInput: Record<string, unknown> = {};
+
+        try {
+          toolInput = JSON.parse(toolCall.function.arguments);
+        } catch {
+          console.error("[ThreadChat] Failed to parse tool arguments:", toolCall.function.arguments);
+        }
+
+        // Execute the tool with context
+        const result = await executeLinaTool(toolName, toolInput, {
+          threadId,
+          adminEmail: "rob@squarewheelsauto.com", // TODO: Get from auth
+          conversationId,
+        });
+
+        toolsUsed.push({ name: toolName, result });
+
+        // Add tool result to messages
+        openaiMessages.push({
+          role: "tool",
+          tool_call_id: toolCall.id,
+          content: JSON.stringify(result),
+        });
+      }
+
+      // Continue conversation with tool results
+      response = await client.chat.completions.create({
+        model: "gpt-4o-mini",
+        max_tokens: 1500,
+        temperature: 0.7,
+        messages: openaiMessages,
+        tools: LINA_ADMIN_TOOLS,
+        tool_choice: "auto",
+      });
+
+      iterations++;
+    }
+
+    // Extract the final text response
+    const finalContent = response.choices[0]?.message?.content || "";
+
     // Save Lina's response to the conversation
-    await saveMessage(conversationId, "lina", result.content, {
+    await saveMessage(conversationId, "lina", finalContent, {
       kbDocsSearched: searchResults.map((r) => r.doc.id),
-      inputTokens: result.inputTokens,
-      outputTokens: result.outputTokens,
+      inputTokens: response.usage?.prompt_tokens || 0,
+      outputTokens: response.usage?.completion_tokens || 0,
+      toolsUsed: toolsUsed.length > 0 ? toolsUsed : undefined,
     });
 
     return NextResponse.json({
-      response: result.content,
+      response: finalContent,
       conversationId,
+      toolsUsed: toolsUsed.length > 0 ? toolsUsed : undefined,
       context: {
         intent,
         state: thread.state,

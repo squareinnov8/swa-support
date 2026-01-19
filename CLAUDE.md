@@ -32,7 +32,7 @@ npm run sync:catalog # Sync Shopify product catalog
 ### Tech Stack
 - **Framework**: Next.js 15 (App Router)
 - **Database**: Supabase (PostgreSQL + pgvector)
-- **LLM**: Anthropic Claude (via @anthropic-ai/sdk)
+- **LLM**: OpenAI GPT-4o-mini (chat) + Anthropic Claude (drafts)
 - **Embeddings**: OpenAI text-embedding-3-small
 - **Deployment**: Vercel
 - **Integrations**: Gmail API, Shopify Admin API, HubSpot CRM
@@ -64,7 +64,9 @@ src/
 │   ├── llm/                # LLM integration
 │   │   ├── client.ts       # Anthropic client
 │   │   ├── prompts.ts      # System/user prompts
-│   │   └── draftGenerator.ts   # Draft generation
+│   │   ├── draftGenerator.ts   # Draft generation
+│   │   ├── linaTools.ts    # Admin chat tools (KB, instructions, relay)
+│   │   └── linaToolExecutor.ts # Tool execution logic
 │   ├── instructions/       # Dynamic agent instructions
 │   │   └── index.ts        # Load from database
 │   ├── kb/                 # Knowledge base
@@ -117,6 +119,7 @@ src/
 - `customers` / `orders` - Synced from Shopify
 - `learning_proposals` - AI-generated KB/instruction proposals
 - `resolution_analyses` - Learning extraction from resolved threads
+- `lina_tool_actions` - Audit log of Lina's tool actions from admin chat
 
 ## Environment Variables
 
@@ -156,6 +159,7 @@ SHOPIFY_ACCESS_TOKEN=
 - [x] **Message sync fix** - Fixed race condition where synced messages were incorrectly marked as "already processed"
 - [x] **Duplicate message fix** - Thread refresh endpoint no longer calls `processIngestRequest()`, preventing duplicate messages on page load
 - [x] **Customer thread history** - Previous tickets query now correctly finds all customer threads regardless of recency
+- [x] **Dynamic Learning via Admin Chat** - Lina can now take real actions during chat (create KB articles, update instructions, draft relay responses)
 
 ### Pending / Outstanding
 - [ ] **Gmail re-authentication required** - After inbox purge, need to re-auth at `/admin/gmail-setup`
@@ -217,6 +221,46 @@ Lina can automatically send drafts without human approval when conditions are me
 - Low-confidence drafts
 - Chargebacks or flagged customers
 
+## Dynamic Learning via Admin Chat
+
+Lina can now take real actions during admin chat sessions, making her a truly dynamic learning system.
+
+**Available Tools:**
+1. `create_kb_article` - Create new KB articles from information Rob shares
+2. `update_instruction` - Update agent behavior rules and instructions
+3. `draft_relay_response` - Draft a response to relay Rob's answers to customers
+4. `note_feedback` - Acknowledge feedback without permanent changes
+
+**Key Files:**
+- `src/lib/llm/linaTools.ts` - Tool definitions (OpenAI function calling format)
+- `src/lib/llm/linaToolExecutor.ts` - Tool execution logic
+- `supabase/migrations/028_lina_tool_actions.sql` - Audit log table
+
+**Usage Examples:**
+
+When Rob shares product info:
+> "The APEX Pro is compatible with 2015+ Q50 navigation systems"
+>
+> Lina creates a KB article and responds: "I've created a KB article about APEX Pro compatibility with Q50 navigation. I'll use this info for future customer questions."
+
+When Rob provides an escalation answer:
+> "Tell the customer we can do a one-time exception for the return"
+>
+> Lina drafts a relay response: "Great news! I just heard back from Rob and he approved a one-time exception for your return..."
+
+**Relay Response Templates:**
+Messages relayed from Rob/team use natural framing like:
+- "Great news! I just heard back from Rob and..."
+- "Quick update - Rob confirmed that..."
+- "The engineering team reviewed this and..."
+
+**Audit Trail:**
+All tool actions are logged to `lina_tool_actions` table with:
+- Thread ID and conversation ID
+- Tool name and input parameters
+- Result (success/failure, resource URLs)
+- Admin email and timestamp
+
 ## Testing
 
 ```bash
@@ -249,7 +293,7 @@ curl -X POST "https://support-agent-v2.vercel.app/api/agent/poll?force=true&fetc
 
 ## Database Migrations
 
-Migrations are in `supabase/migrations/` numbered 001-027:
+Migrations are in `supabase/migrations/` numbered 001-028:
 - 001-009: Core schema (threads, messages, KB, catalog)
 - 010: Agent instructions
 - 011-012: CRM integration
@@ -261,6 +305,7 @@ Migrations are in `supabase/migrations/` numbered 001-027:
 - 020: Thread summary field for CRM
 - 021-026: Various enhancements
 - 027: Resolve & archive with learning extraction
+- 028: Lina tool actions audit log
 
 To apply migrations:
 ```bash
@@ -290,6 +335,8 @@ npx supabase db push --linked
 | Agent settings | `src/lib/settings/index.ts` |
 | Intent taxonomy | `src/lib/intents/taxonomy.ts` |
 | Prompts | `src/lib/llm/prompts.ts` |
+| Lina tools | `src/lib/llm/linaTools.ts` |
+| Tool executor | `src/lib/llm/linaToolExecutor.ts` |
 | State machine | `src/lib/threads/stateMachine.ts` |
 | Archive logic | `src/lib/threads/archiveThread.ts` |
 | Resolution analyzer | `src/lib/learning/resolutionAnalyzer.ts` |

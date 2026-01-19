@@ -26,11 +26,22 @@ type AgentReasoningProps = {
   } | null;
 };
 
+type ToolUsedInfo = {
+  name: string;
+  result: {
+    success: boolean;
+    message: string;
+    resourceUrl?: string;
+    details?: Record<string, unknown>;
+  };
+};
+
 type ChatMessage = {
   id?: string;
   role: "user" | "assistant";
   content: string;
   created_at?: string;
+  toolsUsed?: ToolUsedInfo[];
 };
 
 type PersistedMessage = {
@@ -137,23 +148,30 @@ export function AgentReasoning({
         const data = await res.json();
         setChatMessages((prev) => [
           ...prev,
-          { role: "assistant", content: data.response },
+          {
+            role: "assistant",
+            content: data.response,
+            toolsUsed: data.toolsUsed || undefined,
+          },
         ]);
 
-        // Check if Lina acknowledged a feedback instruction
-        const feedbackKeywords = [
-          "feedback entry",
-          "create feedback",
-          "instruction permanent",
-          "make it permanent",
-          "won't remember",
-          "will forget",
-        ];
-        const hasFeebbackMention = feedbackKeywords.some(
-          (kw) => data.response.toLowerCase().includes(kw)
-        );
-        if (hasFeebbackMention) {
-          setShowFeedbackPrompt(true);
+        // No longer show feedback prompt if tools were used (Lina takes action directly now)
+        if (!data.toolsUsed?.length) {
+          // Check if Lina acknowledged a feedback instruction
+          const feedbackKeywords = [
+            "feedback entry",
+            "create feedback",
+            "instruction permanent",
+            "make it permanent",
+            "won't remember",
+            "will forget",
+          ];
+          const hasFeebbackMention = feedbackKeywords.some(
+            (kw) => data.response.toLowerCase().includes(kw)
+          );
+          if (hasFeebbackMention) {
+            setShowFeedbackPrompt(true);
+          }
         }
       } else {
         const error = await res.json();
@@ -479,9 +497,12 @@ export function AgentReasoning({
                   Ask Lina anything about this thread - why she responded this way,
                   what KB docs she used, how to handle the case differently...
                   <br /><br />
-                  <strong style={{ color: "#516f90" }}>Tip:</strong> Lina now uses your real agent instructions and will cite
-                  sources. If you give her feedback, she&apos;ll suggest creating a feedback entry
-                  to make it permanent.
+                  <strong style={{ color: "#516f90" }}>New!</strong> Lina can now take real actions:
+                  <ul style={{ margin: "8px 0", paddingLeft: 20 }}>
+                    <li>Share product info → She&apos;ll create a KB article</li>
+                    <li>Give behavior feedback → She&apos;ll update her instructions</li>
+                    <li>Provide an answer for escalation → She&apos;ll draft a response to relay to the customer</li>
+                  </ul>
                 </div>
               ) : (
                 chatMessages.map((msg, i) => (
@@ -516,6 +537,50 @@ export function AgentReasoning({
                         {msg.role === "user" ? "You" : "Lina"}
                       </div>
                       <div style={{ whiteSpace: "pre-wrap", fontSize: 14 }}>{msg.content}</div>
+                      {/* Tool Usage Badges */}
+                      {msg.toolsUsed && msg.toolsUsed.length > 0 && (
+                        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+                          {msg.toolsUsed.map((tool, toolIdx) => (
+                            <div
+                              key={toolIdx}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                                fontSize: 12,
+                              }}
+                            >
+                              <span
+                                style={{
+                                  padding: "4px 8px",
+                                  borderRadius: 4,
+                                  backgroundColor: tool.result.success ? "#e5f8f4" : "#fde8e9",
+                                  color: tool.result.success ? "#00a182" : "#c93b41",
+                                  fontWeight: 500,
+                                }}
+                              >
+                                {tool.name === "create_kb_article" && "📚 KB Article Created"}
+                                {tool.name === "update_instruction" && "⚙️ Instructions Updated"}
+                                {tool.name === "draft_relay_response" && "✉️ Draft Created"}
+                                {tool.name === "note_feedback" && "✓ Noted"}
+                              </span>
+                              {tool.result.resourceUrl && (
+                                <a
+                                  href={tool.result.resourceUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{
+                                    color: "#0091ae",
+                                    textDecoration: "none",
+                                  }}
+                                >
+                                  View →
+                                </a>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))
