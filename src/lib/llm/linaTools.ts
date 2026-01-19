@@ -96,7 +96,7 @@ export const LINA_ADMIN_TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
           customer_message: {
             type: "string",
             description:
-              "The core information to communicate to the customer (without the framing - I'll add the natural intro)",
+              "The complete message body to send - include greeting (e.g. 'Hi [Name],'), the information, and sign off with '– Lina'. Do NOT include a relay intro - that will be added automatically.",
           },
           attribution: {
             type: "string",
@@ -144,28 +144,28 @@ export const LINA_ADMIN_TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
  */
 export const RELAY_TEMPLATES = {
   rob: [
-    "Great news! I just heard back from Rob and ",
-    "Quick update - Rob confirmed that ",
-    "I checked with Rob on this, and ",
-    "Good news! Rob got back to me: ",
+    "Great news! I heard back from Rob.\n\n",
+    "Quick update - I checked with Rob on this.\n\n",
+    "Good news! Rob got back to me with an answer.\n\n",
+    "I have an update from Rob.\n\n",
   ],
   technical_team: [
-    "I got an answer from our technical team: ",
-    "Our tech team confirmed that ",
-    "Quick update from the technical side - ",
-    "The engineering team reviewed this and ",
+    "I got an answer from our technical team.\n\n",
+    "Our tech team looked into this.\n\n",
+    "Quick update from the technical side.\n\n",
+    "The engineering team reviewed this.\n\n",
   ],
   shipping_team: [
-    "I checked with our shipping team and ",
-    "Our shipping department confirmed ",
-    "Good news from shipping: ",
-    "The shipping team got back to me: ",
+    "I checked with our shipping team.\n\n",
+    "Our shipping department got back to me.\n\n",
+    "Good news from shipping!\n\n",
+    "I have an update from the shipping team.\n\n",
   ],
   support_team: [
-    "After looking into this further, ",
-    "I was able to get more information: ",
-    "Here's what I found out: ",
-    "I have an update for you: ",
+    "After looking into this further:\n\n",
+    "I was able to get more information.\n\n",
+    "I have an update for you.\n\n",
+    "", // Sometimes no prefix needed
   ],
 };
 
@@ -195,7 +195,7 @@ You have tools available to take real action. When Rob gives you information or 
 **Important guidelines:**
 - Always use a tool when Rob provides information that should be saved or actioned
 - Confirm what action you took after using a tool
-- For relay responses, I'll add natural framing like "Great news, I heard back from Rob..."
+- For relay responses: Write the complete customer message with greeting and "– Lina" signature. A natural intro like "Great news! I heard back from Rob." will be added automatically before your message.
 - If unsure whether to create a KB article vs update instructions, ask Rob
 
 **DO NOT just acknowledge information without taking action** - if Rob shares something valuable, save it to the KB or update instructions so I can use it for future customers.

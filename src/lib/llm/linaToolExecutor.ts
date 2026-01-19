@@ -273,8 +273,8 @@ async function draftRelayResponse(
   // Get a natural template for the relay message
   const prefix = getRelayTemplate(attribution as "rob" | "technical_team" | "shipping_team" | "support_team");
 
-  // Construct the full message
-  const fullMessage = `${prefix}${customer_message}\n\n– Lina`;
+  // Construct the full message (customer_message should already include greeting and signature)
+  const fullMessage = `${prefix}${customer_message}`;
 
   // Insert as a draft message
   const { data: draft, error } = await supabase
