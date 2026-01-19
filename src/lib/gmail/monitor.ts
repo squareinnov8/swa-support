@@ -661,53 +661,44 @@ async function processGmailThread(
   if (ingestResult.draft) {
     result.draftGenerated = true;
 
-    // Check if we should auto-send this draft
-    const shouldAutoSend = await checkAutoSendEligibility(ingestResult, gmailThreadId);
-    if (shouldAutoSend.eligible) {
-      console.log(`[Monitor] Auto-sending draft for thread ${ingestResult.thread_id}: ${shouldAutoSend.reason}`);
+    try {
+      // Check if we should auto-send this draft
+      const shouldAutoSend = await checkAutoSendEligibility(ingestResult, gmailThreadId);
+      if (shouldAutoSend.eligible) {
+        console.log(`[Monitor] Auto-sending draft for thread ${ingestResult.thread_id}: ${shouldAutoSend.reason}`);
 
-      const sendResult = await sendApprovedDraft({
-        threadId: ingestResult.thread_id,
-        draftText: ingestResult.draft,
-      });
-
-      if (sendResult.success) {
-        console.log(`[Monitor] Auto-sent draft successfully, Gmail message ID: ${sendResult.gmailMessageId}`);
-        result.draftAutoSent = true;
-        // Log auto-send event
-        await supabase.from("events").insert({
-          thread_id: ingestResult.thread_id,
-          type: "auto_send",
-          payload: {
-            gmail_message_id: sendResult.gmailMessageId,
-            confidence: ingestResult.confidence,
-            intent: ingestResult.intent,
-          },
+        const sendResult = await sendApprovedDraft({
+          threadId: ingestResult.thread_id,
+          draftText: ingestResult.draft,
         });
-      } else {
-        console.error(`[Monitor] Auto-send failed: ${sendResult.error}`);
-        result.error = `Auto-send failed: ${sendResult.error}`;
-      }
-    } else {
-      console.log(`[Monitor] Not auto-sending: ${shouldAutoSend.reason}`);
 
-      // Always save draft to messages table for human review
-      // This ensures drafts are visible in the admin UI even when not auto-sent
-      await supabase.from("messages").insert({
-        thread_id: ingestResult.thread_id,
-        direction: "outbound",
-        body_text: ingestResult.draft,
-        role: "draft",
-        channel: "email",
-        channel_metadata: {
-          auto_send_blocked: true,
-          auto_send_reason: shouldAutoSend.reason,
-          confidence: ingestResult.confidence,
-          intent: ingestResult.intent,
-          action: ingestResult.action,
-        },
-      });
-      console.log(`[Monitor] Saved draft for human review: ${ingestResult.thread_id}`);
+        if (sendResult.success) {
+          console.log(`[Monitor] Auto-sent draft successfully, Gmail message ID: ${sendResult.gmailMessageId}`);
+          result.draftAutoSent = true;
+          // Log auto-send event
+          await supabase.from("events").insert({
+            thread_id: ingestResult.thread_id,
+            event_type: "AUTO_SEND",
+            payload: {
+              gmail_message_id: sendResult.gmailMessageId,
+              confidence: ingestResult.confidence,
+              intent: ingestResult.intent,
+            },
+          });
+        } else {
+          console.error(`[Monitor] Auto-send failed: ${sendResult.error}`);
+          result.error = `Auto-send failed: ${sendResult.error}`;
+          // Save draft for manual review since auto-send failed
+          await saveDraftForReview(ingestResult, `Auto-send failed: ${sendResult.error}`);
+        }
+      } else {
+        console.log(`[Monitor] Not auto-sending: ${shouldAutoSend.reason}`);
+        await saveDraftForReview(ingestResult, shouldAutoSend.reason);
+      }
+    } catch (autoSendError) {
+      // If auto-send check fails, still save the draft for review
+      console.error(`[Monitor] Auto-send check error:`, autoSendError);
+      await saveDraftForReview(ingestResult, "Auto-send check failed");
     }
   }
 
@@ -1158,6 +1149,48 @@ export async function storeGmailTokens(
       },
       { onConflict: "email_address" }
     );
+}
+
+/**
+ * Save a draft to the messages table for human review
+ * This ensures drafts are always visible in the admin UI
+ */
+async function saveDraftForReview(
+  ingestResult: {
+    thread_id: string;
+    draft: string | null;
+    confidence: number;
+    intent: string;
+    action: string;
+  },
+  reason: string
+): Promise<void> {
+  if (!ingestResult.draft) return;
+
+  try {
+    const { error } = await supabase.from("messages").insert({
+      thread_id: ingestResult.thread_id,
+      direction: "outbound",
+      body_text: ingestResult.draft,
+      role: "draft",
+      channel: "email",
+      channel_metadata: {
+        auto_send_blocked: true,
+        auto_send_reason: reason,
+        confidence: ingestResult.confidence,
+        intent: ingestResult.intent,
+        action: ingestResult.action,
+      },
+    });
+
+    if (error) {
+      console.error(`[Monitor] Failed to save draft: ${error.message}`);
+    } else {
+      console.log(`[Monitor] Saved draft for human review: ${ingestResult.thread_id}`);
+    }
+  } catch (err) {
+    console.error(`[Monitor] Error saving draft:`, err);
+  }
 }
 
 /**

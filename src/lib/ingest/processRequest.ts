@@ -278,7 +278,19 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
 
   // 3.6. Customer verification for protected intents
   // Trust LLM's contextual assessment of whether verification is needed
-  const needsVerification = classification?.requires_verification || false;
+  // IMPORTANT: Admin/internal emails bypass verification entirely
+  const ADMIN_EMAILS = ["rob@squarewheelsauto.com"];
+  const INTERNAL_DOMAINS = ["squarewheelsauto.com"];
+  const emailDomain = req.from_identifier?.toLowerCase().split("@")[1];
+  const isAdminEmail = ADMIN_EMAILS.includes(req.from_identifier?.toLowerCase() || "");
+  const isInternalEmail = INTERNAL_DOMAINS.includes(emailDomain || "");
+
+  // Skip verification for admin/internal emails - they're the boss, not customers
+  const needsVerification =
+    !isAdminEmail &&
+    !isInternalEmail &&
+    (classification?.requires_verification || false);
+
   let verification: VerificationResult | null = null;
   if (needsVerification) {
     // Include subject line AND body text for order number extraction
