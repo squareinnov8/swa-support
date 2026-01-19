@@ -670,6 +670,15 @@ async function processGmailThread(
   // Process through ingest pipeline
   const ingestResult = await processIngestRequest(ingestRequest);
 
+  // Update thread with Gmail ID immediately so auto-send can work
+  await supabase
+    .from("threads")
+    .update({
+      gmail_thread_id: gmailThreadId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", ingestResult.thread_id);
+
   if (ingestResult.draft) {
     result.draftGenerated = true;
 
@@ -713,15 +722,6 @@ async function processGmailThread(
       await saveDraftForReview(ingestResult, "Auto-send check failed");
     }
   }
-
-  // Update thread with Gmail ID
-  await supabase
-    .from("threads")
-    .update({
-      gmail_thread_id: gmailThreadId,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", ingestResult.thread_id);
 
   // For NEW threads, sync all messages from Gmail to ensure full context
   // (Existing threads were already synced above)
