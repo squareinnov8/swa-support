@@ -205,21 +205,27 @@ Lina can automatically send drafts without human approval when conditions are me
 
 **Settings** (in `agent_settings` table):
 - `auto_send_enabled` - Master toggle (default: false)
-- `auto_send_confidence_threshold` - Minimum confidence to auto-send (default: 0.85)
-- `require_verification_for_send` - Require customer verification (default: true)
+- `auto_send_confidence_threshold` - Base threshold for order-related intents (default: 0.85)
+- `require_verification_for_send` - Require customer verification for order intents (default: true)
 
-**Auto-send eligibility criteria:**
-1. Auto-send must be enabled in settings
-2. Gmail must be configured for sending
-3. Confidence must meet or exceed threshold
-4. Action must NOT be escalation (`ESCALATE` or `ESCALATE_WITH_DRAFT`)
-5. Action must NOT be `NO_REPLY`
-6. If verification required, customer must be verified for protected intents
+**Intent-based confidence thresholds:**
+
+| Intent Type | Confidence | Verification |
+|-------------|------------|--------------|
+| Order-related (ORDER_STATUS, RETURN_REFUND_REQUEST, etc.) | 0.85+ | Required |
+| General product questions (COMPATIBILITY_QUESTION, INSTALL_GUIDANCE, etc.) | 0.60+ | Not required |
+| Greetings/UNKNOWN ("hey how's it going") | 0.40+ | Not required |
+| Escalations (CHARGEBACK_THREAT, LEGAL_SAFETY_RISK) | Never auto-sent | N/A |
+
+**Draft storage:**
+- Drafts are ALWAYS saved to the messages table with `role: "draft"`
+- Even if not auto-sent, drafts appear in admin UI for review
+- Metadata includes `auto_send_blocked` flag and reason
 
 **Never auto-sent:**
 - Escalated tickets (requires human review)
-- Low-confidence drafts
 - Chargebacks or flagged customers
+- Action is `NO_REPLY`
 
 ## Dynamic Learning via Admin Chat
 
