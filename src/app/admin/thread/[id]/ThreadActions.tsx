@@ -348,7 +348,13 @@ export function ThreadActions({
         router.refresh();
       } else {
         const data = await res.json();
-        throw new Error(data.error || "Failed to regenerate draft");
+        // Special handling for relay draft error
+        if (data.hasRelayDraft) {
+          setDraftAction("error");
+          setDraftError("This draft was created by Lina from admin chat. Delete it first if you want a new auto-generated draft, or use admin chat to modify it.");
+        } else {
+          throw new Error(data.error || "Failed to regenerate draft");
+        }
       }
     } catch (err) {
       setDraftAction("error");

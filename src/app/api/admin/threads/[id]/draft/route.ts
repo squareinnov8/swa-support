@@ -95,6 +95,29 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "Thread ID required" }, { status: 400 });
     }
 
+    // Check for existing relay drafts - these were created by Lina via admin chat
+    // and contain specific content that shouldn't be replaced by generic regeneration
+    const { data: existingDrafts } = await supabase
+      .from("messages")
+      .select("id, channel_metadata")
+      .eq("thread_id", threadId)
+      .eq("role", "draft")
+      .order("created_at", { ascending: false });
+
+    const hasRelayDraft = existingDrafts?.some(
+      (d) => d.channel_metadata?.relay_response === true || d.channel_metadata?.created_via === "lina_tool"
+    );
+
+    if (hasRelayDraft) {
+      return NextResponse.json(
+        {
+          error: "This thread has a relay draft created from admin chat. Use the admin chat with Lina to modify it, or delete the draft first to generate a new one.",
+          hasRelayDraft: true
+        },
+        { status: 400 }
+      );
+    }
+
     // Get thread data
     const { data: thread, error: threadError } = await supabase
       .from("threads")
@@ -152,13 +175,24 @@ export async function POST(request: NextRequest, context: RouteContext) {
     };
 
     // Generate new draft
+    console.log("[Draft API] Regenerating draft for thread:", threadId);
+    console.log("[Draft API] Intent:", intent);
+    console.log("[Draft API] Customer message preview:", customerMessage.slice(0, 100));
+
     const draftResult = await generateDraft(draftInput);
+
+    console.log("[Draft API] Draft result:", {
+      success: draftResult.success,
+      kbDocsUsed: draftResult.kbDocsUsed,
+      error: draftResult.error,
+    });
 
     if (!draftResult.success || !draftResult.draft) {
       return NextResponse.json(
         {
           error: draftResult.error || "Draft generation failed",
           policyViolations: draftResult.policyViolations,
+          kbDocsSearched: draftResult.kbDocsUsed?.length || 0,
         },
         { status: 400 }
       );
@@ -204,6 +238,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       draft: draftResult.draft,
       intent,
       kbDocsUsed: draftResult.kbDocsUsed,
+      kbDocsCount: draftResult.kbDocsUsed?.length || 0,
       policyGatePassed: draftResult.policyGatePassed,
       messageId: draftMessage?.id,
     });
