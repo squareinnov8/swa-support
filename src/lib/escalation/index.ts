@@ -24,3 +24,12 @@ export {
   isGmailSendConfigured,
   applyEscalationLabel,
 } from "./emailSender";
+
+export {
+  findEscalationForReply,
+  parseResponse,
+  processEscalationResponse,
+  type ParsedResponse,
+  type ResponseType,
+  type ResponseProcessingResult,
+} from "./responseHandler";

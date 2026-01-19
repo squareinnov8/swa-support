@@ -38,6 +38,11 @@ import {
   recordObservation,
   wasMessageGeneratedByAgent,
 } from "@/lib/collaboration";
+import {
+  findEscalationForReply,
+  parseResponse,
+  processEscalationResponse,
+} from "@/lib/escalation/responseHandler";
 import { getAgentSettings } from "@/lib/settings";
 import { sendApprovedDraft, isGmailSendConfigured as isGmailSendReady } from "@/lib/gmail/sendDraft";
 
@@ -52,6 +57,7 @@ export type MonitorResult = {
   ticketsCreated: number;
   ticketsUpdated: number;
   escalations: number;
+  escalationResponsesProcessed: number;
   errors: string[];
 };
 
@@ -89,6 +95,7 @@ export async function runGmailMonitor(options?: { fetchRecent?: boolean; fetchDa
     ticketsCreated: 0,
     ticketsUpdated: 0,
     escalations: 0,
+    escalationResponsesProcessed: 0,
     errors: [],
   };
 
@@ -167,6 +174,9 @@ export async function runGmailMonitor(options?: { fetchRecent?: boolean; fetchDa
         }
         if (threadResult.escalated) {
           result.escalations++;
+        }
+        if (threadResult.escalationResponseProcessed) {
+          result.escalationResponsesProcessed++;
         }
         if (threadResult.error) {
           result.errors.push(`Thread ${threadId}: ${threadResult.error}`);
@@ -345,6 +355,7 @@ type ThreadProcessResult = {
   ticketCreated: boolean;
   ticketUpdated: boolean;
   escalated: boolean;
+  escalationResponseProcessed: boolean;
   skipped: boolean;
   skipReason?: string;
   error?: string;
@@ -427,6 +438,7 @@ async function processGmailThread(
     ticketCreated: false,
     ticketUpdated: false,
     escalated: false,
+    escalationResponseProcessed: false,
     skipped: false,
   };
 
@@ -509,6 +521,53 @@ async function processGmailThread(
     // No customer messages - all from support email, skip
     result.skipped = true;
     result.skipReason = `No customer messages (${thread.messages.length} from support)`;
+    return result;
+  }
+
+  // Check if this is Rob replying to an escalation email
+  // Rob's replies come into support@ inbox and should be handled specially
+  const senderEmail = extractEmailAddress(latestIncoming.from);
+  const escalationEmail = await findEscalationForReply(gmailThreadId, senderEmail);
+
+  if (escalationEmail) {
+    console.log(`[Monitor] Detected Rob's reply to escalation for thread ${escalationEmail.thread_id}`);
+
+    // Parse and process Rob's response
+    const parsedResponse = parseResponse(latestIncoming.body);
+    const processResult = await processEscalationResponse(
+      escalationEmail.id,
+      escalationEmail.thread_id,
+      parsedResponse
+    );
+
+    console.log(`[Monitor] Escalation response processed:`, {
+      type: parsedResponse.type,
+      tags: parsedResponse.tags,
+      actionsCount: processResult.actions.length,
+    });
+
+    result.escalationResponseProcessed = true;
+    result.newMessage = true;
+
+    // Sync this message to the thread
+    await supabase.from("messages").insert({
+      thread_id: escalationEmail.thread_id,
+      direction: "inbound",
+      from_email: senderEmail,
+      to_email: "support@squarewheelsauto.com",
+      body_text: latestIncoming.body,
+      channel: "email",
+      role: "internal", // Mark as internal (Rob's response)
+      channel_metadata: {
+        gmail_thread_id: gmailThreadId,
+        gmail_message_id: latestIncoming.id,
+        gmail_date: latestIncoming.date.toISOString(),
+        escalation_response: true,
+        response_type: parsedResponse.type,
+        response_tags: parsedResponse.tags,
+      },
+    });
+
     return result;
   }
 
@@ -1191,4 +1250,15 @@ export async function getMonitorStatus(): Promise<{
       escalations: r.escalations || 0,
     })),
   };
+}
+
+/**
+ * Extract email address from "Name <email@example.com>" format
+ */
+function extractEmailAddress(emailString: string): string {
+  const match = emailString.match(/<([^>]+)>/);
+  if (match) {
+    return match[1].toLowerCase();
+  }
+  return emailString.toLowerCase().trim();
 }
