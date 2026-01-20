@@ -7,8 +7,11 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/db";
-import { generateDraft, getConversationHistory, type DraftInput } from "@/lib/llm/draftGenerator";
+import { generateDraft, getConversationHistory, type DraftInput, type OrderContext } from "@/lib/llm/draftGenerator";
 import { classifyIntent } from "@/lib/intents/classify";
+import { lookupCustomerByEmail, isShopifyConfigured } from "@/lib/shopify/customer";
+import { getShopifyClient } from "@/lib/shopify/client";
+import type { CustomerContext } from "@/lib/llm/prompts";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -168,7 +171,126 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // Get conversation history
     const conversationHistory = await getConversationHistory(threadId);
 
-    // Build draft input
+    // Fetch customer verification data
+    const { data: verification } = await supabase
+      .from("customer_verifications")
+      .select("*")
+      .eq("thread_id", threadId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    // Build order context if we have verification with order data
+    let orderContext: OrderContext | undefined;
+    let customerContext: CustomerContext | undefined;
+
+    // Check for manually associated customer (via Lina's associate_thread_customer tool)
+    let associatedCustomerEmail: string | null = null;
+    let associatedCustomerName: string | null = null;
+    if (thread.customer_id) {
+      const { data: associatedCustomer } = await supabase
+        .from("customers")
+        .select("email, name")
+        .eq("id", thread.customer_id)
+        .single();
+
+      if (associatedCustomer) {
+        associatedCustomerEmail = associatedCustomer.email;
+        associatedCustomerName = associatedCustomer.name;
+      }
+    }
+
+    // Use associated customer email if available, otherwise use message email
+    const customerEmail = associatedCustomerEmail || latestMessage.from_email;
+
+    // Try to get customer and order context from Shopify
+    if (isShopifyConfigured() && customerEmail) {
+      try {
+        const shopifyCustomer = await lookupCustomerByEmail(customerEmail);
+        if (shopifyCustomer) {
+          // Parse recent orders for customer context
+          const recentOrders = shopifyCustomer.recentOrders?.map(o => ({
+            orderNumber: o.name,
+            status: o.financialStatus || "UNKNOWN",
+            fulfillmentStatus: o.fulfillmentStatus || "UNKNOWN",
+            createdAt: o.createdAt,
+            items: o.lineItems?.map(li => li.title) || [],
+          }));
+
+          customerContext = {
+            name: associatedCustomerName || `${shopifyCustomer.firstName || ""} ${shopifyCustomer.lastName || ""}`.trim() || undefined,
+            email: shopifyCustomer.email,
+            totalOrders: shopifyCustomer.ordersCount,
+            totalSpent: shopifyCustomer.totalSpent,
+            recentOrders,
+          };
+
+          // If we have an order number from verification or subject, fetch order details
+          let orderNumber = verification?.order_number;
+          if (!orderNumber && thread.subject) {
+            const orderMatch = thread.subject.match(/#?(\d{4,})/);
+            if (orderMatch) orderNumber = orderMatch[1];
+          }
+
+          if (orderNumber) {
+            try {
+              const client = getShopifyClient();
+              const order = await client.getOrderByNumber(orderNumber);
+              if (order) {
+                orderContext = {
+                  orderNumber: order.name,
+                  status: order.displayFinancialStatus || "UNKNOWN",
+                  fulfillmentStatus: order.displayFulfillmentStatus || "UNKNOWN",
+                  createdAt: order.createdAt,
+                  tracking: order.fulfillments?.flatMap(f =>
+                    f.trackingInfo?.map(t => ({
+                      carrier: t.company,
+                      trackingNumber: t.number,
+                      trackingUrl: t.url,
+                    })) || []
+                  ),
+                  lineItems: order.lineItems?.map(item => ({
+                    title: item.title,
+                    quantity: item.quantity,
+                  })),
+                  shippingCity: order.shippingAddress?.city ?? undefined,
+                  shippingState: order.shippingAddress?.provinceCode ?? undefined,
+                };
+              }
+            } catch (orderError) {
+              console.error("[Draft API] Order lookup error:", orderError);
+            }
+          }
+        }
+      } catch (shopifyError) {
+        console.error("[Draft API] Shopify lookup error:", shopifyError);
+      }
+    }
+
+    // Fall back to verification data if Shopify lookup didn't work
+    if (!customerContext && verification?.status === "verified") {
+      let recentOrders;
+      if (verification.recent_orders) {
+        try {
+          recentOrders = typeof verification.recent_orders === "string"
+            ? JSON.parse(verification.recent_orders)
+            : verification.recent_orders;
+        } catch {
+          // Ignore parse errors
+        }
+      }
+
+      customerContext = {
+        name: verification.customer_name || undefined,
+        email: verification.customer_email || undefined,
+        totalOrders: verification.total_orders,
+        totalSpent: verification.total_spent,
+        likelyProduct: verification.likely_product || undefined,
+        recentOrders,
+      };
+    }
+
+    // Build draft input with full context
     const draftInput: DraftInput = {
       threadId,
       messageId: latestMessage.id,
@@ -176,8 +298,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
       intent: intent as DraftInput["intent"],
       previousMessages: conversationHistory,
       customerInfo: {
-        email: latestMessage.from_email || undefined,
+        email: customerEmail || undefined,
+        name: customerContext?.name,
+        orderNumber: orderContext?.orderNumber || verification?.order_number || undefined,
       },
+      orderContext,
+      customerContext,
     };
 
     // Generate new draft
