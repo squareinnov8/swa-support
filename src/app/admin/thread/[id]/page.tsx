@@ -108,6 +108,25 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
   let customerContext: CustomerContextData | null = null;
   let previousTickets: SupportTicket[] = [];
 
+  // Check if thread has a manually associated customer (via Lina's associate_thread_customer tool)
+  let associatedCustomerEmail: string | null = null;
+  let associatedCustomerName: string | null = null;
+  if (thread?.customer_id) {
+    const { data: associatedCustomer } = await supabase
+      .from("customers")
+      .select("email, name")
+      .eq("id", thread.customer_id)
+      .single();
+
+    if (associatedCustomer) {
+      associatedCustomerEmail = associatedCustomer.email;
+      associatedCustomerName = associatedCustomer.name;
+    }
+  }
+
+  // Use associated customer email if available, otherwise fall back to message email
+  const emailForLookup = associatedCustomerEmail || customerEmail;
+
   if (verification) {
     // Parse recent_orders if it's a string
     let recentOrders = null;
@@ -131,14 +150,15 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
       recentOrders,
       flags: verification.flags || [],
     };
-  } else if (customerEmail) {
+  } else if (emailForLookup) {
     // No verification record yet - try to look up customer from Shopify by email
+    // Use associated customer email if thread was manually associated, otherwise use message email
     try {
-      const shopifyCustomer = await lookupCustomerByEmail(customerEmail);
+      const shopifyCustomer = await lookupCustomerByEmail(emailForLookup);
       if (shopifyCustomer) {
         customerContext = {
-          status: "pending", // Not verified yet, just looked up
-          customerName: `${shopifyCustomer.firstName || ""} ${shopifyCustomer.lastName || ""}`.trim() || null,
+          status: associatedCustomerEmail ? "verified" : "pending", // Treat manual association as verified
+          customerName: associatedCustomerName || `${shopifyCustomer.firstName || ""} ${shopifyCustomer.lastName || ""}`.trim() || null,
           customerEmail: shopifyCustomer.email,
           totalOrders: shopifyCustomer.ordersCount,
           totalSpent: shopifyCustomer.totalSpent,
@@ -152,12 +172,25 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
           })) || null,
           flags: [],
         };
+      } else if (associatedCustomerEmail) {
+        // Customer was manually associated but not found in Shopify
+        // Still show as verified since admin explicitly linked them
+        customerContext = {
+          status: "verified",
+          customerName: associatedCustomerName,
+          customerEmail: associatedCustomerEmail,
+          totalOrders: null,
+          totalSpent: null,
+          likelyProduct: null,
+          recentOrders: null,
+          flags: [],
+        };
       } else {
         // Customer not found in Shopify
         customerContext = {
           status: "not_found",
           customerName: null,
-          customerEmail: customerEmail,
+          customerEmail: emailForLookup,
           totalOrders: null,
           totalSpent: null,
           likelyProduct: null,
@@ -167,11 +200,11 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
       }
     } catch (error) {
       console.error("Error looking up customer:", error);
-      // Still show unknown customer state on error
+      // Still show customer state on error - use manual association if available
       customerContext = {
-        status: "not_found",
-        customerName: null,
-        customerEmail: customerEmail,
+        status: associatedCustomerEmail ? "verified" : "not_found",
+        customerName: associatedCustomerName,
+        customerEmail: emailForLookup,
         totalOrders: null,
         totalSpent: null,
         likelyProduct: null,
@@ -183,7 +216,7 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
 
   // Fetch previous support tickets for this customer (by email)
   // We query messages directly to find all threads where this customer has sent messages
-  const emailForTicketLookup = verification?.customer_email || customerEmail;
+  const emailForTicketLookup = verification?.customer_email || associatedCustomerEmail || customerEmail;
   if (emailForTicketLookup) {
     // Step 1: Find all threads where this email has sent messages
     const { data: customerMessages } = await supabase
