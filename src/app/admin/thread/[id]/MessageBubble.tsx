@@ -20,15 +20,29 @@ function isHtmlContent(content: string | null): boolean {
 }
 
 /**
- * Sanitize HTML for safe rendering (basic sanitization)
- * In production, you'd use a library like DOMPurify
+ * Sanitize HTML for safe rendering
+ * Handles email-specific concerns like external images, scripts, styles
  */
 function sanitizeHtml(html: string): string {
-  // Remove script tags and event handlers
   return html
+    // Remove script tags
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-    .replace(/on\w+="[^"]*"/gi, "")
-    .replace(/on\w+='[^']*'/gi, "");
+    // Remove event handlers
+    .replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, "")
+    .replace(/\s+on\w+\s*=\s*[^\s>]+/gi, "")
+    // Remove javascript: URLs
+    .replace(/href\s*=\s*["']javascript:[^"']*["']/gi, 'href="#"')
+    // Remove meta refresh and other dangerous meta tags
+    .replace(/<meta\s+[^>]*http-equiv\s*=\s*["']?refresh["']?[^>]*>/gi, "")
+    // Remove link tags (external stylesheets) to prevent tracking
+    .replace(/<link\b[^>]*>/gi, "")
+    // Remove MS Office conditional comments
+    .replace(/<!--\[if[^\]]*\]>[\s\S]*?<!\[endif\]-->/gi, "")
+    .replace(/<!--\[if[^\]]*\]>[\s\S]*?(?=<!\[endif\]-->)/gi, "")
+    // Remove xml/noscript blocks
+    .replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, "")
+    // Neutralize external images (prevent tracking pixels) - keep src but add loading=lazy
+    .replace(/<img\s+/gi, '<img loading="lazy" referrerpolicy="no-referrer" ');
 }
 
 export function MessageBubble({ direction, fromEmail, createdAt, bodyText, bodyHtml }: Props) {
@@ -37,7 +51,12 @@ export function MessageBubble({ direction, fromEmail, createdAt, bodyText, bodyH
   const isInbound = direction === "inbound";
 
   // Determine what content to display
-  const hasHtml = bodyHtml && isHtmlContent(bodyHtml);
+  // Check bodyHtml first, then fall back to bodyText if it contains HTML
+  // (handles emails imported before bodyHtml was captured separately)
+  const hasHtmlInBodyHtml = bodyHtml && isHtmlContent(bodyHtml);
+  const hasHtmlInBodyText = !hasHtmlInBodyHtml && bodyText && isHtmlContent(bodyText);
+  const hasHtml = hasHtmlInBodyHtml || hasHtmlInBodyText;
+  const htmlContent = hasHtmlInBodyHtml ? bodyHtml : hasHtmlInBodyText ? bodyText : null;
   const displayContent = bodyText || bodyHtml || "(empty message)";
   const shouldRenderHtml = hasHtml && !showRaw;
 
@@ -100,7 +119,7 @@ export function MessageBubble({ direction, fromEmail, createdAt, bodyText, bodyH
                 fontSize: 14,
                 lineHeight: 1.6,
               }}
-              dangerouslySetInnerHTML={{ __html: sanitizeHtml(bodyHtml!) }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(htmlContent!) }}
             />
           ) : (
             <pre

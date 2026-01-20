@@ -398,6 +398,7 @@ async function syncGmailMessagesToThread(
       from_email: gmailMsg.from,
       to_email: gmailMsg.to[0] || null,
       body_text: gmailMsg.body,
+      body_html: gmailMsg.bodyHtml || null,
       channel: "email",
       channel_metadata: {
         gmail_thread_id: gmailMsg.threadId,
@@ -568,6 +569,7 @@ async function processGmailThread(
       from_email: senderEmail,
       to_email: "support@squarewheelsauto.com",
       body_text: latestIncoming.body,
+      body_html: latestIncoming.bodyHtml || null,
       channel: "email",
       role: "internal", // Mark as internal (Rob's response)
       channel_metadata: {

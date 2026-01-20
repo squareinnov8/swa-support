@@ -43,7 +43,8 @@ export type GmailMessage = {
   from: string;
   to: string[];
   subject: string;
-  body: string;
+  body: string;        // Plain text (or stripped HTML if no plain text)
+  bodyHtml?: string;   // Original HTML content (preserved for rendering)
   isIncoming: boolean; // Customer message vs support response
   attachments: GmailAttachment[]; // Attachments (may be empty)
 };
@@ -295,13 +296,23 @@ function extractMessage(message: gmail_v1.Schema$Message): GmailMessage | null {
 
   // Extract body and attachments
   let body = "";
+  let bodyHtml: string | undefined;
   let attachments: GmailAttachment[] = [];
 
   if (message.payload.body?.data) {
-    body = decodeBase64(message.payload.body.data);
+    // Simple message with body directly in payload
+    const content = decodeBase64(message.payload.body.data);
+    // Check if it's HTML
+    if (message.payload.mimeType === "text/html") {
+      bodyHtml = content;
+      body = stripHtml(content);
+    } else {
+      body = content;
+    }
   } else if (message.payload.parts) {
     const extraction = extractBodyFromParts(message.payload.parts, message.id);
     body = extraction.body;
+    bodyHtml = extraction.bodyHtml;
     attachments = extraction.attachments;
   }
 
@@ -322,6 +333,7 @@ function extractMessage(message: gmail_v1.Schema$Message): GmailMessage | null {
     to: to.split(",").map((addr) => extractEmail(addr.trim())),
     subject,
     body,
+    bodyHtml,
     isIncoming,
     attachments,
   };
@@ -331,7 +343,8 @@ function extractMessage(message: gmail_v1.Schema$Message): GmailMessage | null {
  * Result from extracting body and attachments from message parts
  */
 type BodyExtractionResult = {
-  body: string;
+  body: string;           // Plain text content (or stripped HTML)
+  bodyHtml?: string;      // Original HTML content (preserved)
   attachments: GmailAttachment[];
 };
 
@@ -343,9 +356,10 @@ function extractBodyFromParts(
   messageId: string
 ): BodyExtractionResult {
   let body = "";
+  let bodyHtml: string | undefined;
   const attachments: GmailAttachment[] = [];
 
-  // First pass: collect attachments and find text content
+  // First pass: collect attachments and find text/html content
   for (const part of parts) {
     // Check if this part is an attachment
     if (part.filename && part.filename.length > 0 && part.body?.attachmentId) {
@@ -358,20 +372,20 @@ function extractBodyFromParts(
       continue;
     }
 
-    // Prefer plain text for body
+    // Capture plain text for body
     if (part.mimeType === "text/plain" && part.body?.data && !body) {
       body = decodeBase64(part.body.data);
     }
+
+    // Capture HTML content (preserve it for rendering)
+    if (part.mimeType === "text/html" && part.body?.data && !bodyHtml) {
+      bodyHtml = decodeBase64(part.body.data);
+    }
   }
 
-  // Fall back to HTML if no plain text
-  if (!body) {
-    for (const part of parts) {
-      if (part.mimeType === "text/html" && part.body?.data) {
-        body = stripHtml(decodeBase64(part.body.data));
-        break;
-      }
-    }
+  // If no plain text, create body from HTML
+  if (!body && bodyHtml) {
+    body = stripHtml(bodyHtml);
   }
 
   // Check nested parts (multipart/alternative, multipart/mixed, etc.)
@@ -381,12 +395,15 @@ function extractBodyFromParts(
       if (!body && nested.body) {
         body = nested.body;
       }
+      if (!bodyHtml && nested.bodyHtml) {
+        bodyHtml = nested.bodyHtml;
+      }
       // Collect attachments from nested parts
       attachments.push(...nested.attachments);
     }
   }
 
-  return { body, attachments };
+  return { body, bodyHtml, attachments };
 }
 
 /**
