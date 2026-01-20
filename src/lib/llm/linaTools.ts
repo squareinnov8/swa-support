@@ -136,6 +136,57 @@ export const LINA_ADMIN_TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "lookup_order",
+      description:
+        "Look up an order by order number from Shopify. Use this when Rob mentions an order number and you need to find customer details, order status, items ordered, or tracking information.",
+      parameters: {
+        type: "object",
+        properties: {
+          order_number: {
+            type: "string",
+            description:
+              "The order number to look up (e.g., '3844', '#3844', 'SWA-3844')",
+          },
+        },
+        required: ["order_number"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "associate_thread_customer",
+      description:
+        "Associate the current thread with a customer. Use this when Rob tells you who a thread belongs to, typically by providing an order number or customer email. This links the thread to the customer in the database for future reference.",
+      parameters: {
+        type: "object",
+        properties: {
+          customer_email: {
+            type: "string",
+            description: "Customer's email address",
+          },
+          customer_name: {
+            type: "string",
+            description: "Customer's full name",
+          },
+          order_number: {
+            type: "string",
+            description:
+              "Order number that verified this customer (optional, for reference)",
+          },
+          thread_id: {
+            type: "string",
+            description:
+              "Thread ID to associate (optional if discussing current thread)",
+          },
+        },
+        required: ["customer_email"],
+      },
+    },
+  },
 ];
 
 /**
@@ -187,16 +238,21 @@ export const TOOL_SYSTEM_PROMPT = `
 
 You have tools available to take real action. When Rob gives you information or feedback:
 
-1. **create_kb_article** - Use for new product info, troubleshooting steps, compatibility info, or policies that should be available for future queries
-2. **update_instruction** - Use for behavior changes, communication rules, or process updates
-3. **draft_relay_response** - Use to send Rob's answers back to the customer with natural framing
-4. **note_feedback** - Use for acknowledgments that don't need permanent KB/instruction changes
+1. **lookup_order** - Look up order details from Shopify by order number. Use this when Rob mentions an order number.
+2. **associate_thread_customer** - Link this thread to a customer. Use after looking up an order to associate the thread properly.
+3. **create_kb_article** - Use for new product info, troubleshooting steps, compatibility info, or policies that should be available for future queries
+4. **update_instruction** - Use for behavior changes, communication rules, or process updates
+5. **draft_relay_response** - Use to send Rob's answers back to the customer with natural framing
+6. **note_feedback** - Use for acknowledgments that don't need permanent KB/instruction changes
 
 **Important guidelines:**
 - Always use a tool when Rob provides information that should be saved or actioned
+- When Rob mentions an order number, ALWAYS use lookup_order first to get the customer details
+- When Rob says to associate a thread with a customer/order, use associate_thread_customer to actually link them
 - Confirm what action you took after using a tool
 - For relay responses: Write a complete, natural message starting with "Hi [Name]," then naturally work in that you heard back from Rob/the team, include the info, and end with "– Lina"
 - If unsure whether to create a KB article vs update instructions, ask Rob
 
 **DO NOT just acknowledge information without taking action** - if Rob shares something valuable, save it to the KB or update instructions so I can use it for future customers.
+**DO NOT claim you did something without actually calling the tool** - use the tools to take real actions.
 `;

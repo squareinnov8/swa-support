@@ -9,6 +9,8 @@ import { supabase } from "@/lib/db";
 import { createDoc } from "@/lib/kb/documents";
 import { embedText, formatEmbeddingForPg } from "@/lib/retrieval/embed";
 import { chunkMarkdown } from "@/lib/retrieval/chunk";
+import { getShopifyClient } from "@/lib/shopify/client";
+import { isShopifyConfigured } from "@/lib/shopify/customer";
 
 /**
  * Result of a tool execution
@@ -49,6 +51,10 @@ export async function executeLinaTool(
         return await draftRelayResponse(toolInput, context);
       case "note_feedback":
         return noteFeedback(toolInput);
+      case "lookup_order":
+        return await lookupOrder(toolInput, context);
+      case "associate_thread_customer":
+        return await associateThreadCustomer(toolInput, context);
       default:
         return { success: false, message: `Unknown tool: ${toolName}` };
     }
@@ -352,6 +358,195 @@ function noteFeedback(input: Record<string, unknown>): ToolResult {
       : `Noted: ${summary}`,
     details: { summary, action_taken: action_taken || null },
   };
+}
+
+/**
+ * Look up an order by order number from Shopify
+ */
+async function lookupOrder(
+  input: Record<string, unknown>,
+  context: ToolContext
+): Promise<ToolResult> {
+  const { order_number } = input as { order_number: string };
+
+  if (!order_number) {
+    return { success: false, message: "Missing required field: order_number" };
+  }
+
+  if (!isShopifyConfigured()) {
+    return { success: false, message: "Shopify is not configured" };
+  }
+
+  try {
+    const client = getShopifyClient();
+    const order = await client.getOrderByNumber(order_number);
+
+    if (!order) {
+      return {
+        success: false,
+        message: `Order ${order_number} not found in Shopify`,
+      };
+    }
+
+    // Format order details for display
+    const customerName = order.customer
+      ? `${order.customer.firstName || ""} ${order.customer.lastName || ""}`.trim()
+      : "Unknown";
+    const customerEmail = order.customer?.email || order.email || "Unknown";
+
+    const lineItemsList = order.lineItems
+      ?.map((item) => `${item.title} (x${item.quantity})`)
+      .join(", ") || "No items";
+
+    const trackingInfo = order.fulfillments
+      ?.flatMap((f) => f.trackingInfo || [])
+      .map((t) => `${t.company}: ${t.number}`)
+      .join(", ") || "No tracking yet";
+
+    // Log the action
+    await logToolAction(context, "lookup_order", input, {
+      success: true,
+      order_name: order.name,
+      customer_email: customerEmail,
+    });
+
+    return {
+      success: true,
+      message: `Found order ${order.name}`,
+      details: {
+        orderNumber: order.name,
+        customerName,
+        customerEmail,
+        financialStatus: order.displayFinancialStatus,
+        fulfillmentStatus: order.displayFulfillmentStatus,
+        items: lineItemsList,
+        tracking: trackingInfo,
+        createdAt: order.createdAt,
+        shippingCity: order.shippingAddress?.city,
+        shippingState: order.shippingAddress?.provinceCode,
+        customerTags: order.customer?.tags || [],
+      },
+    };
+  } catch (error) {
+    console.error("[LinaTool] Order lookup failed:", error);
+    return {
+      success: false,
+      message: `Failed to look up order: ${error instanceof Error ? error.message : "Unknown error"}`,
+    };
+  }
+}
+
+/**
+ * Associate a thread with a customer
+ */
+async function associateThreadCustomer(
+  input: Record<string, unknown>,
+  context: ToolContext
+): Promise<ToolResult> {
+  const { customer_email, customer_name, order_number, thread_id } = input as {
+    customer_email: string;
+    customer_name?: string;
+    order_number?: string;
+    thread_id?: string;
+  };
+
+  if (!customer_email) {
+    return { success: false, message: "Missing required field: customer_email" };
+  }
+
+  const targetThreadId = thread_id || context.threadId;
+  if (!targetThreadId) {
+    return { success: false, message: "No thread ID provided. Please specify the thread." };
+  }
+
+  try {
+    // Check if customer exists
+    let { data: customer } = await supabase
+      .from("customers")
+      .select("id, name, email")
+      .eq("email", customer_email.toLowerCase())
+      .maybeSingle();
+
+    // Create customer if doesn't exist
+    if (!customer) {
+      const { data: newCustomer, error: createError } = await supabase
+        .from("customers")
+        .insert({
+          email: customer_email.toLowerCase(),
+          name: customer_name || null,
+        })
+        .select()
+        .single();
+
+      if (createError || !newCustomer) {
+        return { success: false, message: `Failed to create customer: ${createError?.message || "Unknown error"}` };
+      }
+      customer = newCustomer;
+      console.log(`[LinaTool] Created new customer: ${newCustomer.id}`);
+    } else if (customer_name && !customer.name) {
+      // Update name if provided and customer doesn't have one
+      await supabase
+        .from("customers")
+        .update({ name: customer_name })
+        .eq("id", customer.id);
+      customer.name = customer_name;
+    }
+
+    // At this point customer is guaranteed to be non-null
+    const customerId = customer!.id;
+    const finalCustomerName = customer_name || customer!.name;
+
+    // Update thread with customer_id
+    const { error: updateError } = await supabase
+      .from("threads")
+      .update({
+        customer_id: customerId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", targetThreadId);
+
+    if (updateError) {
+      return { success: false, message: `Failed to update thread: ${updateError.message}` };
+    }
+
+    // Log event
+    await supabase.from("events").insert({
+      thread_id: targetThreadId,
+      event_type: "THREAD_CUSTOMER_ASSOCIATED",
+      payload: {
+        customer_id: customerId,
+        customer_email,
+        customer_name: finalCustomerName,
+        order_number: order_number || null,
+        associated_by: context.adminEmail,
+      },
+    });
+
+    await logToolAction(context, "associate_thread_customer", input, {
+      success: true,
+      customer_id: customerId,
+      thread_id: targetThreadId,
+    });
+
+    return {
+      success: true,
+      message: `Associated thread with ${finalCustomerName || customer_email}${order_number ? ` (order ${order_number})` : ""}`,
+      resourceUrl: `/admin/thread/${targetThreadId}`,
+      details: {
+        customerId: customerId,
+        customerEmail: customer_email,
+        customerName: finalCustomerName,
+        orderNumber: order_number,
+        threadId: targetThreadId,
+      },
+    };
+  } catch (error) {
+    console.error("[LinaTool] Associate customer failed:", error);
+    return {
+      success: false,
+      message: `Failed to associate customer: ${error instanceof Error ? error.message : "Unknown error"}`,
+    };
+  }
 }
 
 /**
