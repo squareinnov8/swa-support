@@ -530,6 +530,81 @@ async function processGmailThread(
     .reverse()
     .find((m) => m.isIncoming);
 
+  // IMPORTANT: Check for escalation responses from ANY message (not just incoming)
+  // Rob may reply FROM the support@ account, which would be marked as outgoing
+  // We detect this by looking for escalation tags in the latest message
+  const latestMessage = thread.messages[thread.messages.length - 1];
+  const escalationTags = ["[INSTRUCTION]", "[RESOLVE]", "[DRAFT]", "[KB]", "[TAKEOVER]"];
+  const hasEscalationTags = escalationTags.some(tag =>
+    latestMessage?.body?.toUpperCase().includes(tag)
+  );
+
+  // Check if this Gmail thread has a pending escalation
+  const { data: pendingEscalation } = await supabase
+    .from("threads")
+    .select("id")
+    .eq("gmail_thread_id", gmailThreadId)
+    .maybeSingle();
+
+  let escalationEmailFromOutgoing: Awaited<ReturnType<typeof findEscalationForReply>> = null;
+
+  if (pendingEscalation && hasEscalationTags && !latestMessage?.isIncoming) {
+    // Latest message is outgoing (from support@) but has escalation tags
+    // This is likely Rob responding from the shared inbox
+    const { data: escalation } = await supabase
+      .from("escalation_emails")
+      .select("id, thread_id, subject, gmail_message_id")
+      .eq("thread_id", pendingEscalation.id)
+      .eq("response_received", false)
+      .order("sent_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (escalation) {
+      console.log(`[Monitor] Detected escalation response in outgoing message (Rob replied from support@ inbox)`);
+
+      // Parse and process Rob's response
+      const parsedResponse = parseResponse(latestMessage.body);
+      const processResult = await processEscalationResponse(
+        escalation.id,
+        escalation.thread_id,
+        parsedResponse
+      );
+
+      console.log(`[Monitor] Escalation response processed:`, {
+        type: parsedResponse.type,
+        tags: parsedResponse.tags,
+        actionsCount: processResult.actions.length,
+      });
+
+      result.escalationResponseProcessed = true;
+      result.newMessage = true;
+
+      // Sync this message to the thread (mark as internal)
+      await supabase.from("messages").insert({
+        thread_id: escalation.thread_id,
+        direction: "outbound",
+        from_email: "support@squarewheelsauto.com",
+        to_email: null,
+        body_text: latestMessage.body,
+        body_html: latestMessage.bodyHtml || null,
+        channel: "email",
+        role: "internal", // Mark as internal (Rob's response via support@)
+        channel_metadata: {
+          gmail_thread_id: gmailThreadId,
+          gmail_message_id: latestMessage.id,
+          gmail_date: latestMessage.date.toISOString(),
+          escalation_response: true,
+          response_type: parsedResponse.type,
+          response_tags: parsedResponse.tags,
+          replied_via_support_inbox: true,
+        },
+      });
+
+      return result;
+    }
+  }
+
   if (!latestIncoming) {
     // No customer messages - all from support email, skip
     result.skipped = true;
@@ -537,7 +612,7 @@ async function processGmailThread(
     return result;
   }
 
-  // Check if this is Rob replying to an escalation email
+  // Check if this is Rob replying to an escalation email (from his personal email)
   // Rob's replies come into support@ inbox and should be handled specially
   const senderEmail = extractEmailAddress(latestIncoming.from);
   const escalationEmail = await findEscalationForReply(gmailThreadId, senderEmail);
