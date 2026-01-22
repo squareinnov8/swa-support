@@ -374,78 +374,76 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
         padding: "12px 24px",
         boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
       }}>
-        <div style={{ maxWidth: 1400, margin: "0 auto" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 16, flex: 1, minWidth: 0 }}>
-              <a
-                href="/admin"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 4,
-                  fontSize: 13,
-                  color: "#0091ae",
-                  textDecoration: "none",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                ← Inbox
-              </a>
-              <div style={{ height: 20, width: 1, backgroundColor: "#cbd6e2" }} />
-              <h1 style={{
-                fontSize: 16,
-                fontWeight: 600,
-                color: "#33475b",
-                margin: 0,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, flex: 1, minWidth: 0 }}>
+            <a
+              href="/admin"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                fontSize: 13,
+                color: "#0091ae",
+                textDecoration: "none",
                 whiteSpace: "nowrap",
-              }}>
-                {thread?.subject || "(no subject)"}
-              </h1>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              }}
+            >
+              ← Inbox
+            </a>
+            <div style={{ height: 20, width: 1, backgroundColor: "#cbd6e2" }} />
+            <h1 style={{
+              fontSize: 16,
+              fontWeight: 600,
+              color: "#33475b",
+              margin: 0,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}>
+              {thread?.subject || "(no subject)"}
+            </h1>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span
+              style={{
+                padding: "4px 10px",
+                borderRadius: 3,
+                fontSize: 12,
+                fontWeight: 500,
+                backgroundColor: stateColors.bg,
+                color: stateColors.text,
+              }}
+            >
+              {stateLabel}
+            </span>
+            {isArchived && (
               <span
                 style={{
                   padding: "4px 10px",
                   borderRadius: 3,
                   fontSize: 12,
                   fontWeight: 500,
-                  backgroundColor: stateColors.bg,
-                  color: stateColors.text,
+                  backgroundColor: "#e5f8f4",
+                  color: "#00a182",
                 }}
               >
-                {stateLabel}
+                Archived
               </span>
-              {isArchived && (
-                <span
-                  style={{
-                    padding: "4px 10px",
-                    borderRadius: 3,
-                    fontSize: 12,
-                    fontWeight: 500,
-                    backgroundColor: "#e5f8f4",
-                    color: "#00a182",
-                  }}
-                >
-                  Archived
-                </span>
-              )}
-              {thread?.human_handling_mode && (
-                <span
-                  style={{
-                    padding: "4px 10px",
-                    borderRadius: 3,
-                    fontSize: 12,
-                    fontWeight: 500,
-                    backgroundColor: "#fef6e7",
-                    color: "#b36b00",
-                  }}
-                >
-                  Observing
-                </span>
-              )}
-            </div>
+            )}
+            {thread?.human_handling_mode && (
+              <span
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: 3,
+                  fontSize: 12,
+                  fontWeight: 500,
+                  backgroundColor: "#fef6e7",
+                  color: "#b36b00",
+                }}
+              >
+                Observing
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -474,8 +472,8 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
       />
 
       {/* Main Content Area - Two Column Layout */}
-      <div style={{ maxWidth: 1400, margin: "0 auto", padding: 24 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 24 }}>
+      <div style={{ padding: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 400px", gap: 24 }}>
 
           {/* Left Column - Messages & Agent Reasoning */}
           <div style={{ minWidth: 0 }}>

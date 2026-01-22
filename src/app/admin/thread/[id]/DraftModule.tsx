@@ -56,7 +56,7 @@ export function DraftModule({
         boxShadow: "0 2px 4px rgba(0,0,0,0.08)",
       }}
     >
-      <div style={{ maxWidth: 1400, margin: "0 auto", padding: "0 24px" }}>
+      <div style={{ padding: "0 24px" }}>
         <div
           style={{
             border: latestDraft ? "2px solid #0091ae" : "1px solid #cbd6e2",
