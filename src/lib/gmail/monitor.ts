@@ -505,35 +505,15 @@ async function processGmailThread(
     }
   }
 
-  // If thread is in observation mode, record incoming messages but don't generate drafts
-  if (existingThread?.human_handling_mode) {
-    result.observationMode = true;
-    // Find new messages and record them as observations
-    const latestMessage = thread.messages[thread.messages.length - 1];
-    if (latestMessage) {
-      await recordObservation(existingThread.id, {
-        direction: latestMessage.isIncoming ? "inbound" : "outbound",
-        from: latestMessage.from,
-        to: latestMessage.to[0] || "",
-        content: latestMessage.body,
-        timestamp: latestMessage.date,
-        gmailMessageId: latestMessage.id,
-      });
-    }
-    result.skipped = true;
-    result.skipReason = "Thread in observation mode";
-    return result;
-  }
-
-  // Find the latest customer message (not from support email)
+  // Find the latest message (for escalation detection)
+  const latestMessage = thread.messages[thread.messages.length - 1];
   const latestIncoming = [...thread.messages]
     .reverse()
     .find((m) => m.isIncoming);
 
-  // IMPORTANT: Check for escalation responses from ANY message (not just incoming)
-  // Rob may reply FROM the support@ account, which would be marked as outgoing
-  // We detect this by looking for escalation tags in the latest message
-  const latestMessage = thread.messages[thread.messages.length - 1];
+  // IMPORTANT: Check for escalation responses BEFORE observation mode check
+  // This ensures Rob's replies are processed even when thread is in HUMAN_HANDLING mode
+  // Rob may reply FROM the support@ account (outgoing) OR his personal email (incoming)
   const escalationTags = ["[INSTRUCTION]", "[RESOLVE]", "[DRAFT]", "[KB]", "[TAKEOVER]"];
   const hasEscalationTags = escalationTags.some(tag =>
     latestMessage?.body?.toUpperCase().includes(tag)
@@ -546,11 +526,8 @@ async function processGmailThread(
     .eq("gmail_thread_id", gmailThreadId)
     .maybeSingle();
 
-  let escalationEmailFromOutgoing: Awaited<ReturnType<typeof findEscalationForReply>> = null;
-
+  // Case 1: Rob replied FROM support@ inbox (outgoing message with tags)
   if (pendingEscalation && hasEscalationTags && !latestMessage?.isIncoming) {
-    // Latest message is outgoing (from support@) but has escalation tags
-    // This is likely Rob responding from the shared inbox
     const { data: escalation } = await supabase
       .from("escalation_emails")
       .select("id, thread_id, subject, gmail_message_id")
@@ -563,7 +540,6 @@ async function processGmailThread(
     if (escalation) {
       console.log(`[Monitor] Detected escalation response in outgoing message (Rob replied from support@ inbox)`);
 
-      // Parse and process Rob's response
       const parsedResponse = parseResponse(latestMessage.body);
       const processResult = await processEscalationResponse(
         escalation.id,
@@ -579,84 +555,60 @@ async function processGmailThread(
 
       result.escalationResponseProcessed = true;
       result.newMessage = true;
-
-      // Sync this message to the thread (mark as internal)
-      await supabase.from("messages").insert({
-        thread_id: escalation.thread_id,
-        direction: "outbound",
-        from_email: "support@squarewheelsauto.com",
-        to_email: null,
-        body_text: latestMessage.body,
-        body_html: latestMessage.bodyHtml || null,
-        channel: "email",
-        role: "internal", // Mark as internal (Rob's response via support@)
-        channel_metadata: {
-          gmail_thread_id: gmailThreadId,
-          gmail_message_id: latestMessage.id,
-          gmail_date: latestMessage.date.toISOString(),
-          escalation_response: true,
-          response_type: parsedResponse.type,
-          response_tags: parsedResponse.tags,
-          replied_via_support_inbox: true,
-        },
-      });
-
       return result;
     }
+  }
+
+  // Case 2: Rob replied from his personal email (incoming message)
+  if (latestIncoming) {
+    const senderEmail = extractEmailAddress(latestIncoming.from);
+    const escalationEmail = await findEscalationForReply(gmailThreadId, senderEmail);
+
+    if (escalationEmail) {
+      console.log(`[Monitor] Detected Rob's reply to escalation for thread ${escalationEmail.thread_id}`);
+
+      const parsedResponse = parseResponse(latestIncoming.body);
+      const processResult = await processEscalationResponse(
+        escalationEmail.id,
+        escalationEmail.thread_id,
+        parsedResponse
+      );
+
+      console.log(`[Monitor] Escalation response processed:`, {
+        type: parsedResponse.type,
+        tags: parsedResponse.tags,
+        actionsCount: processResult.actions.length,
+      });
+
+      result.escalationResponseProcessed = true;
+      result.newMessage = true;
+      return result;
+    }
+  }
+
+  // If thread is in observation mode, record incoming messages but don't generate drafts
+  if (existingThread?.human_handling_mode) {
+    result.observationMode = true;
+    // Find new messages and record them as observations
+    if (latestMessage) {
+      await recordObservation(existingThread.id, {
+        direction: latestMessage.isIncoming ? "inbound" : "outbound",
+        from: latestMessage.from,
+        to: latestMessage.to[0] || "",
+        content: latestMessage.body,
+        timestamp: latestMessage.date,
+        gmailMessageId: latestMessage.id,
+      });
+    }
+    result.skipped = true;
+    result.skipReason = "Thread in observation mode";
+    return result;
   }
 
   if (!latestIncoming) {
     // No customer messages - all from support email, skip
     result.skipped = true;
     result.skipReason = `No customer messages (${thread.messages.length} from support)`;
-    return result;
-  }
-
-  // Check if this is Rob replying to an escalation email (from his personal email)
-  // Rob's replies come into support@ inbox and should be handled specially
-  const senderEmail = extractEmailAddress(latestIncoming.from);
-  const escalationEmail = await findEscalationForReply(gmailThreadId, senderEmail);
-
-  if (escalationEmail) {
-    console.log(`[Monitor] Detected Rob's reply to escalation for thread ${escalationEmail.thread_id}`);
-
-    // Parse and process Rob's response
-    const parsedResponse = parseResponse(latestIncoming.body);
-    const processResult = await processEscalationResponse(
-      escalationEmail.id,
-      escalationEmail.thread_id,
-      parsedResponse
-    );
-
-    console.log(`[Monitor] Escalation response processed:`, {
-      type: parsedResponse.type,
-      tags: parsedResponse.tags,
-      actionsCount: processResult.actions.length,
-    });
-
-    result.escalationResponseProcessed = true;
-    result.newMessage = true;
-
-    // Sync this message to the thread
-    await supabase.from("messages").insert({
-      thread_id: escalationEmail.thread_id,
-      direction: "inbound",
-      from_email: senderEmail,
-      to_email: "support@squarewheelsauto.com",
-      body_text: latestIncoming.body,
-      body_html: latestIncoming.bodyHtml || null,
-      channel: "email",
-      role: "internal", // Mark as internal (Rob's response)
-      channel_metadata: {
-        gmail_thread_id: gmailThreadId,
-        gmail_message_id: latestIncoming.id,
-        gmail_date: latestIncoming.date.toISOString(),
-        escalation_response: true,
-        response_type: parsedResponse.type,
-        response_tags: parsedResponse.tags,
-      },
-    });
-
     return result;
   }
 
