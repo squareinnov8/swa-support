@@ -1,11 +1,11 @@
 import { supabase } from "@/lib/db";
 import { type ThreadState } from "@/lib/threads/stateMachine";
-import { ThreadActions } from "./ThreadActions";
 import { AgentReasoning } from "./AgentReasoning";
 import { CustomerContextPanel, type CustomerContextData, type SupportTicket } from "./CustomerContextPanel";
 import { MessageBubble } from "./MessageBubble";
 import { ThreadRefresher } from "./ThreadRefresher";
 import { OrderEventsTimeline } from "./OrderEventsTimeline";
+import { DraftModule } from "./DraftModule";
 import { lookupCustomerByEmail } from "@/lib/shopify/customer";
 import { getOrderEvents } from "@/lib/shopify/orderEvents";
 import type { OrderEvent } from "@/lib/shopify/types";
@@ -450,97 +450,35 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
         </div>
       </div>
 
+      {/* Draft Module - Full width, sticky under header */}
+      <DraftModule
+        threadId={threadId}
+        latestDraft={latestDraft || null}
+        latestDraftMessage={latestDraftMessage ? {
+          id: latestDraftMessage.id,
+          channel_metadata: latestDraftMessage.channel_metadata as { relay_response?: boolean } | undefined,
+        } : null}
+        latestEventId={latestEventId || null}
+        latestDraftGenerationId={latestDraftGen?.id || null}
+        intent={thread?.last_intent || null}
+        isHumanHandling={thread?.human_handling_mode === true}
+        humanHandler={thread?.human_handler || null}
+        shouldBlockDraft={shouldBlockDraft}
+        draftBlockReason={draftBlockReason}
+        intentRequiresVerification={intentRequiresVerification}
+        isVerificationComplete={isVerificationComplete}
+        verificationStatus={verification?.status || null}
+        canSendViaGmail={Boolean(thread?.gmail_thread_id)}
+        isArchived={thread?.is_archived === true}
+        threadState={thread?.state || "NEW"}
+      />
+
       {/* Main Content Area - Two Column Layout */}
       <div style={{ maxWidth: 1400, margin: "0 auto", padding: 24 }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 24 }}>
 
-          {/* Left Column - Draft & Messages */}
+          {/* Left Column - Messages & Agent Reasoning */}
           <div style={{ minWidth: 0 }}>
-
-            {/* Draft Reply Section - Sticky at top */}
-            <div style={{
-              position: "sticky",
-              top: 65,
-              zIndex: 50,
-              backgroundColor: "#ffffff",
-              border: latestDraft ? "2px solid #0091ae" : "1px solid #cbd6e2",
-              borderRadius: 4,
-              marginBottom: 16,
-              overflow: "hidden",
-              boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-            }}>
-              <div style={{
-                padding: "12px 16px",
-                backgroundColor: latestDraft ? "#e5f5f8" : "#f5f8fa",
-                borderBottom: "1px solid #cbd6e2",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}>
-                <h2 style={{ fontSize: 14, fontWeight: 600, color: latestDraft ? "#0091ae" : "#33475b", margin: 0 }}>
-                  {latestDraft ? "📝 Draft Reply" : "No Draft"}
-                </h2>
-                {latestDraftMessage && (
-                  <span style={{ fontSize: 11, color: "#7c98b6" }}>
-                    {latestDraftMessage.channel_metadata?.relay_response ? "Relay Response" : "Auto-generated"}
-                  </span>
-                )}
-              </div>
-              <div style={{ padding: 16, maxHeight: 300, overflowY: "auto" }}>
-                {shouldBlockDraft ? (
-                  <div
-                    style={{
-                      border: "1px solid #f2545b",
-                      backgroundColor: "#fde8e9",
-                      padding: 14,
-                      borderRadius: 4,
-                    }}
-                  >
-                    <strong style={{ color: "#c93b41", fontSize: 13 }}>Draft Blocked</strong>
-                    <p style={{ color: "#c93b41", margin: "8px 0 0", fontSize: 13 }}>{draftBlockReason}</p>
-                    {intentRequiresVerification && !isVerificationComplete && (
-                      <p style={{ color: "#516f90", marginTop: 8, fontSize: 12 }}>
-                        Verify customer before sending.
-                        {verification?.status === "pending" && " Ask for order number."}
-                      </p>
-                    )}
-                  </div>
-                ) : latestDraft ? (
-                  <pre style={{
-                    whiteSpace: "pre-wrap",
-                    margin: 0,
-                    fontFamily: "inherit",
-                    fontSize: 14,
-                    lineHeight: 1.6,
-                    color: "#33475b",
-                  }}>
-                    {latestDraft}
-                  </pre>
-                ) : (
-                  <p style={{ color: "#7c98b6", fontSize: 13, margin: 0 }}>
-                    No draft has been generated for this thread.
-                  </p>
-                )}
-              </div>
-              {/* Thread Actions inline with draft */}
-              <div style={{ borderTop: "1px solid #cbd6e2", padding: "12px 16px", backgroundColor: "#f5f8fa" }}>
-                <ThreadActions
-                  threadId={threadId}
-                  latestDraft={latestDraft || null}
-                  latestDraftMessageId={latestDraftMessage?.id || null}
-                  latestEventId={latestEventId || null}
-                  latestDraftGenerationId={latestDraftGen?.id || null}
-                  intent={thread?.last_intent || null}
-                  isHumanHandling={thread?.human_handling_mode === true}
-                  humanHandler={thread?.human_handler || null}
-                  draftBlocked={shouldBlockDraft}
-                  draftBlockReason={draftBlockReason}
-                  canSendViaGmail={Boolean(thread?.gmail_thread_id)}
-                  isArchived={thread?.is_archived === true}
-                  threadState={thread?.state || "NEW"}
-                />
-              </div>
-            </div>
 
             {/* Intents Bar */}
             {(activeIntents.length > 0 || resolvedIntents.length > 0 || thread?.last_intent) && (
