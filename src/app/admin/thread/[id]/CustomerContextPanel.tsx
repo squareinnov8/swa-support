@@ -252,7 +252,19 @@ export function CustomerContextPanel({ customer, previousTickets }: Props) {
                       }}
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <span style={{ fontWeight: 500, color: "#33475b" }}>{order.orderNumber}</span>
+                        <a
+                          href={`https://admin.shopify.com/store/squarewheels/orders?query=${encodeURIComponent(order.orderNumber)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            fontWeight: 500,
+                            color: "#0091ae",
+                            textDecoration: "none",
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {order.orderNumber} ↗
+                        </a>
                         <span style={{ color: "#7c98b6" }}>
                           {new Date(order.createdAt).toLocaleDateString()}
                         </span>

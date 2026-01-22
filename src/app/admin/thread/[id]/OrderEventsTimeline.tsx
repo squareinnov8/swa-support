@@ -48,7 +48,19 @@ export function OrderEventsTimeline({ events, orderNumber }: OrderEventsTimeline
         alignItems: "center",
       }}>
         <h2 style={{ fontSize: 14, fontWeight: 600, color: "#33475b", margin: 0 }}>
-          Order Activity ({orderNumber})
+          Order Activity (
+          <a
+            href={`https://admin.shopify.com/store/squarewheels/orders?query=${encodeURIComponent(orderNumber)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: "#0091ae",
+              textDecoration: "none",
+            }}
+          >
+            {orderNumber} ↗
+          </a>
+          )
         </h2>
         <span style={{ fontSize: 12, color: "#7c98b6" }}>
           {events.length} event{events.length !== 1 ? "s" : ""}

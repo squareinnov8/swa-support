@@ -4,6 +4,7 @@ import AgentSettingsPanel from "./AgentSettingsPanel";
 import { GmailPollButton } from "./GmailPollButton";
 import { Suspense } from "react";
 import ThreadFilters from "./ThreadFilters";
+import { LocalTimestamp } from "./LocalTimestamp";
 
 export const dynamic = "force-dynamic";
 
@@ -326,15 +327,7 @@ export default async function AdminPage({
                     {/* Last Activity - uses last_message_at (excludes drafts) */}
                     <td style={{ padding: "12px", fontSize: 13, color: "#516f90", verticalAlign: "top" }}>
                       <div>
-                        {new Date(t.last_message_at || t.created_at).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                        })}
-                        <span style={{ color: "#99acc2", margin: "0 4px" }}>·</span>
-                        {new Date(t.last_message_at || t.created_at).toLocaleTimeString("en-US", {
-                          hour: "numeric",
-                          minute: "2-digit",
-                        })}
+                        <LocalTimestamp timestamp={t.last_message_at || t.created_at} />
                       </div>
                       {t.human_handler && (
                         <div style={{ fontSize: 12, color: "#99acc2", marginTop: 2 }}>
