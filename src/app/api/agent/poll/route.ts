@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runGmailMonitor, getMonitorStatus } from "@/lib/gmail";
 import { isGmailConfigured } from "@/lib/import/gmail/auth";
+import { checkStaleHumanHandling } from "@/lib/threads";
 
 // Cron secret for verification (optional)
 const CRON_SECRET = process.env.CRON_SECRET;
@@ -118,6 +119,10 @@ export async function POST(request: NextRequest) {
     // Run the monitor
     const result = await runGmailMonitor({ fetchRecent, fetchDays });
 
+    // Check for stale HUMAN_HANDLING threads (48+ hours timeout)
+    // This runs on every poll to ensure timely detection
+    const staleHandlingResult = await checkStaleHumanHandling();
+
     return NextResponse.json({
       success: result.success,
       runId: result.runId,
@@ -126,10 +131,17 @@ export async function POST(request: NextRequest) {
         threadsSkipped: result.threadsSkipped,
         newMessagesFound: result.newMessagesFound,
         draftsGenerated: result.draftsGenerated,
+        draftsAutoSent: result.draftsAutoSent,
         ticketsCreated: result.ticketsCreated,
         ticketsUpdated: result.ticketsUpdated,
         escalations: result.escalations,
+        // Stale handling stats
+        staleThreadsReturned: staleHandlingResult.threadsReturned,
       },
+      staleHandling: staleHandlingResult.threadsReturned > 0 ? {
+        threadsReturned: staleHandlingResult.threadsReturned,
+        threadIds: staleHandlingResult.threadIds,
+      } : undefined,
       errors: result.errors.length > 0 ? result.errors : undefined,
     });
   } catch (error) {

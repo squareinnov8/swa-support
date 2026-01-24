@@ -160,6 +160,8 @@ SHOPIFY_ACCESS_TOKEN=
 - [x] **Duplicate message fix** - Thread refresh endpoint no longer calls `processIngestRequest()`, preventing duplicate messages on page load
 - [x] **Customer thread history** - Previous tickets query now correctly finds all customer threads regardless of recency
 - [x] **Dynamic Learning via Admin Chat** - Lina can now take real actions during chat (create KB articles, update instructions, draft relay responses)
+- [x] **HUMAN_HANDLING timeout** - Threads stuck in HUMAN_HANDLING for 48+ hours auto-return to Lina with apology draft
+- [x] **Promised Action Tracking** - Detects commitments in drafts (refunds, shipping, follow-ups) and logs to events table for audit
 
 ### Pending / Outstanding
 - [ ] **Gmail re-authentication required** - After inbox purge, need to re-auth at `/admin/gmail-setup`
@@ -309,6 +311,88 @@ Mark resolved:
 **Automatic Learning:**
 For substantial responses (>100 chars), the system auto-considers KB article creation using LLM analysis. This enables learning from escalation responses without requiring the `[KB]` tag.
 
+## HUMAN_HANDLING Timeout
+
+Threads that get stuck in HUMAN_HANDLING state for too long (48+ hours) are automatically returned to Lina.
+
+**What happens:**
+1. Poll endpoint checks for threads where `state = HUMAN_HANDLING` and `human_handling_started_at < 48 hours ago`
+2. For each stale thread:
+   - State transitions to `IN_PROGRESS`
+   - `human_handling_mode` is set to `false`
+   - Active observation is closed with `timeout_return_to_agent` resolution
+   - A draft is generated with apology for the delay
+   - Email notification is sent to Rob at `rob@squarewheelsauto.com`
+3. Events are logged for audit trail
+
+**Key Files:**
+- `src/lib/threads/staleHumanHandling.ts` - Main detection and return logic
+- `src/lib/threads/takeoverNotification.ts` - Email notification sender
+- `src/app/api/agent/poll/route.ts` - Calls `checkStaleHumanHandling()` on each poll
+
+**Configuration:**
+- Timeout threshold: 48 hours (constant in `staleHumanHandling.ts`)
+- Notification recipient: `rob@squarewheelsauto.com` (constant in `takeoverNotification.ts`)
+
+**Poll Response:**
+When stale threads are returned, the poll endpoint includes additional stats:
+```json
+{
+  "stats": {
+    "staleThreadsReturned": 2
+  },
+  "staleHandling": {
+    "threadsReturned": 2,
+    "threadIds": ["uuid1", "uuid2"]
+  }
+}
+```
+
+## Promised Action Tracking
+
+Lina's drafts are automatically scanned for commitments/promises to create an audit trail for later review.
+
+**Detected Promise Categories:**
+- `refund` - "refund approved", "will process your refund", "I've issued a refund"
+- `shipping` - "will ship", "will send", "shipping today/tomorrow"
+- `replacement` - "will replace", "send a replacement", "replacement approved"
+- `follow_up` - "will follow up", "will get back to you", "will escalate"
+- `confirmation` - "I've confirmed", "has been approved", "I've processed"
+- `timeline` - "within 24 hours", "by end of today", "within 3 business days"
+
+**Key Files:**
+- `src/lib/responders/promisedActions.ts` - Detection logic and database logging
+- `src/lib/evals/promisedActions.test.ts` - Unit tests for detection patterns
+
+**How It Works:**
+1. After draft generation, `trackPromisedActions()` is called
+2. Regex patterns scan the draft text for promise indicators
+3. If promises detected, an event with `type: "promised_action"` is logged
+4. Events include: matched text, category, and draft snippet for context
+
+**Querying Promised Actions:**
+```sql
+-- Find all promised actions in the last 7 days
+SELECT e.thread_id, t.subject, e.payload, e.created_at
+FROM events e
+JOIN threads t ON e.thread_id = t.id
+WHERE e.type = 'promised_action'
+  AND e.created_at > now() - interval '7 days'
+ORDER BY e.created_at DESC;
+
+-- Count promises by category
+SELECT
+  category,
+  COUNT(*) as count
+FROM events e,
+  jsonb_array_elements(e.payload->'promises') as p,
+  jsonb_to_record(p) as x(category text)
+WHERE e.type = 'promised_action'
+GROUP BY category;
+```
+
+**Non-Blocking:** This feature does not block draft generation or sending. It's purely for visibility and audit purposes.
+
 ## Testing
 
 ```bash
@@ -387,5 +471,8 @@ npx supabase db push --linked
 | Tool executor | `src/lib/llm/linaToolExecutor.ts` |
 | State machine | `src/lib/threads/stateMachine.ts` |
 | Archive logic | `src/lib/threads/archiveThread.ts` |
+| Stale handling | `src/lib/threads/staleHumanHandling.ts` |
+| Takeover notification | `src/lib/threads/takeoverNotification.ts` |
 | Resolution analyzer | `src/lib/learning/resolutionAnalyzer.ts` |
 | Escalation response handler | `src/lib/escalation/responseHandler.ts` |
+| Promised action detector | `src/lib/responders/promisedActions.ts` |

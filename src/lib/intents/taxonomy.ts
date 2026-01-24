@@ -35,6 +35,7 @@ export const INTENTS = [
 
   // Non-Customer
   "VENDOR_SPAM",               // Sales pitches, partnerships, vendor inquiries
+  "AUTOMATED_EMAIL",           // Automated service emails (Google, Meta, TikTok, etc.)
 
   "UNKNOWN",
 ] as const;

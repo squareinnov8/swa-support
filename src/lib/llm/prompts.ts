@@ -128,6 +128,101 @@ export type CustomerContext = {
 };
 
 /**
+ * Thread age context for aged ticket handling
+ */
+export type ThreadAgeContext = {
+  /** Days since thread was created */
+  threadAgeDays: number;
+  /** Days since last response (outbound message) */
+  daysSinceLastResponse?: number;
+  /** Thread creation date */
+  createdAt: Date;
+  /** Last outbound message date */
+  lastResponseAt?: Date;
+};
+
+/**
+ * Calculate thread age context from thread data
+ */
+export function calculateThreadAge(
+  threadCreatedAt: Date | string,
+  lastOutboundAt?: Date | string | null
+): ThreadAgeContext {
+  const now = new Date();
+  const createdAt = typeof threadCreatedAt === "string" ? new Date(threadCreatedAt) : threadCreatedAt;
+
+  const threadAgeDays = Math.floor(
+    (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  let daysSinceLastResponse: number | undefined;
+  let lastResponseAt: Date | undefined;
+
+  if (lastOutboundAt) {
+    lastResponseAt = typeof lastOutboundAt === "string" ? new Date(lastOutboundAt) : lastOutboundAt;
+    daysSinceLastResponse = Math.floor(
+      (now.getTime() - lastResponseAt.getTime()) / (1000 * 60 * 60 * 24)
+    );
+  }
+
+  return {
+    threadAgeDays,
+    daysSinceLastResponse,
+    createdAt,
+    lastResponseAt,
+  };
+}
+
+/**
+ * Build thread age warning section for aged tickets
+ */
+function buildThreadAgeWarning(threadAge: ThreadAgeContext): string {
+  const { threadAgeDays, daysSinceLastResponse, createdAt } = threadAge;
+
+  // No warning needed for recent threads
+  if (threadAgeDays < 7 && (!daysSinceLastResponse || daysSinceLastResponse < 3)) {
+    return "";
+  }
+
+  let warning = "## THREAD AGE WARNING\n";
+
+  // Format the creation date nicely
+  const createdDateStr = createdAt.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+
+  if (threadAgeDays >= 7) {
+    warning += `This thread is ${threadAgeDays} days old (created ${createdDateStr}).\n`;
+    warning += `The customer has been waiting a long time. DO NOT:\n`;
+    warning += `- Mention "3-5 business days" or standard processing times\n`;
+    warning += `- Give generic responses\n`;
+    warning += `- Make excuses about delays\n`;
+    warning += `DO:\n`;
+    warning += `- Acknowledge the delay sincerely\n`;
+    warning += `- Focus on immediate resolution\n`;
+    warning += `- Escalate if you cannot resolve immediately\n`;
+    warning += `- Be more apologetic and action-oriented\n`;
+  }
+
+  // Add note about response gap if significant
+  if (daysSinceLastResponse && daysSinceLastResponse >= 3) {
+    if (threadAgeDays < 7) {
+      // Only response gap issue
+      warning += `There has been no response on this thread for ${daysSinceLastResponse} days.\n`;
+      warning += `The customer may be frustrated by the delay. Acknowledge the wait and prioritize resolution.\n`;
+    } else {
+      // Both old thread and response gap
+      warning += `\nAdditionally, there has been no response for ${daysSinceLastResponse} days.\n`;
+    }
+  }
+
+  warning += "\n";
+  return warning;
+}
+
+/**
  * Build user prompt with KB context
  */
 export function buildUserPrompt(params: {
@@ -146,10 +241,16 @@ export function buildUserPrompt(params: {
   orderContext?: OrderContext;
   attachmentContent?: ExtractedAttachmentContent[];
   customerContext?: CustomerContext;
+  threadAge?: ThreadAgeContext;
 }): string {
-  const { customerMessage, intent, kbDocs, previousMessages, customerInfo, catalogProducts, orderContext, attachmentContent, customerContext } = params;
+  const { customerMessage, intent, kbDocs, previousMessages, customerInfo, catalogProducts, orderContext, attachmentContent, customerContext, threadAge } = params;
 
   let prompt = "";
+
+  // Add thread age warning for aged tickets (CRITICAL - shows first)
+  if (threadAge) {
+    prompt += buildThreadAgeWarning(threadAge);
+  }
 
   // Add comprehensive customer context if available
   if (customerContext) {

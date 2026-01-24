@@ -16,6 +16,7 @@ import { embedText, formatEmbeddingForPg } from "@/lib/retrieval/embed";
 import { chunkMarkdown } from "@/lib/retrieval/chunk";
 import OpenAI from "openai";
 import { getClient, isLLMConfigured } from "@/lib/llm/client";
+import { trackPromisedActions } from "@/lib/responders/promisedActions";
 
 const ROB_EMAIL = "rob@squarewheelsauto.com";
 const SUPPORT_EMAIL = "support@squarewheelsauto.com";
@@ -454,6 +455,9 @@ Write a response to the customer:`,
       })
       .select("id")
       .single();
+
+    // Track any promised actions in the draft (non-blocking audit trail)
+    await trackPromisedActions(threadId, draftContent);
 
     result.actions.push({
       type: "lina_draft_created",

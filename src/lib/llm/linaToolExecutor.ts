@@ -11,6 +11,7 @@ import { embedText, formatEmbeddingForPg } from "@/lib/retrieval/embed";
 import { chunkMarkdown } from "@/lib/retrieval/chunk";
 import { getShopifyClient } from "@/lib/shopify/client";
 import { isShopifyConfigured } from "@/lib/shopify/customer";
+import { trackPromisedActions } from "@/lib/responders/promisedActions";
 
 /**
  * Result of a tool execution
@@ -323,6 +324,9 @@ async function draftRelayResponse(
       created_by: context.adminEmail,
     },
   });
+
+  // Track any promised actions in the draft (non-blocking audit trail)
+  await trackPromisedActions(targetThreadId, fullMessage);
 
   await logToolAction(context, "draft_relay_response", input, {
     success: true,

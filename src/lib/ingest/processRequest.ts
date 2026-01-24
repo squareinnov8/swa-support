@@ -7,13 +7,14 @@
  */
 
 import { supabase } from "@/lib/db";
-import { classifyIntent } from "@/lib/intents/classify";
+import { classifyIntent, checkAutomatedEmail } from "@/lib/intents/classify";
 import { classifyWithLLM, addIntentsToThread, reclassifyThread, type ClassificationResult } from "@/lib/intents/llmClassify";
 import { checkRequiredInfo, generateMissingInfoPrompt } from "@/lib/intents/requiredInfo";
 import { policyGate } from "@/lib/responders/policyGate";
+import { trackPromisedActions } from "@/lib/responders/promisedActions";
 import { macroDocsVideoMismatch, macroFirmwareAccessClarify } from "@/lib/responders/macros";
 import { generateDraft, getConversationHistory, type DraftResult } from "@/lib/llm/draftGenerator";
-import type { CustomerContext } from "@/lib/llm/prompts";
+import { calculateThreadAge, type CustomerContext, type ThreadAgeContext } from "@/lib/llm/prompts";
 import { isLLMConfigured } from "@/lib/llm/client";
 import {
   getNextState,
@@ -21,6 +22,10 @@ import {
   type ThreadState,
   type Action,
 } from "@/lib/threads/stateMachine";
+import {
+  detectClarificationLoop,
+  CLARIFICATION_LOOP_ESCALATION_DRAFT,
+} from "@/lib/threads/clarificationLoopDetector";
 import {
   verifyCustomer,
   getVerificationPrompt,
@@ -57,11 +62,12 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
   let currentState: ThreadState = "NEW";
   let isHumanHandling = false;
   let isFollowUp = false; // Track if this is a follow-up message on existing thread
+  let threadCreatedAt: Date | null = null; // Track thread creation date for age calculation
 
   if (req.external_id) {
     const { data: existing } = await supabase
       .from("threads")
-      .select("id, state, human_handling_mode")
+      .select("id, state, human_handling_mode, created_at")
       .eq("external_thread_id", req.external_id)
       .maybeSingle();
 
@@ -70,6 +76,7 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
       currentState = (existing.state as ThreadState) || "NEW";
       isHumanHandling = existing.human_handling_mode === true;
       isFollowUp = true; // This is a follow-up message
+      threadCreatedAt = existing.created_at ? new Date(existing.created_at) : null;
     } else {
       // Create new thread since external_id lookup found nothing
       const threadData: Record<string, unknown> = {
@@ -86,13 +93,14 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
       const { data: created, error } = await supabase
         .from("threads")
         .insert(threadData)
-        .select("id")
+        .select("id, created_at")
         .single();
 
       if (error) {
         throw new Error(`Failed to create thread: ${error.message}`);
       }
       threadId = created.id;
+      threadCreatedAt = created.created_at ? new Date(created.created_at) : new Date();
     }
   } else {
     // No external_id, create new thread
@@ -110,13 +118,14 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
     const { data: created, error } = await supabase
       .from("threads")
       .insert(threadData)
-      .select("id")
+      .select("id, created_at")
       .single();
 
     if (error) {
       throw new Error(`Failed to create thread: ${error.message}`);
     }
     threadId = created.id;
+    threadCreatedAt = created.created_at ? new Date(created.created_at) : new Date();
   }
 
   // 2. Insert message with channel info
@@ -181,6 +190,45 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
       state: "HUMAN_HANDLING",
       previous_state: "HUMAN_HANDLING",
       humanHandling: true,
+    };
+  }
+
+  // 2.6. Check for automated emails BEFORE LLM classification to save API calls
+  // This catches notifications from Google, Meta, TikTok, etc.
+  const automatedCheck = checkAutomatedEmail(req.from_identifier, req.subject);
+  if (automatedCheck.isAutomated) {
+    const nextState = "RESOLVED";
+
+    console.log(
+      `[Ingest] Automated email detected: ${automatedCheck.reason} (${automatedCheck.matchedPattern}) - auto-closing thread ${threadId}`
+    );
+
+    await logEvent(threadId, {
+      intent: "AUTOMATED_EMAIL",
+      confidence: 0.95,
+      action: "NO_REPLY",
+      draft: null,
+      channel: req.channel,
+      note: `Auto-closed as automated email: ${automatedCheck.reason}`,
+      automatedEmailDetails: {
+        reason: automatedCheck.reason,
+        matchedPattern: automatedCheck.matchedPattern,
+        senderEmail: req.from_identifier,
+      },
+      stateTransition: { from: currentState, to: nextState, reason: "automated_email_auto_close" },
+    });
+
+    await updateThreadState(threadId, nextState, "AUTOMATED_EMAIL");
+
+    return {
+      thread_id: threadId,
+      message_id: threadId,
+      intent: "AUTOMATED_EMAIL",
+      confidence: 0.95,
+      action: "NO_REPLY",
+      draft: null,
+      state: nextState,
+      previous_state: currentState,
     };
   }
 
@@ -439,6 +487,59 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
   const fullText = `${req.subject}\n${req.body_text}`;
   const requiredInfoCheck = checkRequiredInfo(intent, fullText);
 
+  // 4.5. Check for clarification loop BEFORE generating a new draft
+  // If Lina has asked for the same info 2+ times without getting it, escalate
+  const clarificationLoop = await detectClarificationLoop(threadId);
+  if (clarificationLoop.loopDetected) {
+    const nextState = "ESCALATED";
+
+    console.log(
+      `[Ingest] Clarification loop detected for thread ${threadId}: ` +
+        `asked for "${clarificationLoop.repeatedCategory}" ${clarificationLoop.occurrences} times`
+    );
+
+    await logEvent(threadId, {
+      intent,
+      confidence,
+      action: "ESCALATE_WITH_DRAFT",
+      draft: CLARIFICATION_LOOP_ESCALATION_DRAFT,
+      channel: req.channel,
+      note: `Clarification loop detected - asked for ${clarificationLoop.repeatedCategory} ${clarificationLoop.occurrences} times`,
+      clarificationLoop: {
+        repeatedCategory: clarificationLoop.repeatedCategory,
+        occurrences: clarificationLoop.occurrences,
+        allCounts: clarificationLoop.allCategoryCounts,
+      },
+      stateTransition: { from: currentState, to: nextState, reason: "clarification_loop_detected" },
+    });
+
+    await updateThreadState(threadId, nextState, intent);
+
+    // Save the escalation draft as a message
+    await supabase.from("messages").insert({
+      thread_id: threadId,
+      direction: "outbound",
+      body_text: CLARIFICATION_LOOP_ESCALATION_DRAFT,
+      role: "draft",
+      channel: req.channel,
+      channel_metadata: {
+        auto_send_blocked: true,
+        auto_send_block_reason: "clarification_loop_escalation",
+      },
+    });
+
+    return {
+      thread_id: threadId,
+      message_id: threadId,
+      intent,
+      confidence,
+      action: "ESCALATE_WITH_DRAFT",
+      draft: CLARIFICATION_LOOP_ESCALATION_DRAFT,
+      state: nextState,
+      previous_state: currentState,
+    };
+  }
+
   // 5. Decide action + generate draft
   let action: Action = "ASK_CLARIFYING_QUESTIONS";
   let draft: string | null = null;
@@ -472,11 +573,14 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
       state: nextState,
       previous_state: currentState,
     };
-  } else if (intent === "VENDOR_SPAM") {
-    // Auto-close vendor spam without reply
+  } else if (intent === "VENDOR_SPAM" || intent === "AUTOMATED_EMAIL") {
+    // Auto-close vendor spam and automated emails without reply
     action = "NO_REPLY";
     // Set state to RESOLVED immediately
     const nextState = "RESOLVED";
+
+    const closeReason = intent === "VENDOR_SPAM" ? "vendor_spam_auto_close" : "automated_email_auto_close";
+    const noteText = intent === "VENDOR_SPAM" ? "Auto-closed as vendor spam" : "Auto-closed as automated email";
 
     await logEvent(threadId, {
       intent,
@@ -484,8 +588,8 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
       action,
       draft: null,
       channel: req.channel,
-      note: "Auto-closed as vendor spam",
-      stateTransition: { from: currentState, to: nextState, reason: "vendor_spam_auto_close" },
+      note: noteText,
+      stateTransition: { from: currentState, to: nextState, reason: closeReason },
     });
 
     await updateThreadState(threadId, nextState, intent);
@@ -612,6 +716,33 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
       };
     }
 
+    // Calculate thread age for aged ticket handling
+    let threadAge: ThreadAgeContext | undefined;
+    if (threadCreatedAt) {
+      // Fetch last outbound message date for response gap calculation
+      const { data: lastOutbound } = await supabase
+        .from("messages")
+        .select("created_at")
+        .eq("thread_id", threadId)
+        .eq("direction", "outbound")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      threadAge = calculateThreadAge(
+        threadCreatedAt,
+        lastOutbound?.created_at || null
+      );
+
+      // Log if this is an aged thread
+      if (threadAge.threadAgeDays >= 7 || (threadAge.daysSinceLastResponse && threadAge.daysSinceLastResponse >= 3)) {
+        console.log(
+          `[Ingest] Aged thread detected: ${threadAge.threadAgeDays} days old, ` +
+          `${threadAge.daysSinceLastResponse ?? 0} days since last response`
+        );
+      }
+    }
+
     draftResult = await generateDraft({
       threadId,
       customerMessage: fullText,
@@ -631,6 +762,8 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
       attachmentContent: attachmentContent.length > 0 ? attachmentContent : undefined,
       // Pass full customer context for richer Lina responses
       customerContext,
+      // Pass thread age for aged ticket handling
+      threadAge,
     });
 
     if (draftResult.success && draftResult.draft) {
@@ -672,6 +805,12 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
       // No draft exists yet - create an escalation acknowledgment
       draft = `Thank you for reaching out. I've reviewed your message and I've escalated this to Rob, our team lead, who will follow up with you directly to help resolve this.\n\n– Lina`;
     }
+  }
+
+  // 6.6. Track promised actions in the draft (non-blocking audit trail)
+  // This logs commitments like refunds, shipping promises, etc. for visibility
+  if (draft) {
+    await trackPromisedActions(threadId, draft);
   }
 
   // 7. Calculate next state using state machine
@@ -868,6 +1007,7 @@ function generateThreadSummary(
     CHARGEBACK_THREAT: "Chargeback threat",
     THANK_YOU_CLOSE: "Thank you message",
     VENDOR_SPAM: "Vendor spam",
+    AUTOMATED_EMAIL: "Automated email",
     UNKNOWN: "General inquiry",
   };
 

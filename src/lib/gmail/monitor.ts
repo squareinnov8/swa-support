@@ -45,6 +45,7 @@ import {
 } from "@/lib/escalation/responseHandler";
 import { getAgentSettings } from "@/lib/settings";
 import { sendApprovedDraft, isGmailSendConfigured as isGmailSendReady } from "@/lib/gmail/sendDraft";
+import { trackPromisedActions } from "@/lib/responders/promisedActions";
 
 export type MonitorResult = {
   success: boolean;
@@ -1229,6 +1230,9 @@ async function saveDraftForReview(
     } else {
       console.log(`[Monitor] Saved draft for human review: ${ingestResult.thread_id}`);
     }
+
+    // Track any promised actions in the draft (non-blocking)
+    await trackPromisedActions(ingestResult.thread_id, ingestResult.draft);
   } catch (err) {
     console.error(`[Monitor] Error saving draft:`, err);
   }
