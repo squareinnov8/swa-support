@@ -240,11 +240,13 @@ export function checkRequiredInfo(intent: string, text: string): CheckResult {
 export function generateMissingInfoPrompt(missingFields: RequiredField[]): string {
   if (missingFields.length === 0) return "";
 
-  const items = missingFields.map((f, i) => `${i + 1}) ${f.label}`).join("\n");
+  const items = missingFields.map((f, i) => `${i + 1}. ${f.label}`).join("\n");
 
-  return `Hey — I can help, but I need a few details first:
+  return `Hey! I'd love to help with this. Just need a quick bit of info:
 
 ${items}
 
-– Rob`;
+Once I have that, I can dig into this for you!
+
+– Lina`;
 }

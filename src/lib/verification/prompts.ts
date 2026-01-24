@@ -7,35 +7,35 @@
 /**
  * Request order number for verification
  */
-export const VERIFICATION_REQUEST_PROMPT = `To help you with your order, I'll need to verify your account. Could you please provide:
+export const VERIFICATION_REQUEST_PROMPT = `Hey! I'd love to help you with this.
 
-1. Your **order number** (found in your confirmation email, e.g., #12345)
+To pull up your order info, could you share your **order number**? You can find it in your confirmation email (looks like #12345 or SWA-12345).
 
-This helps us protect your account and ensure we're providing information to the right person.
-
-– Rob`;
+– Lina`;
 
 /**
  * When order wasn't found in Shopify
  */
-export const VERIFICATION_NOT_FOUND_PROMPT = `I wasn't able to find an order matching that information in our system. This could happen if:
+export const VERIFICATION_NOT_FOUND_PROMPT = `Hmm, I couldn't find that order in our system. A few things that might help:
 
-- The order number has a typo
-- The order was placed under a different email address
-- The order was placed under a different name or through a different store
+- Double-check the order number (sometimes there's a typo)
+- Was it placed under a different email address?
+- Check your confirmation email for the exact order number
 
-Could you double-check and provide the exact order number from your confirmation email?
+Mind taking another look and sending it over?
 
-– Rob`;
+– Lina`;
 
 /**
  * When email doesn't match the order
  */
-export const VERIFICATION_MISMATCH_PROMPT = `For security purposes, I need to verify that you're the owner of this order. The email address you're writing from doesn't match our records for this order.
+export const VERIFICATION_MISMATCH_PROMPT = `I found the order, but the email you're writing from doesn't match what's on file. Just want to make sure I'm helping the right person!
 
-Could you reply from the email address you used when placing the order, or provide additional verification details?
+Could you either:
+- Reply from the email you used when you ordered, or
+- Let me know some other details to verify (like the shipping address or items ordered)
 
-– Rob`;
+– Lina`;
 
 /**
  * Internal note when customer is flagged (not sent to customer)

@@ -99,8 +99,8 @@ describe("generateMissingInfoPrompt", () => {
       { id: "order_number", label: "Order number", patterns: [], required: true },
     ]);
     expect(prompt).toContain("Order number");
-    expect(prompt).toContain("1)");
-    expect(prompt).toContain("– Rob");
+    expect(prompt).toContain("1.");
+    expect(prompt).toContain("– Lina");
   });
 
   it("generates prompt for multiple missing fields", () => {
@@ -108,8 +108,8 @@ describe("generateMissingInfoPrompt", () => {
       { id: "unit_type", label: "Unit type (Apex/G-Series/Cluster)", patterns: [], required: true },
       { id: "order_info", label: "Order number or email", patterns: [], required: true },
     ]);
-    expect(prompt).toContain("1) Unit type");
-    expect(prompt).toContain("2) Order number");
+    expect(prompt).toContain("1. Unit type");
+    expect(prompt).toContain("2. Order number");
   });
 
   it("returns empty string for no missing fields", () => {
