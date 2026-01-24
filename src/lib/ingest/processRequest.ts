@@ -7,9 +7,8 @@
  */
 
 import { supabase } from "@/lib/db";
-import { classifyIntent, checkAutomatedEmail } from "@/lib/intents/classify";
-import { classifyWithLLM, addIntentsToThread, reclassifyThread, type ClassificationResult } from "@/lib/intents/llmClassify";
-import { checkRequiredInfo, generateMissingInfoPrompt } from "@/lib/intents/requiredInfo";
+import { checkAutomatedEmail } from "@/lib/intents/classify";
+import { classifyWithLLM, addIntentsToThread, reclassifyThread, generateMissingInfoPromptFromClassification, type ClassificationResult } from "@/lib/intents/llmClassify";
 import { policyGate } from "@/lib/responders/policyGate";
 import { trackPromisedActions } from "@/lib/responders/promisedActions";
 import { macroDocsVideoMismatch, macroFirmwareAccessClarify } from "@/lib/responders/macros";
@@ -290,11 +289,18 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
       );
     }
   } else {
-    // LLM not configured - log warning and use regex as last resort
-    console.warn(`[Ingest] LLM not configured, using regex fallback for thread ${threadId}`);
-    const regexResult = classifyIntent(req.subject, req.body_text);
-    intent = regexResult.intent;
-    confidence = regexResult.confidence;
+    // LLM not configured - return UNKNOWN and let humans handle classification
+    console.warn(`[Ingest] LLM not configured, returning UNKNOWN for thread ${threadId}`);
+    intent = "UNKNOWN";
+    confidence = 0.3;
+    classification = {
+      intents: [{ slug: "UNKNOWN", confidence: 0.3, reasoning: "LLM not configured" }],
+      primary_intent: "UNKNOWN",
+      requires_verification: false,
+      auto_escalate: false,
+      missing_info: [],
+      can_proceed: false, // Require human review without LLM
+    };
   }
 
   // 3.4. Extract order info from attachments (if any)
@@ -483,9 +489,9 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
     );
   }
 
-  // 4. Check required info for this intent
+  // 4. Missing info is now detected by LLM classification (classification.can_proceed, classification.missing_info)
+  // No regex-based checking needed - the LLM contextually identifies what's missing
   const fullText = `${req.subject}\n${req.body_text}`;
-  const requiredInfoCheck = checkRequiredInfo(intent, fullText);
 
   // 4.5. Check for clarification loop BEFORE generating a new draft
   // If Lina has asked for the same info 2+ times without getting it, escalate
@@ -608,16 +614,16 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
     // Always escalate chargebacks, regardless of required info
     action = "ESCALATE_WITH_DRAFT";
     draft = `Draft only (escalate): Customer mentions chargeback/dispute. Do not promise. Ask for order # + summarize situation.`;
-  } else if (!requiredInfoCheck.allRequiredPresent) {
-    // Missing required info - ask for it
+  } else if (!classification.can_proceed && classification.missing_info.length > 0) {
+    // Missing required info (detected by LLM) - ask for it
     action = "ASK_CLARIFYING_QUESTIONS";
-    // Use specific macro if available, otherwise generate from missing fields
+    // Use specific macro if available, otherwise generate from LLM-detected missing fields
     if (intent === "FIRMWARE_ACCESS_ISSUE") {
       draft = macroFirmwareAccessClarify();
     } else if (intent === "DOCS_VIDEO_MISMATCH") {
       draft = macroDocsVideoMismatch();
     } else {
-      draft = generateMissingInfoPrompt(requiredInfoCheck.missingRequired);
+      draft = generateMissingInfoPromptFromClassification(classification.missing_info);
     }
   } else if (intent === "DOCS_VIDEO_MISMATCH") {
     action = "SEND_PREAPPROVED_MACRO";
@@ -819,7 +825,7 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
     action,
     intent,
     policyBlocked,
-    missingRequiredInfo: !requiredInfoCheck.allRequiredPresent,
+    missingRequiredInfo: !classification.can_proceed,
   };
   const nextState = getNextState(transitionContext);
   const stateChangeReason =
@@ -836,9 +842,8 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
       draft,
       channel: req.channel,
       requiredInfo: {
-        allPresent: requiredInfoCheck.allRequiredPresent,
-        missingFields: requiredInfoCheck.missingRequired.map((f) => f.id),
-        presentFields: requiredInfoCheck.presentFields.map((f) => f.id),
+        allPresent: classification.can_proceed,
+        missingFields: classification.missing_info.map((f) => f.id),
       },
       stateTransition: {
         from: currentState,

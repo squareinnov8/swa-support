@@ -11,7 +11,7 @@
 import 'dotenv/config';
 import { createClient } from '@supabase/supabase-js';
 import { gmail_v1 } from 'googleapis';
-import { classifyIntent } from '../src/lib/intents/classify';
+import { classifyWithLLM } from '../src/lib/intents/llmClassify';
 import { isProtectedIntent } from '../src/lib/verification/types';
 import { createGmailClient, createOAuth2Client, type GmailTokens } from '../src/lib/import/gmail/auth';
 
@@ -218,7 +218,9 @@ async function importThread(gmail: gmail_v1.Gmail, gmailThreadId: string): Promi
   // Now classify based on FULL context
   // Combine all customer messages for classification
   const customerContext = inboundMessages.map(m => m.body).join('\n\n---\n\n');
-  const { intent, confidence } = classifyIntent(subject, customerContext);
+  const classification = await classifyWithLLM(subject, customerContext);
+  const intent = classification.primary_intent;
+  const confidence = classification.intents[0]?.confidence ?? 0.5;
 
   console.log(`\n  🎯 INTENT: ${intent} (confidence: ${confidence})`);
 

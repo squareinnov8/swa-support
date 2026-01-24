@@ -7,7 +7,12 @@
  *
  * This is a lightweight detection system - it doesn't block anything,
  * just creates an audit trail for promises made to customers.
+ *
+ * As of Jan 2026, this uses LLM-based detection for better accuracy across
+ * languages and phrasings, with regex fallback for when LLM is unavailable.
  */
+
+import { isLLMConfigured, getClient } from "@/lib/llm/client";
 
 /**
  * Categories of promises that can be detected
@@ -18,7 +23,8 @@ export type PromiseCategory =
   | "replacement"
   | "follow_up"
   | "confirmation"
-  | "timeline";
+  | "timeline"
+  | "other";
 
 /**
  * A detected promise in the draft text
@@ -33,185 +39,126 @@ export type DetectedPromise = {
 };
 
 /**
- * Promise detection patterns
- * Each pattern maps to a category and description
- */
-const PROMISE_PATTERNS: Array<{
-  pattern: RegExp;
-  category: PromiseCategory;
-  description: string;
-}> = [
-  // Refund promises
-  {
-    pattern: /\brefund(?:ed|s)?\s+(?:has been\s+)?approved\b/i,
-    category: "refund",
-    description: "Refund approved",
-  },
-  {
-    pattern: /\b(?:will|going to|we'll|i'll)\s+(?:process|issue)\s+(?:your\s+)?refund\b/i,
-    category: "refund",
-    description: "Will process refund",
-  },
-  {
-    pattern: /\b(?:will|going to|we'll|i'll)\s+refund\b/i,
-    category: "refund",
-    description: "Will refund",
-  },
-  {
-    pattern: /\bprocess(?:ing|ed)?\s+(?:your\s+)?refund\b/i,
-    category: "refund",
-    description: "Processing refund",
-  },
-  {
-    pattern: /\bi(?:'ve|'m|\s+have)\s+(?:issued|processed|approved)\s+(?:a\s+|the\s+)?refund\b/i,
-    category: "refund",
-    description: "Refund issued/processed",
-  },
-
-  // Shipping promises
-  {
-    pattern: /\b(?:will|going to|we'll|i'll)\s+ship\b/i,
-    category: "shipping",
-    description: "Will ship",
-  },
-  {
-    pattern: /\b(?:will|going to|we'll|i'll)\s+send\b/i,
-    category: "shipping",
-    description: "Will send",
-  },
-  {
-    pattern: /\bshipping\s+(?:today|tomorrow|this week|within)\b/i,
-    category: "shipping",
-    description: "Shipping timeline commitment",
-  },
-  {
-    pattern: /\b(?:will\s+)?(?:be\s+)?shipped?\s+(?:out\s+)?(?:today|tomorrow|this week)\b/i,
-    category: "shipping",
-    description: "Shipping today/tomorrow",
-  },
-  {
-    pattern: /\byou(?:'ll| will)\s+receive\s+(?:it\s+)?(?:by|within|in)\b/i,
-    category: "shipping",
-    description: "Delivery timeline commitment",
-  },
-  {
-    pattern: /\bexpect\s+(?:delivery|it|your order)\s+(?:by|within|in)\b/i,
-    category: "shipping",
-    description: "Expected delivery timeline",
-  },
-
-  // Replacement promises
-  {
-    pattern: /\b(?:will|going to|we'll|i'll)\s+(?:send\s+(?:a|you)\s+)?replace(?:ment)?\b/i,
-    category: "replacement",
-    description: "Will send replacement",
-  },
-  {
-    pattern: /\breplacement\s+(?:has been\s+)?(?:approved|confirmed)\b/i,
-    category: "replacement",
-    description: "Replacement approved",
-  },
-  {
-    pattern: /\b(?:send(?:ing)?|ship(?:ping)?)\s+(?:a\s+)?(?:new\s+)?replacement\b/i,
-    category: "replacement",
-    description: "Sending replacement",
-  },
-  {
-    pattern: /\bi(?:'ve|'m|\s+have)\s+(?:arranged|approved|processed)\s+a\s+replacement\b/i,
-    category: "replacement",
-    description: "Replacement arranged",
-  },
-
-  // Follow-up promises
-  {
-    pattern: /\b(?:will|going to|we'll|i'll)\s+(?:follow\s+up|get\s+back\s+to\s+you)\b/i,
-    category: "follow_up",
-    description: "Will follow up",
-  },
-  {
-    pattern: /\b(?:will|going to|we'll|i'll)\s+(?:check|look\s+into|investigate)\s+(?:on\s+)?this\b/i,
-    category: "follow_up",
-    description: "Will investigate",
-  },
-  {
-    pattern: /\b(?:will|going to|we'll|i'll)\s+escalate\b/i,
-    category: "follow_up",
-    description: "Will escalate",
-  },
-  {
-    pattern: /\b(?:will|going to|we'll|i'll)\s+(?:reach\s+out|contact)\b/i,
-    category: "follow_up",
-    description: "Will contact",
-  },
-  {
-    pattern: /\bexpect\s+(?:a\s+)?(?:response|reply|update)\s+(?:within|by)\b/i,
-    category: "follow_up",
-    description: "Response timeline commitment",
-  },
-
-  // Confirmation/completion promises
-  {
-    pattern: /\bi(?:'ve|'m|\s+have)\s+confirmed\b/i,
-    category: "confirmation",
-    description: "Confirmed action",
-  },
-  {
-    pattern: /\b(?:has been|is now)\s+(?:approved|confirmed|processed)\b/i,
-    category: "confirmation",
-    description: "Action approved/confirmed",
-  },
-  {
-    pattern: /\bi(?:'ve|'m|\s+have)\s+(?:processed|completed|updated)\b/i,
-    category: "confirmation",
-    description: "Action processed/completed",
-  },
-  {
-    pattern: /\byour\s+(?:request|order|return)\s+(?:has been|is)\s+(?:approved|confirmed)\b/i,
-    category: "confirmation",
-    description: "Request approved",
-  },
-
-  // Timeline commitments
-  {
-    pattern: /\bwithin\s+(?:\d+|one|two|three|24|48|72)\s+(?:hours?|days?|business\s+days?)\b/i,
-    category: "timeline",
-    description: "Timeline commitment",
-  },
-  {
-    pattern: /\bby\s+(?:end\s+of\s+)?(?:today|tomorrow|this\s+week|monday|tuesday|wednesday|thursday|friday)\b/i,
-    category: "timeline",
-    description: "Deadline commitment",
-  },
-];
-
-/**
- * Detect promised actions in a draft text.
- * Returns an array of detected promises with their categories and matched text.
- *
- * This is a pure function with no dependencies - safe to use in tests.
+ * Detect promised actions in a draft text using LLM.
+ * Falls back to basic keyword detection if LLM is unavailable.
  *
  * @param draftText - The draft text to analyze
  * @returns Array of detected promises
  */
-export function detectPromisedActions(draftText: string): DetectedPromise[] {
+export async function detectPromisedActions(draftText: string): Promise<DetectedPromise[]> {
   if (!draftText || draftText.trim().length === 0) {
     return [];
   }
 
-  const detected: DetectedPromise[] = [];
-  const seenDescriptions = new Set<string>();
+  // Try LLM-based detection first
+  if (isLLMConfigured()) {
+    try {
+      return await detectPromisesWithLLM(draftText);
+    } catch (error) {
+      console.warn("[PromisedActions] LLM detection failed, using fallback:", error);
+    }
+  }
 
-  for (const { pattern, category, description } of PROMISE_PATTERNS) {
-    const match = pattern.exec(draftText);
-    if (match) {
-      // Avoid duplicate detections with same description
-      if (!seenDescriptions.has(description)) {
-        seenDescriptions.add(description);
-        detected.push({
-          category,
-          matchedText: match[0],
-          description,
-        });
+  // Fallback to simple keyword detection (non-blocking, best-effort)
+  return detectPromisesFallback(draftText);
+}
+
+/**
+ * LLM-based promise detection - understands context and works in any language
+ */
+async function detectPromisesWithLLM(draftText: string): Promise<DetectedPromise[]> {
+  const client = getClient();
+
+  const response = await client.chat.completions.create({
+    model: "gpt-4o-mini",
+    max_tokens: 500,
+    temperature: 0.1,
+    messages: [
+      {
+        role: "system",
+        content: `You analyze customer support draft responses to identify commitments or promises made to the customer.
+
+CATEGORIES:
+- refund: Promises about refunds, credits, money back
+- shipping: Promises about shipping, sending, delivery timelines
+- replacement: Promises about replacements or exchanges
+- follow_up: Promises to follow up, investigate, escalate, or get back to them
+- confirmation: Statements that something has been done/approved/processed
+- timeline: Specific time commitments (within X days, by tomorrow, etc.)
+
+Only flag ACTUAL commitments, not:
+- Questions or suggestions
+- Conditional statements ("if you'd like, we could...")
+- General information about policies
+- Promises already fulfilled in the same message
+
+Return JSON array:
+[{"category": "refund", "matchedText": "I'll process your refund", "description": "Will process refund"}]
+
+Return empty array [] if no commitments found.`,
+      },
+      {
+        role: "user",
+        content: `Analyze this draft for commitments/promises:\n\n${draftText}`,
+      },
+    ],
+  });
+
+  const content = response.choices[0]?.message?.content;
+  if (!content) return [];
+
+  try {
+    const jsonMatch = content.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) return [];
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .filter(
+        (p: unknown): p is { category: string; matchedText: string; description: string } =>
+          typeof p === "object" &&
+          p !== null &&
+          "category" in p &&
+          "matchedText" in p &&
+          "description" in p
+      )
+      .map((p) => ({
+        category: (["refund", "shipping", "replacement", "follow_up", "confirmation", "timeline"].includes(p.category)
+          ? p.category
+          : "other") as PromiseCategory,
+        matchedText: String(p.matchedText).slice(0, 200),
+        description: String(p.description).slice(0, 100),
+      }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Simple keyword-based fallback detection (no LLM required)
+ * This is less accurate but provides basic coverage when LLM is unavailable
+ */
+function detectPromisesFallback(draftText: string): DetectedPromise[] {
+  const detected: DetectedPromise[] = [];
+  const text = draftText.toLowerCase();
+
+  // Simple keyword checks - much simpler than the old 30+ regex patterns
+  // Include contractions since customer-facing text often uses them
+  const checks: Array<{ keywords: string[]; category: PromiseCategory; description: string }> = [
+    { keywords: ["refund", "money back", "credit your"], category: "refund", description: "Refund mentioned" },
+    { keywords: ["will ship", "will send", "i'll send", "shipping today", "shipping tomorrow"], category: "shipping", description: "Shipping commitment" },
+    { keywords: ["replacement", "replace it", "send you a new"], category: "replacement", description: "Replacement mentioned" },
+    { keywords: ["follow up", "get back to you", "will investigate", "will escalate", "i'll escalate"], category: "follow_up", description: "Follow-up commitment" },
+    { keywords: ["has been approved", "has been processed", "i've confirmed"], category: "confirmation", description: "Action confirmed" },
+    { keywords: ["within 24", "within 48", "by tomorrow", "by end of"], category: "timeline", description: "Timeline commitment" },
+  ];
+
+  for (const { keywords, category, description } of checks) {
+    for (const keyword of keywords) {
+      if (text.includes(keyword)) {
+        detected.push({ category, matchedText: keyword, description });
+        break; // Only one match per category
       }
     }
   }
@@ -287,7 +234,7 @@ export async function trackPromisedActions(
     return [];
   }
 
-  const promises = detectPromisedActions(draftText);
+  const promises = await detectPromisedActions(draftText);
 
   if (promises.length > 0) {
     await logPromisedActions(threadId, promises, draftText);

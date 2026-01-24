@@ -1,8 +1,12 @@
 /**
- * Test intent classification
+ * Test intent classification using LLM
+ *
+ * As of Jan 2026, intent classification uses LLM via classifyWithLLM()
+ * Requires OPENAI_API_KEY environment variable.
  */
 
-import { classifyIntent } from "../src/lib/intents/classify";
+import { classifyWithLLM } from "../src/lib/intents/llmClassify";
+import { isLLMConfigured } from "../src/lib/llm/client";
 
 const testCases = [
   { subject: "Honor combo deal", body: "Thanks, you too!" },
@@ -15,11 +19,24 @@ const testCases = [
   { subject: "Order #4013", body: "When will my order ship?" },
 ];
 
-console.log("Testing intent classification:\n");
+async function main() {
+  if (!isLLMConfigured()) {
+    console.error("Error: OPENAI_API_KEY not configured");
+    process.exit(1);
+  }
 
-for (const tc of testCases) {
-  const result = classifyIntent(tc.subject, tc.body);
-  console.log(`Subject: "${tc.subject}"`);
-  console.log(`Body: "${tc.body.substring(0, 50)}..."`);
-  console.log(`=> Intent: ${result.intent} (${result.confidence})\n`);
+  console.log("Testing LLM-based intent classification:\n");
+
+  for (const tc of testCases) {
+    const result = await classifyWithLLM(tc.subject, tc.body);
+    console.log(`Subject: "${tc.subject}"`);
+    console.log(`Body: "${tc.body.substring(0, 50)}..."`);
+    console.log(`=> Primary: ${result.primary_intent}`);
+    console.log(`   Intents: ${result.intents.map(i => `${i.slug} (${i.confidence})`).join(", ")}`);
+    console.log(`   Verification: ${result.requires_verification}, Escalate: ${result.auto_escalate}`);
+    console.log(`   Missing info: ${result.missing_info.map(i => i.id).join(", ") || "none"}`);
+    console.log("");
+  }
 }
+
+main().catch(console.error);

@@ -1,135 +1,40 @@
 import { describe, it, expect } from "vitest";
-import { classifyIntent } from "../intents/classify";
 import { policyGate } from "../responders/policyGate";
 import { macroDocsVideoMismatch, macroFirmwareAccessClarify } from "../responders/macros";
 
 /**
- * Integration tests for the triage flow.
- * Tests the complete decision logic without database calls.
+ * Tests for triage components (policy gate and macros).
  *
- * Mirrors the logic in /api/ingest/email/route.ts
+ * As of Jan 2026, intent classification uses LLM via classifyWithLLM() in llmClassify.ts.
+ * Full triage flow integration tests require LLM calls and are not included here.
+ *
+ * These tests validate:
+ * - Policy gate blocking logic
+ * - Pre-approved macros pass policy gate
  */
 
-type TriageResult = {
-  intent: string;
-  confidence: number;
-  action: string;
-  draft: string | null;
-  threadState?: string;
-};
-
-function simulateTriage(subject: string, bodyText: string): TriageResult {
-  const { intent, confidence } = classifyIntent(subject, bodyText);
-
-  let action = "ASK_CLARIFYING_QUESTIONS";
-  let draft: string | null = null;
-  let threadState: string | undefined;
-
-  if (intent === "THANK_YOU_CLOSE") {
-    action = "NO_REPLY";
-    threadState = "RESOLVED";
-  } else if (intent === "DOCS_VIDEO_MISMATCH") {
-    action = "SEND_PREAPPROVED_MACRO";
-    draft = macroDocsVideoMismatch();
-  } else if (intent === "FIRMWARE_ACCESS_ISSUE") {
-    action = "ASK_CLARIFYING_QUESTIONS";
-    draft = macroFirmwareAccessClarify();
-  } else if (intent === "CHARGEBACK_THREAT") {
-    action = "ESCALATE_WITH_DRAFT";
-    draft = "I need to escalate this to my team lead. In the meantime, could you please provide your order number so we can review the situation?\n\n– Lina";
-  }
-
-  if (draft) {
-    const gate = policyGate(draft);
-    if (!gate.ok) {
-      action = "ESCALATE_WITH_DRAFT";
-      draft = `Policy gate blocked draft due to banned language: ${gate.reasons.join(", ")}`;
-    }
-  }
-
-  return { intent, confidence, action, draft, threadState };
-}
-
-describe("Triage Flow Integration", () => {
-  it("FIRMWARE_ACCESS_ISSUE → ASK_CLARIFYING_QUESTIONS with macro", () => {
-    const result = simulateTriage(
-      "Re: Firmware update",
-      "The site's kicking me off when I try to update."
-    );
-
-    expect(result.intent).toBe("FIRMWARE_ACCESS_ISSUE");
-    expect(result.action).toBe("ASK_CLARIFYING_QUESTIONS");
-    expect(result.draft).toContain("3 quick details");
-    expect(result.draft).toContain("Which unit");
-  });
-
-  it("DOCS_VIDEO_MISMATCH → SEND_PREAPPROVED_MACRO", () => {
-    const result = simulateTriage(
-      "Help with update",
-      "I watched the video but I didn't get the email shown in it."
-    );
-
-    expect(result.intent).toBe("DOCS_VIDEO_MISMATCH");
-    expect(result.action).toBe("SEND_PREAPPROVED_MACRO");
-    expect(result.draft).toContain("That video shows an example");
-    expect(result.draft).toContain("which unit you have");
-  });
-
-  it("THANK_YOU_CLOSE → NO_REPLY and RESOLVED state", () => {
-    const result = simulateTriage(
-      "Thanks!",
-      "Thank you so much for your help. Everything works now."
-    );
-
-    expect(result.intent).toBe("THANK_YOU_CLOSE");
-    expect(result.action).toBe("NO_REPLY");
-    expect(result.draft).toBeNull();
-    expect(result.threadState).toBe("RESOLVED");
-  });
-
-  it("CHARGEBACK_THREAT → ESCALATE_WITH_DRAFT", () => {
-    const result = simulateTriage(
-      "Final warning",
-      "I'm going to file a chargeback if this isn't resolved immediately."
-    );
-
-    expect(result.intent).toBe("CHARGEBACK_THREAT");
-    expect(result.action).toBe("ESCALATE_WITH_DRAFT");
-    expect(result.draft).toContain("escalate");
-  });
-
-  it("FOLLOW_UP_NO_NEW_INFO → ASK_CLARIFYING_QUESTIONS (no macro)", () => {
-    const result = simulateTriage(
-      "Any update?",
-      "I've been waiting since September with no response."
-    );
-
-    expect(result.intent).toBe("FOLLOW_UP_NO_NEW_INFO");
-    expect(result.action).toBe("ASK_CLARIFYING_QUESTIONS");
-    // No macro for this intent yet
-    expect(result.draft).toBeNull();
-  });
-
-  it("UNKNOWN → ASK_CLARIFYING_QUESTIONS (no macro)", () => {
-    const result = simulateTriage(
-      "Question",
-      "Hi, I have a general question."
-    );
-
-    expect(result.intent).toBe("UNKNOWN");
-    expect(result.action).toBe("ASK_CLARIFYING_QUESTIONS");
-    expect(result.draft).toBeNull();
-  });
-
-  it("policy gate blocks if draft contains banned language", () => {
-    // Simulate a hypothetical bad macro that promises refund
+describe("Policy Gate", () => {
+  it("blocks if draft contains 'will refund'", () => {
     const badDraft = "Don't worry, we will refund your order today.";
     const gate = policyGate(badDraft);
-
     expect(gate.ok).toBe(false);
     expect(gate.reasons.length).toBeGreaterThan(0);
   });
 
+  it("blocks if draft promises shipping times", () => {
+    const badDraft = "Your order will arrive in 2 days.";
+    const gate = policyGate(badDraft);
+    expect(gate.ok).toBe(false);
+  });
+
+  it("passes normal responses", () => {
+    const goodDraft = "Thanks for reaching out! Let me look into this for you.\n\n– Lina";
+    const gate = policyGate(goodDraft);
+    expect(gate.ok).toBe(true);
+  });
+});
+
+describe("Pre-approved Macros", () => {
   it("all pre-approved macros pass policy gate", () => {
     const macros = [
       macroDocsVideoMismatch(),
@@ -141,5 +46,18 @@ describe("Triage Flow Integration", () => {
       const gate = policyGate(macro);
       expect(gate.ok).toBe(true);
     }
+  });
+
+  it("DOCS_VIDEO_MISMATCH macro contains expected content", () => {
+    const macro = macroDocsVideoMismatch();
+    expect(macro).toContain("That video shows an example");
+    expect(macro).toContain("– Lina");
+  });
+
+  it("FIRMWARE_ACCESS_CLARIFY macro contains expected content", () => {
+    const macro = macroFirmwareAccessClarify();
+    expect(macro).toContain("3 quick details");
+    expect(macro).toContain("Which unit");
+    expect(macro).toContain("– Lina");
   });
 });

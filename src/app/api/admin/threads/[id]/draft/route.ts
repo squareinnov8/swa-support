@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/db";
 import { generateDraft, getConversationHistory, type DraftInput, type OrderContext } from "@/lib/llm/draftGenerator";
-import { classifyIntent } from "@/lib/intents/classify";
+import { classifyWithLLM } from "@/lib/intents/llmClassify";
 import { lookupCustomerByEmail, isShopifyConfigured } from "@/lib/shopify/customer";
 import { getShopifyClient } from "@/lib/shopify/client";
 import type { CustomerContext } from "@/lib/llm/prompts";
@@ -162,10 +162,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const subject = thread.subject || "";
     let intent = thread.last_intent;
 
-    // Only re-classify if no stored intent
+    // Only re-classify if no stored intent (using LLM classification)
     if (!intent || intent === "UNKNOWN") {
-      const classification = classifyIntent(subject, customerMessage);
-      intent = classification.intent || "UNKNOWN";
+      const classification = await classifyWithLLM(subject, customerMessage);
+      intent = classification.primary_intent || "UNKNOWN";
     }
 
     // Get conversation history

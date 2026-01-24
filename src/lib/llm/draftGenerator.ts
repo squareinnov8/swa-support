@@ -10,7 +10,7 @@ import { generate, isLLMConfigured, type GenerateResult } from "./client";
 import { buildUserPrompt, buildSystemPromptAsync, NO_KB_FALLBACK_PROMPT, type CustomerContext, type ThreadAgeContext } from "./prompts";
 import { hybridSearch, type SearchResult } from "@/lib/retrieval/search";
 import { policyGate } from "@/lib/responders/policyGate";
-import { detectVehicle, isProductQuestion, canDoProductLookup } from "@/lib/catalog/vehicleDetector";
+import { detectVehicle, canDoProductLookup } from "@/lib/catalog/vehicleDetector";
 import { findProductsByVehicle } from "@/lib/catalog/lookup";
 import type { ProductWithFitment } from "@/lib/catalog/types";
 import type { Intent } from "@/lib/intents/taxonomy";
@@ -142,20 +142,19 @@ export async function generateDraft(input: DraftInput): Promise<DraftResult> {
       { limit: 5, minScore: 0.3 }
     );
 
-    // 2. Check for vehicle-specific product questions and do catalog lookup
+    // 2. Catalog lookup - if customer mentions a vehicle, show what fits it
+    // (No keyword gating - if they mention their car, products are relevant context)
     let catalogProducts: ProductWithFitment[] = [];
-    if (isProductQuestion(customerMessage)) {
-      const detectedVehicle = detectVehicle(customerMessage);
-      if (canDoProductLookup(detectedVehicle)) {
-        catalogProducts = await findProductsByVehicle(
-          detectedVehicle.year ?? new Date().getFullYear(),
-          detectedVehicle.make!,
-          detectedVehicle.model ?? undefined
-        );
-        console.log(
-          `Catalog lookup: Found ${catalogProducts.length} products for ${detectedVehicle.year ?? "any year"} ${detectedVehicle.make} ${detectedVehicle.model ?? ""}`
-        );
-      }
+    const detectedVehicle = await detectVehicle(customerMessage);
+    if (canDoProductLookup(detectedVehicle)) {
+      catalogProducts = await findProductsByVehicle(
+        detectedVehicle.year ?? new Date().getFullYear(),
+        detectedVehicle.make!,
+        detectedVehicle.model ?? undefined
+      );
+      console.log(
+        `Catalog lookup: Found ${catalogProducts.length} products for ${detectedVehicle.year ?? "any year"} ${detectedVehicle.make} ${detectedVehicle.model ?? ""}`
+      );
     }
 
     // 3. Build prompts (load dynamic instructions from database)

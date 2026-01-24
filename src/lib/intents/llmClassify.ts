@@ -29,6 +29,14 @@ export interface ClassificationResult {
   primary_intent: string;
   requires_verification: boolean;
   auto_escalate: boolean;
+  /** Info missing that we need to ask the customer for */
+  missing_info: Array<{
+    id: string;
+    label: string;
+    required: boolean;
+  }>;
+  /** Whether we have enough info to proceed with a response */
+  can_proceed: boolean;
 }
 
 /**
@@ -93,6 +101,8 @@ export async function classifyWithLLM(
       primary_intent: "UNKNOWN",
       requires_verification: false,
       auto_escalate: false,
+      missing_info: [],
+      can_proceed: false,
     };
   }
 
@@ -105,6 +115,8 @@ export async function classifyWithLLM(
       primary_intent: "UNKNOWN",
       requires_verification: false,
       auto_escalate: false,
+      missing_info: [],
+      can_proceed: false,
     };
   }
 
@@ -146,6 +158,21 @@ Set auto_escalate: true if:
 - Request involves refunds over $200 or unusual circumstances
 - Something feels "off" that a human should review
 
+MISSING INFORMATION ASSESSMENT:
+Identify what information is MISSING that we would need to help this customer. Consider:
+- Order-related requests: Do we have an order number or enough info to find their order?
+- Product issues: Do we know which specific product and what the problem is?
+- Compatibility questions: Do we know what vehicle/device they have?
+- Returns/refunds: Do we know what they want to return and why?
+
+For each missing piece of info, indicate:
+- id: short identifier (e.g., "order_number", "vehicle_info", "product_name", "error_description")
+- label: human-readable question (e.g., "What is your order number?")
+- required: true if we CANNOT proceed without it, false if helpful but optional
+
+Set can_proceed: true if we have enough information to provide a meaningful response.
+Set can_proceed: false if critical information is missing and we need to ask clarifying questions first.
+
 RESPONSE FORMAT:
 Return a JSON object with this exact structure:
 {
@@ -156,7 +183,11 @@ Return a JSON object with this exact structure:
   "requires_verification": true,
   "verification_reason": "Why verification is/isn't needed",
   "auto_escalate": false,
-  "escalation_reason": null
+  "escalation_reason": null,
+  "missing_info": [
+    {"id": "order_number", "label": "What is your order number?", "required": true}
+  ],
+  "can_proceed": false
 }`;
 
   const userMessage = `Classify this customer message:
@@ -237,11 +268,28 @@ Return ONLY the JSON classification, no other text.`;
       console.log(`[Classification] Escalation: ${autoEscalate} - ${parsed.escalation_reason}`);
     }
 
+    // Parse missing info from LLM response
+    const missingInfo = Array.isArray(parsed.missing_info)
+      ? parsed.missing_info.map((info: { id?: string; label?: string; required?: boolean }) => ({
+          id: info.id || "unknown",
+          label: info.label || "Additional information needed",
+          required: info.required ?? true,
+        }))
+      : [];
+
+    const canProceed = typeof parsed.can_proceed === "boolean" ? parsed.can_proceed : missingInfo.filter((i: { required: boolean }) => i.required).length === 0;
+
+    if (missingInfo.length > 0) {
+      console.log(`[Classification] Missing info: ${missingInfo.map((i: { id: string }) => i.id).join(", ")} | Can proceed: ${canProceed}`);
+    }
+
     return {
       intents: validIntents,
       primary_intent: primarySlug,
       requires_verification: requiresVerification,
       auto_escalate: autoEscalate,
+      missing_info: missingInfo,
+      can_proceed: canProceed,
     };
   } catch (error) {
     console.error("LLM classification error:", error);
@@ -250,6 +298,8 @@ Return ONLY the JSON classification, no other text.`;
       primary_intent: "UNKNOWN",
       requires_verification: false,
       auto_escalate: false,
+      missing_info: [],
+      can_proceed: false,
     };
   }
 }
@@ -358,3 +408,6 @@ export async function reclassifyThread(
 
   return classification;
 }
+
+// Re-export from pure module for convenience
+export { generateMissingInfoPromptFromClassification } from "./missingInfoPrompt";
