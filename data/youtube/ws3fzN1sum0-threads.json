@@ -1,0 +1,998 @@
+{
+  "videoId": "ws3fzN1sum0",
+  "title": "Q50 Custom Headlights: Part 2 (Wiring to Switched Vehicle Power/Where to Tap)",
+  "threadCount": 34,
+  "qaPairCount": 11,
+  "threads": [
+    {
+      "topLevelComment": {
+        "id": "Ugxv2cnSLoScRjrYebp4AaABAg",
+        "text": "Y&#39;all GOT THIS!!!! Lemme know in the comments if you&#39;re gonna give it a shot!",
+        "author": "@SquareWheelsAuto",
+        "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+        "likeCount": 2,
+        "publishedAt": "2021-05-12T14:23:54Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgwabBrjrd-7NCO3J_14AaABAg",
+        "text": "I can&#39;t wait to get a spare pair of headlights to give this a shot!",
+        "author": "@Johnno919",
+        "authorChannelId": "UC8rPG_JMpenF0vNkUl1cLOg",
+        "likeCount": 4,
+        "publishedAt": "2021-07-09T07:48:27Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "Ugx49xeqjT_Q5xpzITt4AaABAg",
+        "text": "Dude I cannot thank you enough for these tutorials. You’re videos are smooth af and the transitioning is solid. I cannot wait to try this in my car. I know it’ll be worth it. Thank you for these awesome how to my brother. 🙏🙏",
+        "author": "@ashifarman766",
+        "authorChannelId": "UCU9VPCPvalzscUCvbNq-6mw",
+        "likeCount": 5,
+        "publishedAt": "2021-05-12T15:55:46Z"
+      },
+      "replies": [
+        {
+          "id": "Ugx49xeqjT_Q5xpzITt4AaABAg.9NFLQbybnP19NFSygGcTbk",
+          "text": "Thanks man that means a LOT! Ima keep &#39;em coming!",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 1,
+          "publishedAt": "2021-05-12T17:01:43Z",
+          "parentId": "Ugx49xeqjT_Q5xpzITt4AaABAg"
+        }
+      ],
+      "totalReplyCount": 1
+    },
+    {
+      "topLevelComment": {
+        "id": "UgztWksas0b649ctf7x4AaABAg",
+        "text": "Your awesome bro thanks god we still have people like you who just helping people askin nuthing in return hats off to you god bless you man",
+        "author": "@Storyteller8111",
+        "authorChannelId": "UCCoT2j2pTnFnOUBP2h1UCmg",
+        "likeCount": 1,
+        "publishedAt": "2021-05-13T22:32:38Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgxIV8KkPwlL-N37m554AaABAg",
+        "text": "thanks bro… the lighting kit i got had wierd wiring for turn signals but i got mine working watching your vids❤",
+        "author": "@aceblund3134",
+        "authorChannelId": "UCJwuyf0pub1Ew2nCYqJdanw",
+        "likeCount": 0,
+        "publishedAt": "2023-01-17T03:22:55Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "Ugz2NO4bBe4bewSZUjJ4AaABAg",
+        "text": "Damn there expensive but we’ll worth it  I’m gonna do mine soon",
+        "author": "@miguelvillalobos4718",
+        "authorChannelId": "UCo_2ineIatUg7aMDKqOPk-A",
+        "likeCount": 1,
+        "publishedAt": "2021-08-03T05:01:20Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgzNRMSwdV8jkM6PS8B4AaABAg",
+        "text": "Superb you did it bro you can check alll over social media your the first person who has has brake secret myth customize Q50 head light in full detail Haths off  to you bro you dont know from how long I was waiting to do it cause some of those nuclear engineers ask for ton of money to do this god bless you",
+        "author": "@Storyteller8111",
+        "authorChannelId": "UCCoT2j2pTnFnOUBP2h1UCmg",
+        "likeCount": 2,
+        "publishedAt": "2021-05-31T03:33:00Z"
+      },
+      "replies": [
+        {
+          "id": "UgzNRMSwdV8jkM6PS8B4AaABAg.9NzwX5MSWLm9O8Wyp0sxBW",
+          "text": "Thx for the support!! I&#39;m gonna keep learning and sharing so stay tuned!",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 0,
+          "publishedAt": "2021-06-03T20:53:24Z",
+          "parentId": "UgzNRMSwdV8jkM6PS8B4AaABAg"
+        },
+        {
+          "id": "UgzNRMSwdV8jkM6PS8B4AaABAg.9NzwX5MSWLm9O8tIuwX20J",
+          "text": "@SquareWheelsAuto bro I really really appreciate the effort you make to teach us all out there who wants to do their own but don’t have teachers like you guys no matter what you guys are teaching us there will be always your credit what ever we learn waiting for you blueghozt video keep it up god bless you",
+          "author": "@Storyteller8111",
+          "authorChannelId": "UCCoT2j2pTnFnOUBP2h1UCmg",
+          "likeCount": 0,
+          "publishedAt": "2021-06-04T00:17:15Z",
+          "parentId": "UgzNRMSwdV8jkM6PS8B4AaABAg"
+        }
+      ],
+      "totalReplyCount": 2
+    },
+    {
+      "topLevelComment": {
+        "id": "UgzQAaWBluX9ATwBoUt4AaABAg",
+        "text": "Anyone know how to get the “frosted” crest and brow look?",
+        "author": "@jdfalcon5375",
+        "authorChannelId": "UCp4eZytt8NChho2n7eiDTXg",
+        "likeCount": 1,
+        "publishedAt": "2025-01-14T00:25:12Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgyZ8bvT-SHC615XqH94AaABAg",
+        "text": "OMG that&#39;s effing amazing. I can&#39;t wait to start this project. Hopefully I&#39;ll have it done before mid summer. Still have a few more projects to complete. The best part is that they are very bright, which is perfect for me considering I live in the middle of nowhere, with no real street lights, and deer&#39;s love to jump out on the damn road.",
+        "author": "@thejamaicansenpai1698",
+        "authorChannelId": "UCqeym__MZTEfDuXIa25pPWw",
+        "likeCount": 1,
+        "publishedAt": "2021-05-12T14:07:02Z"
+      },
+      "replies": [
+        {
+          "id": "UgyZ8bvT-SHC615XqH94AaABAg.9NF8zFidF1E9NFAeeVxOWW",
+          "text": "YUP way brighter than stock, great throughput even if you frosted your crests and brows.  Stay tuned, I know you were interested in demon eyes so I&#39;ve got them on the way😎",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 0,
+          "publishedAt": "2021-05-12T14:21:41Z",
+          "parentId": "UgyZ8bvT-SHC615XqH94AaABAg"
+        }
+      ],
+      "totalReplyCount": 1
+    },
+    {
+      "topLevelComment": {
+        "id": "Ugz2vFlJHdsxyVGPeCt4AaABAg",
+        "text": "This was awesome!!",
+        "author": "@AndersonTeeVee",
+        "authorChannelId": "UCjxqBZbhOWyXniNclwQAA6Q",
+        "likeCount": 1,
+        "publishedAt": "2021-11-08T15:02:22Z"
+      },
+      "replies": [
+        {
+          "id": "Ugz2vFlJHdsxyVGPeCt4AaABAg.9UUjP6fx25B9UUlH8vpSSB",
+          "text": "Thx for watching!!! Don&#39;t miss part 3, that&#39;s where the real gems are!!!!",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 0,
+          "publishedAt": "2021-11-08T15:18:46Z",
+          "parentId": "Ugz2vFlJHdsxyVGPeCt4AaABAg"
+        }
+      ],
+      "totalReplyCount": 1
+    },
+    {
+      "topLevelComment": {
+        "id": "Ugy3ETU8Z3mwE0RCXg54AaABAg",
+        "text": "I’m excited for part 3, only part i’ve been waiting for then i’m doing mine!",
+        "author": "@Awsometiger1011",
+        "authorChannelId": "UCKDbZvTNiawc2sSmo25yHKA",
+        "likeCount": 1,
+        "publishedAt": "2021-05-12T17:14:36Z"
+      },
+      "replies": [
+        {
+          "id": "Ugy3ETU8Z3mwE0RCXg54AaABAg.9NFUS0skgQS9NFUjfZMIiV",
+          "text": "Comin&#39; right up! Soon as I get back from vacation 😎",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 1,
+          "publishedAt": "2021-05-12T17:17:08Z",
+          "parentId": "Ugy3ETU8Z3mwE0RCXg54AaABAg"
+        },
+        {
+          "id": "Ugy3ETU8Z3mwE0RCXg54AaABAg.9NFUS0skgQS9Oe_LFJIm08",
+          "text": "@SquareWheelsAuto It&#39;s been a month!!!  I&#39;m anxious for pt 3!",
+          "author": "@carlosdiaz486",
+          "authorChannelId": "UCFLHbPFxrVV5HPXCT2kzC3A",
+          "likeCount": 0,
+          "publishedAt": "2021-06-16T16:57:45Z",
+          "parentId": "Ugy3ETU8Z3mwE0RCXg54AaABAg"
+        },
+        {
+          "id": "Ugy3ETU8Z3mwE0RCXg54AaABAg.9NFUS0skgQS9Oej07QV8ur",
+          "text": "@Carlos Diaz  Coming soon!! Been on vacation but all the parts are here, just figuring out how it all fits together now😅",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 1,
+          "publishedAt": "2021-06-16T18:22:14Z",
+          "parentId": "Ugy3ETU8Z3mwE0RCXg54AaABAg"
+        },
+        {
+          "id": "Ugy3ETU8Z3mwE0RCXg54AaABAg.9NFUS0skgQS9Oemc1oiQ5s",
+          "text": "@SquareWheelsAuto No worries, just doing the exact same setup here for my build but it&#39;s an AFS headlight so just want to check how you do it all!",
+          "author": "@carlosdiaz486",
+          "authorChannelId": "UCFLHbPFxrVV5HPXCT2kzC3A",
+          "likeCount": 0,
+          "publishedAt": "2021-06-16T18:53:46Z",
+          "parentId": "Ugy3ETU8Z3mwE0RCXg54AaABAg"
+        }
+      ],
+      "totalReplyCount": 4
+    },
+    {
+      "topLevelComment": {
+        "id": "Ugy41gzzaJ4E7pyBtHV4AaABAg",
+        "text": "My man... After watching 4-5 of your clips I&#39;ve gotta say that your stuff is on point! I just suscribed to your channel and I don&#39;t even have the Q50 yet, I&#39;m still shopping around 😂...Your clips are so detailed, well-explained and straightforward that you made me wanna build the nicest looking Q in my area loll.. Greetings from Canada, man your stuff is great! 👊🏾",
+        "author": "@fxstar7048",
+        "authorChannelId": "UCt08fBNSYHBk7gkf0m38qqw",
+        "likeCount": 1,
+        "publishedAt": "2021-08-27T04:22:42Z"
+      },
+      "replies": [
+        {
+          "id": "Ugy41gzzaJ4E7pyBtHV4AaABAg.9RXcA8FexrR9RYP5P2CyWC",
+          "text": "Hey that means a lot, thanks!! 🙏🏽🙏🏽🙏🏽 Happy hunting for the right Q, it&#39;s a weird market right now!!! 🤞🤞",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 0,
+          "publishedAt": "2021-08-27T11:38:58Z",
+          "parentId": "Ugy41gzzaJ4E7pyBtHV4AaABAg"
+        }
+      ],
+      "totalReplyCount": 1
+    },
+    {
+      "topLevelComment": {
+        "id": "Ugx5vHLi0OFgi_arCX14AaABAg",
+        "text": "Love it! Great vid",
+        "author": "@Awsometiger1011",
+        "authorChannelId": "UCKDbZvTNiawc2sSmo25yHKA",
+        "likeCount": 1,
+        "publishedAt": "2021-05-12T17:13:32Z"
+      },
+      "replies": [
+        {
+          "id": "Ugx5vHLi0OFgi_arCX14AaABAg.9NFUKDJGHID9NFUhO3FKER",
+          "text": "Thanks!",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 0,
+          "publishedAt": "2021-05-12T17:16:50Z",
+          "parentId": "Ugx5vHLi0OFgi_arCX14AaABAg"
+        }
+      ],
+      "totalReplyCount": 1
+    },
+    {
+      "topLevelComment": {
+        "id": "Ugzsu8YxKoNd9DIDlud4AaABAg",
+        "text": "Which wire taps the turn signal? And which taps the DRL 😭",
+        "author": "@braddahalladin8697",
+        "authorChannelId": "UChjlO5eELe0OFM-Drmg3cBQ",
+        "likeCount": 3,
+        "publishedAt": "2021-05-24T01:23:35Z"
+      },
+      "replies": [
+        {
+          "id": "Ugzsu8YxKoNd9DIDlud4AaABAg.9Nhg97ZX5AS9Ni19koCU2K",
+          "text": "This kit didn&#39;t come with turn signal switchbacks or drl taps. It&#39;s just ON when car is on or OFF when car is off. I&#39;ll be getting a different controller that enables switchbacks and other stuff when car is off",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 2,
+          "publishedAt": "2021-05-24T04:35:54Z",
+          "parentId": "Ugzsu8YxKoNd9DIDlud4AaABAg"
+        }
+      ],
+      "totalReplyCount": 1
+    },
+    {
+      "topLevelComment": {
+        "id": "UgzDOlbeBrB3cK2AiX14AaABAg",
+        "text": "I cannot wait for the demon eyes and the etched lens. I&#39;ve been looking for them everywhere now. You inspired. After you&#39;ve dropped all your parts and products, I&#39;ll try this on my own. LMK if you have IG or anything for support. Thanks again.",
+        "author": "@ashifarman766",
+        "authorChannelId": "UCU9VPCPvalzscUCvbNq-6mw",
+        "likeCount": 1,
+        "publishedAt": "2021-05-16T07:45:06Z"
+      },
+      "replies": [
+        {
+          "id": "UgzDOlbeBrB3cK2AiX14AaABAg.9NOlSRcFnyO9NQZWJLtSPj",
+          "text": "Thx for the support man I truly appreciate you!! I&#39;m @squarewheelsauto on IG don&#39;t be a stranger 😎",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 1,
+          "publishedAt": "2021-05-17T00:30:31Z",
+          "parentId": "UgzDOlbeBrB3cK2AiX14AaABAg"
+        },
+        {
+          "id": "UgzDOlbeBrB3cK2AiX14AaABAg.9NOlSRcFnyO9NQxn2I-8by",
+          "text": "@SquareWheelsAuto I got you my brother.",
+          "author": "@ashifarman766",
+          "authorChannelId": "UCU9VPCPvalzscUCvbNq-6mw",
+          "likeCount": 0,
+          "publishedAt": "2021-05-17T04:11:23Z",
+          "parentId": "UgzDOlbeBrB3cK2AiX14AaABAg"
+        }
+      ],
+      "totalReplyCount": 2
+    },
+    {
+      "topLevelComment": {
+        "id": "UgxAQD3La53n9fG3mHJ4AaABAg",
+        "text": "Hey man first things first amazing videos, I watched part one fully and I noticed you never specified how to put the headlight lens back together after separating it if you could explain that for me. Secondly, with the way you wired it does this mean when you press your unlock buttons your lights are still off?/ no power, with the way you wired it do they still get power when running headlights/nightime run lights on?",
+        "author": "@ryanwhite2529",
+        "authorChannelId": "UCwBBUnGa2QIMZFtYKRnleTw",
+        "likeCount": 0,
+        "publishedAt": "2025-03-19T22:57:55Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgwXAMIUrlCvdyEIuep4AaABAg",
+        "text": "Your workmanship is beyond know meticulous!  I’m late to the party but all these parts were purchased from GLOWE Industries?",
+        "author": "@kylebell2365",
+        "authorChannelId": "UC333bXMfBKmzd90N2up8TGA",
+        "likeCount": 0,
+        "publishedAt": "2023-12-27T18:39:17Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgxSKYxXev5VeKEyRFt4AaABAg",
+        "text": "How would you place the halo?",
+        "author": "@alfonsobarragan9303",
+        "authorChannelId": "UCrj03s0rIxjPkNkGIbLcQPA",
+        "likeCount": 0,
+        "publishedAt": "2024-11-08T01:49:32Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "Ugw9AyTBV8F2aQ7XG314AaABAg",
+        "text": "Hey Rob, do you know if disabling the factory DRL&#39;s shoots a code and gives a dash light? Thanks in advance.",
+        "author": "@jonkang2327",
+        "authorChannelId": "UCCjmKByd5EaMh-CuC3ym_8w",
+        "likeCount": 0,
+        "publishedAt": "2023-04-06T02:11:21Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "Ugw-xZA70LF67ZnHU094AaABAg",
+        "text": "ive been waiting for this for a week now. I ordered the leds but got the wrong part (RGBWA), trying to contact them and change the leds to the flow series :(",
+        "author": "@CapyBadminton",
+        "authorChannelId": "UCt0Y99onfbxLeDSaxbxYt1w",
+        "likeCount": 2,
+        "publishedAt": "2021-05-12T18:09:02Z"
+      },
+      "replies": [
+        {
+          "id": "Ugw-xZA70LF67ZnHU094AaABAg.9NF_fnmw4Sj9NFisOwjTtu",
+          "text": "Damn yeah u definitely want the flow series.  LightingTrendz support was pretty responsive over email",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 0,
+          "publishedAt": "2021-05-12T19:29:24Z",
+          "parentId": "Ugw-xZA70LF67ZnHU094AaABAg"
+        },
+        {
+          "id": "Ugw-xZA70LF67ZnHU094AaABAg.9NF_fnmw4Sj9NPA2EiPS9s",
+          "text": "What’s the difference between RGBWA and flow series?",
+          "author": "@ericarroyo1984",
+          "authorChannelId": "UCv6zdl-03jiTg2EYkHu9a0A",
+          "likeCount": 0,
+          "publishedAt": "2021-05-16T11:28:43Z",
+          "parentId": "Ugw-xZA70LF67ZnHU094AaABAg"
+        },
+        {
+          "id": "Ugw-xZA70LF67ZnHU094AaABAg.9NF_fnmw4Sj9N_Co_cLl-f",
+          "text": "@ericarroyo1984 The RGBWA doesn&#39;t have the long led (just the crescent) and it suppose to have less color. Basically, it is used to replace broken crescent light, not for having headlight lightshow.",
+          "author": "@CapyBadminton",
+          "authorChannelId": "UCt0Y99onfbxLeDSaxbxYt1w",
+          "likeCount": 0,
+          "publishedAt": "2021-05-20T18:24:34Z",
+          "parentId": "Ugw-xZA70LF67ZnHU094AaABAg"
+        }
+      ],
+      "totalReplyCount": 3
+    },
+    {
+      "topLevelComment": {
+        "id": "UgwHx1kFyLlLE9NnjIN4AaABAg",
+        "text": "hey man just checking how the wires held up over time and to see if it’s worth it to splice in a switch instead of just having the exposed copper, please lmk",
+        "author": "@RevivedbyRey",
+        "authorChannelId": "UCZ9Q9-MBwWCW0GaNuguAb1w",
+        "likeCount": 1,
+        "publishedAt": "2023-05-01T18:56:29Z"
+      },
+      "replies": [
+        {
+          "id": "UgwHx1kFyLlLE9NnjIN4AaABAg.9pB1eKxV9l-9pBbMkXAomp",
+          "text": "So far so good! Haven&#39;t had any issues and I just used cheap Amazon positap equivalents 👍🏾👍🏾",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 0,
+          "publishedAt": "2023-05-02T00:17:15Z",
+          "parentId": "UgwHx1kFyLlLE9NnjIN4AaABAg"
+        }
+      ],
+      "totalReplyCount": 1
+    },
+    {
+      "topLevelComment": {
+        "id": "UgyT5epyS194NxJk5gN4AaABAg",
+        "text": "Can you add demon eye if you have this installed? How would that work? Thanks, appreciate the vid. Will try to do this on my Q before summer lol",
+        "author": "@ericarroyo1984",
+        "authorChannelId": "UCv6zdl-03jiTg2EYkHu9a0A",
+        "likeCount": 1,
+        "publishedAt": "2021-05-16T11:35:44Z"
+      },
+      "replies": [
+        {
+          "id": "UgyT5epyS194NxJk5gN4AaABAg.9NPAqf42VZO9NPpxs6MBab",
+          "text": "Im gonna find out! Demon eyes and etched lenses coming up next!!",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 0,
+          "publishedAt": "2021-05-16T17:43:43Z",
+          "parentId": "UgyT5epyS194NxJk5gN4AaABAg"
+        }
+      ],
+      "totalReplyCount": 1
+    },
+    {
+      "topLevelComment": {
+        "id": "Ugw8TJRhT8L3AucFQFd4AaABAg",
+        "text": "Did u wire the sequential turn signals too?",
+        "author": "@bannyvongphachanh8052",
+        "authorChannelId": "UCvIq6owu9z2teOfbMPzUWNw",
+        "likeCount": 1,
+        "publishedAt": "2023-03-09T18:24:12Z"
+      },
+      "replies": [
+        {
+          "id": "Ugw8TJRhT8L3AucFQFd4AaABAg.9n2VpYGB0HL9n2a-dKYNQO",
+          "text": "Nah didn&#39;t like the look",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 0,
+          "publishedAt": "2023-03-09T19:09:24Z",
+          "parentId": "Ugw8TJRhT8L3AucFQFd4AaABAg"
+        }
+      ],
+      "totalReplyCount": 1
+    },
+    {
+      "topLevelComment": {
+        "id": "UgzNY3HLPrxLzAq3SnJ4AaABAg",
+        "text": "Another great tutorial, I’m trying to wire sequential switchback led strips to replace the eyebrows, does anyone know those wires on the headlight unit I can tap into",
+        "author": "@kylejenkins8830",
+        "authorChannelId": "UCvtzcR3ml9K26X4nnL7PMuw",
+        "likeCount": 1,
+        "publishedAt": "2021-09-14T21:56:08Z"
+      },
+      "replies": [
+        {
+          "id": "UgzNY3HLPrxLzAq3SnJ4AaABAg.9SHr1TLxO4V9SHwSDJ6XXv",
+          "text": "Which headlight signal ru trying to tap? I hook my blueghozt up to the headlight harness in video 3 in this series, it might help depending what ur trying to do 👍🏾",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 0,
+          "publishedAt": "2021-09-14T22:43:29Z",
+          "parentId": "UgzNY3HLPrxLzAq3SnJ4AaABAg"
+        },
+        {
+          "id": "UgzNY3HLPrxLzAq3SnJ4AaABAg.9SHr1TLxO4V9SKf4wx5C8n",
+          "text": "@SquareWheelsAuto thanks I watched all the vids great job👍 <br>I tapped into the rear controller inside the headlight unit that’s runs the factory drl output <br><br>Demon eyes<br>Power Pin 5 (as your vid)<br>Ground pin 4 <br><br>Sequential stips<br>Ground pin 4<br>Drl pin 5<br>Sequential signal - ran from bottom of housing (through the rubber seal) to live signal wire in main harness <br><br>Mounted the control module inside the headlight housing <br><br>Everything working and looking great until I shorted the circuit board now I’m waiting for a new headlight<br>Thanks again for the vids looking forward to more",
+          "author": "@kylejenkins8830",
+          "authorChannelId": "UCvtzcR3ml9K26X4nnL7PMuw",
+          "likeCount": 1,
+          "publishedAt": "2021-09-16T00:09:28Z",
+          "parentId": "UgzNY3HLPrxLzAq3SnJ4AaABAg"
+        },
+        {
+          "id": "UgzNY3HLPrxLzAq3SnJ4AaABAg.9SHr1TLxO4V9SKh-1Fjani",
+          "text": "@kylejenkins8830 CRAP sorry to hear man!!! just out of curiosity how did that happen??",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 0,
+          "publishedAt": "2021-09-16T00:26:08Z",
+          "parentId": "UgzNY3HLPrxLzAq3SnJ4AaABAg"
+        },
+        {
+          "id": "UgzNY3HLPrxLzAq3SnJ4AaABAg.9SHr1TLxO4V9SKiTEPtJtZ",
+          "text": "@SquareWheelsAuto two of the circuit boards touched and I hear a sizzle, now it keeps beeping, when I engage the signal lights, just as I had figured out all the wires, nothing else appears to be damaged so guess I’m lucky",
+          "author": "@kylejenkins8830",
+          "authorChannelId": "UCvtzcR3ml9K26X4nnL7PMuw",
+          "likeCount": 1,
+          "publishedAt": "2021-09-16T00:39:00Z",
+          "parentId": "UgzNY3HLPrxLzAq3SnJ4AaABAg"
+        }
+      ],
+      "totalReplyCount": 4
+    },
+    {
+      "topLevelComment": {
+        "id": "Ugz5E-goLoR-UqyTHiJ4AaABAg",
+        "text": "I am going to start this project right when I get back from vacation. However I am using profile pivot led switchbacks, so I do not need a controller but is there any way you can help or suggest a way to wire as a DRL and turn signal?? Thanks",
+        "author": "@swmfpv",
+        "authorChannelId": "UCsKh1qUwShyvGDwJ3ZaIkcw",
+        "likeCount": 1,
+        "publishedAt": "2021-12-30T17:29:30Z"
+      },
+      "replies": [
+        {
+          "id": "Ugz5E-goLoR-UqyTHiJ4AaABAg.9W_t_AAcDod9WaJ9VHIt2K",
+          "text": "No idea!  I&#39;d say follow the instructions that come with the switchbacks - I&#39;m surprised they don&#39;t come with a controller?",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 0,
+          "publishedAt": "2021-12-30T21:21:47Z",
+          "parentId": "Ugz5E-goLoR-UqyTHiJ4AaABAg"
+        }
+      ],
+      "totalReplyCount": 1
+    },
+    {
+      "topLevelComment": {
+        "id": "UgzpR0N9GfuYxQ1hint4AaABAg",
+        "text": "no q60 version?",
+        "author": "@souljaboydun",
+        "authorChannelId": "UCP4KhhBWHmlzsx3kir4_gkQ",
+        "likeCount": 0,
+        "publishedAt": "2021-06-17T15:37:29Z"
+      },
+      "replies": [
+        {
+          "id": "UgzpR0N9GfuYxQ1hint4AaABAg.9Oh-xF-uAGd9Oi-AZpJyQY",
+          "text": "Not thru lightingtrendz",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 0,
+          "publishedAt": "2021-06-18T00:49:56Z",
+          "parentId": "UgzpR0N9GfuYxQ1hint4AaABAg"
+        }
+      ],
+      "totalReplyCount": 1
+    },
+    {
+      "topLevelComment": {
+        "id": "UgwavjUa11iRXlCsTkp4AaABAg",
+        "text": "Oh I forgot to ask how did you put the clear casing back on? What adhesive did you use?",
+        "author": "@Awsometiger1011",
+        "authorChannelId": "UCKDbZvTNiawc2sSmo25yHKA",
+        "likeCount": 0,
+        "publishedAt": "2021-05-14T03:38:28Z"
+      },
+      "replies": [
+        {
+          "id": "UgwavjUa11iRXlCsTkp4AaABAg.9NJAdFu0YLC9NJqdX9jOBg",
+          "text": "I just reversed the process. Put the clear casing on after everything is assembled, warm up in the oven, then squeeze together while the sealant is warm and put the screws back in",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 0,
+          "publishedAt": "2021-05-14T09:54:14Z",
+          "parentId": "UgwavjUa11iRXlCsTkp4AaABAg"
+        }
+      ],
+      "totalReplyCount": 1
+    },
+    {
+      "topLevelComment": {
+        "id": "Ugy573WdxXJdMD9T1z14AaABAg",
+        "text": "Regarding your power source… are you able to leave them on in the app and they turn on when you start the car or do you have to turn them on using the app?",
+        "author": "@bryanmatthews5827",
+        "authorChannelId": "UCTIhvmMbl8wONvoYCbOxySw",
+        "likeCount": 1,
+        "publishedAt": "2022-10-22T00:24:36Z"
+      },
+      "replies": [
+        {
+          "id": "Ugy573WdxXJdMD9T1z14AaABAg.9hTE_eIUiLq9hTHE73Pi1e",
+          "text": "Can be done either way. Check out videos 2 and 3 for more power source options. I&#39;ve now got my blueghozt running always-on so it can do welcome animations when I unlock the doors 👍🏾",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 0,
+          "publishedAt": "2022-10-22T00:47:45Z",
+          "parentId": "Ugy573WdxXJdMD9T1z14AaABAg"
+        },
+        {
+          "id": "Ugy573WdxXJdMD9T1z14AaABAg.9hTE_eIUiLq9hTM9knzvRQ",
+          "text": "@SquareWheelsAuto thank you. I’m using the Magic LED app Lighting Trendz recommended. Just want to be sure that if I use the relay spot you did and leave the LED on in the app, they’ll turn off and on when I start and stop the ignition without having to use the app?",
+          "author": "@bryanmatthews5827",
+          "authorChannelId": "UCTIhvmMbl8wONvoYCbOxySw",
+          "likeCount": 0,
+          "publishedAt": "2022-10-22T01:30:50Z",
+          "parentId": "Ugy573WdxXJdMD9T1z14AaABAg"
+        },
+        {
+          "id": "Ugy573WdxXJdMD9T1z14AaABAg.9hTE_eIUiLq9hUQAZn7xRf",
+          "text": "@bryanmatthews5827 yes, probably. It was LED HUE when I did this video and that&#39;s how it behaved. The app/controller would remember what it was doing last right before power was killed, and do that immediately when power was restored.",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 0,
+          "publishedAt": "2022-10-22T11:25:09Z",
+          "parentId": "Ugy573WdxXJdMD9T1z14AaABAg"
+        }
+      ],
+      "totalReplyCount": 3
+    },
+    {
+      "topLevelComment": {
+        "id": "UgxqL4uENwks_gkRUk54AaABAg",
+        "text": "Hey man how did you connect the lighting trendz power wire into the fuse panel? I’ve got my headlights apart and painted so installing the new leds is my next step",
+        "author": "@feta8939",
+        "authorChannelId": "UCFktoEv5utFdO5vuZOx_Unw",
+        "likeCount": 1,
+        "publishedAt": "2021-08-15T16:49:30Z"
+      },
+      "replies": [
+        {
+          "id": "UgxqL4uENwks_gkRUk54AaABAg.9R435OVaTvf9R45_d-A7L_",
+          "text": "Awesome I love to hear when ppl are doing this! check out this video @ <a href=\"https://www.youtube.com/watch?v=ws3fzN1sum0&amp;t=304\">5:04</a> - this is where I tapped for switched 12v for the Lightingtrendz controller.",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 1,
+          "publishedAt": "2021-08-15T17:11:15Z",
+          "parentId": "UgxqL4uENwks_gkRUk54AaABAg"
+        },
+        {
+          "id": "UgxqL4uENwks_gkRUk54AaABAg.9R435OVaTvf9R4TiiXmdIp",
+          "text": "@SquareWheelsAuto I see what u did but I don’t see how you actually connected the wire to the fuse?. Did you just push it down into the slot and put the fuse on top of it or have to connect it a different way?",
+          "author": "@feta8939",
+          "authorChannelId": "UCFktoEv5utFdO5vuZOx_Unw",
+          "likeCount": 0,
+          "publishedAt": "2021-08-15T20:42:12Z",
+          "parentId": "UgxqL4uENwks_gkRUk54AaABAg"
+        },
+        {
+          "id": "UgxqL4uENwks_gkRUk54AaABAg.9R435OVaTvf9R4US0mjypc",
+          "text": "@feta8939 yup just twisted the wire and tucked it into the relay port. Test with a micrometer if u have one before buttoning it all back up 👍🏾",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 1,
+          "publishedAt": "2021-08-15T20:48:31Z",
+          "parentId": "UgxqL4uENwks_gkRUk54AaABAg"
+        },
+        {
+          "id": "UgxqL4uENwks_gkRUk54AaABAg.9R435OVaTvf9R4VjKU2yF4",
+          "text": "@SquareWheelsAuto sweet thanks man! And yes I grabbed all testing items you mentioned in the link s before hand. Really appreciate your guide to the Q50 retrofit. I feel like we could prolly make money doing this for other people who aren’t confident enough doing it themselves.. 😂",
+          "author": "@feta8939",
+          "authorChannelId": "UCFktoEv5utFdO5vuZOx_Unw",
+          "likeCount": 0,
+          "publishedAt": "2021-08-15T20:59:46Z",
+          "parentId": "UgxqL4uENwks_gkRUk54AaABAg"
+        },
+        {
+          "id": "UgxqL4uENwks_gkRUk54AaABAg.9R435OVaTvf9R4XAiBgDWr",
+          "text": "@feta8939 hell yeah man I get offers all the time, I&#39;m looking for somewhere to send people so lmk if u open up shop!! 😅",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 1,
+          "publishedAt": "2021-08-15T21:12:22Z",
+          "parentId": "UgxqL4uENwks_gkRUk54AaABAg"
+        },
+        {
+          "id": "UgxqL4uENwks_gkRUk54AaABAg.9R435OVaTvf9R4gfLWMwjB",
+          "text": "@SquareWheelsAuto lol alright sounds man. Let me see how these turn out and I’ll let ya know",
+          "author": "@feta8939",
+          "authorChannelId": "UCFktoEv5utFdO5vuZOx_Unw",
+          "likeCount": 0,
+          "publishedAt": "2021-08-15T22:44:04Z",
+          "parentId": "UgxqL4uENwks_gkRUk54AaABAg"
+        }
+      ],
+      "totalReplyCount": 6
+    },
+    {
+      "topLevelComment": {
+        "id": "Ugx_jk2MAiRgtDbX1rF4AaABAg",
+        "text": "What is the brightness compared to oem I don’t want to be dimmer than stock",
+        "author": "@alvensmith3562",
+        "authorChannelId": "UCYgGsd0HH_j7PIFNihVf8rA",
+        "likeCount": 1,
+        "publishedAt": "2021-11-16T06:38:00Z"
+      },
+      "replies": [
+        {
+          "id": "Ugx_jk2MAiRgtDbX1rF4AaABAg.9UnR1xaskVI9UoYpHxusP0",
+          "text": "These DRLs are marginally brighter than stock, but still not as bright/bold as, say, Audi&#39;s DRLs.<br><br>If brightness is your top priority, I&#39;d recommend getting some switchbacks (not RGB) - they tend to be brighter than fully addressable RGB LEDs.",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 0,
+          "publishedAt": "2021-11-16T17:05:17Z",
+          "parentId": "Ugx_jk2MAiRgtDbX1rF4AaABAg"
+        },
+        {
+          "id": "Ugx_jk2MAiRgtDbX1rF4AaABAg.9UnR1xaskVI9Upsfw2Izyq",
+          "text": "@SquareWheelsAuto I’m not wanting to be brighter or dimmer it’s that I’ve seen some light strips have bright white then the moment you switch to a different color its super faded and looks like crap",
+          "author": "@alvensmith3562",
+          "authorChannelId": "UCYgGsd0HH_j7PIFNihVf8rA",
+          "likeCount": 1,
+          "publishedAt": "2021-11-17T05:26:44Z",
+          "parentId": "Ugx_jk2MAiRgtDbX1rF4AaABAg"
+        },
+        {
+          "id": "Ugx_jk2MAiRgtDbX1rF4AaABAg.9UnR1xaskVI9Upsmsbdtzh",
+          "text": "And I’m definitely going to be giving this a try because I’m getting board sitting round and want to mod my car more to look better",
+          "author": "@alvensmith3562",
+          "authorChannelId": "UCYgGsd0HH_j7PIFNihVf8rA",
+          "likeCount": 1,
+          "publishedAt": "2021-11-17T05:27:41Z",
+          "parentId": "Ugx_jk2MAiRgtDbX1rF4AaABAg"
+        },
+        {
+          "id": "Ugx_jk2MAiRgtDbX1rF4AaABAg.9UnR1xaskVI9UrLUqU0EVf",
+          "text": "Yup when you dive in, make sure the LEDs you choose look how you want em to.  I&#39;m learning that all LEDs are not the same.  If you&#39;re looking for quality LEDs (brighter, vivid colors, etc) check out <a href=\"http://www.gloweleds.com/\">www.gloweleds.com</a> - use coupon code SQUAREWHEELS.  good luck!!",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 0,
+          "publishedAt": "2021-11-17T19:06:28Z",
+          "parentId": "Ugx_jk2MAiRgtDbX1rF4AaABAg"
+        },
+        {
+          "id": "Ugx_jk2MAiRgtDbX1rF4AaABAg.9UnR1xaskVI9UrfPsksz57",
+          "text": "@SquareWheelsAuto  can I use these on my headlights or should I go to the link you provided on this video to have it already made for me",
+          "author": "@alvensmith3562",
+          "authorChannelId": "UCYgGsd0HH_j7PIFNihVf8rA",
+          "likeCount": 0,
+          "publishedAt": "2021-11-17T22:09:18Z",
+          "parentId": "Ugx_jk2MAiRgtDbX1rF4AaABAg"
+        },
+        {
+          "id": "Ugx_jk2MAiRgtDbX1rF4AaABAg.9UnR1xaskVI9Us2LaAnyg0",
+          "text": "I mean technically you can use ANY LEDs for these projects. If u can wait a little bit, Glowe is working on a custom headlight kit for the Q50.",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 0,
+          "publishedAt": "2021-11-18T01:38:26Z",
+          "parentId": "Ugx_jk2MAiRgtDbX1rF4AaABAg"
+        },
+        {
+          "id": "Ugx_jk2MAiRgtDbX1rF4AaABAg.9UnR1xaskVI9Us3TfGXEer",
+          "text": "@SquareWheelsAuto would you say that it’s better than the set you used on your headlights",
+          "author": "@alvensmith3562",
+          "authorChannelId": "UCYgGsd0HH_j7PIFNihVf8rA",
+          "likeCount": 0,
+          "publishedAt": "2021-11-18T01:48:16Z",
+          "parentId": "Ugx_jk2MAiRgtDbX1rF4AaABAg"
+        },
+        {
+          "id": "Ugx_jk2MAiRgtDbX1rF4AaABAg.9UnR1xaskVI9Us6Emutfah",
+          "text": "@alvensmith3562 Its still in the works so all I can do is speculate, but I&#39;m real confident in Glowes quality and attention to detail. as long as Glowe is around I won&#39;t be buying anymore lightingtrendz.",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 0,
+          "publishedAt": "2021-11-18T02:12:27Z",
+          "parentId": "Ugx_jk2MAiRgtDbX1rF4AaABAg"
+        }
+      ],
+      "totalReplyCount": 8
+    },
+    {
+      "topLevelComment": {
+        "id": "UgzIZokZSY0BVT6yfQ14AaABAg",
+        "text": "I have a 2018 and my fuse box has a second smaller box, it has the same little black one as you but then it has a blue one next to it, do i continue and wire it up like yours or?",
+        "author": "@mistros5684",
+        "authorChannelId": "UCX2OpeEg0YNGtqiPWpjazCg",
+        "likeCount": 1,
+        "publishedAt": "2021-10-26T06:36:00Z"
+      },
+      "replies": [
+        {
+          "id": "UgzIZokZSY0BVT6yfQ14AaABAg.9TxM6yp1QCW9Ty0cwwyO93",
+          "text": "The position I noted was one of few that provides switched 12v power when the engine is on.  Should be the same for all years but if you&#39;re in doubt, check with a multimeter!",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 1,
+          "publishedAt": "2021-10-26T12:47:30Z",
+          "parentId": "UgzIZokZSY0BVT6yfQ14AaABAg"
+        },
+        {
+          "id": "UgzIZokZSY0BVT6yfQ14AaABAg.9TxM6yp1QCW9Ty2q1iiFig",
+          "text": "@SquareWheelsAuto thank you so much, i didnt expect a reply this fast! 🙌",
+          "author": "@mistros5684",
+          "authorChannelId": "UCX2OpeEg0YNGtqiPWpjazCg",
+          "likeCount": 0,
+          "publishedAt": "2021-10-26T13:06:46Z",
+          "parentId": "UgzIZokZSY0BVT6yfQ14AaABAg"
+        },
+        {
+          "id": "UgzIZokZSY0BVT6yfQ14AaABAg.9TxM6yp1QCW9TykoLb4XZG",
+          "text": "@SquareWheelsAuto hey quick question i was trying to test mine today and they did not want to turn on, the Bluetooth would connect but the lights didn’t turn on. Would you happen to know whats going on?",
+          "author": "@mistros5684",
+          "authorChannelId": "UCX2OpeEg0YNGtqiPWpjazCg",
+          "likeCount": 1,
+          "publishedAt": "2021-10-26T19:39:45Z",
+          "parentId": "UgzIZokZSY0BVT6yfQ14AaABAg"
+        },
+        {
+          "id": "UgzIZokZSY0BVT6yfQ14AaABAg.9TxM6yp1QCW9TyktWGiHHZ",
+          "text": "@SquareWheelsAuto I made sure that it was 12V before ai tested too and they still didnt turn on, only the Bluetooth did.",
+          "author": "@mistros5684",
+          "authorChannelId": "UCX2OpeEg0YNGtqiPWpjazCg",
+          "likeCount": 0,
+          "publishedAt": "2021-10-26T19:40:28Z",
+          "parentId": "UgzIZokZSY0BVT6yfQ14AaABAg"
+        },
+        {
+          "id": "UgzIZokZSY0BVT6yfQ14AaABAg.9TxM6yp1QCW9Tyo1Zy0bYE",
+          "text": "@mistros5684 hmm. did you try running colors or animations in the app?",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 0,
+          "publishedAt": "2021-10-26T20:07:55Z",
+          "parentId": "UgzIZokZSY0BVT6yfQ14AaABAg"
+        },
+        {
+          "id": "UgzIZokZSY0BVT6yfQ14AaABAg.9TxM6yp1QCW9Typ32a6jyT",
+          "text": "@SquareWheelsAuto yea the app is weird, its not giving me an option to.",
+          "author": "@mistros5684",
+          "authorChannelId": "UCX2OpeEg0YNGtqiPWpjazCg",
+          "likeCount": 0,
+          "publishedAt": "2021-10-26T20:16:51Z",
+          "parentId": "UgzIZokZSY0BVT6yfQ14AaABAg"
+        },
+        {
+          "id": "UgzIZokZSY0BVT6yfQ14AaABAg.9TxM6yp1QCW9Typ8UvwoAq",
+          "text": "@SquareWheelsAuto But they were supposed to turn on when they connected to power automatically, mine didn’t only the Bluetooth was on for some reason",
+          "author": "@mistros5684",
+          "authorChannelId": "UCX2OpeEg0YNGtqiPWpjazCg",
+          "likeCount": 0,
+          "publishedAt": "2021-10-26T20:17:36Z",
+          "parentId": "UgzIZokZSY0BVT6yfQ14AaABAg"
+        },
+        {
+          "id": "UgzIZokZSY0BVT6yfQ14AaABAg.9TxM6yp1QCW9TzAtRU5cM1",
+          "text": "I&#39;m lost tbh. Kinda sounds like your strips aren&#39;t getting power. But the app shouldn&#39;t know/care about that. It&#39;s weird the option is dimmed out.",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 0,
+          "publishedAt": "2021-10-26T23:36:23Z",
+          "parentId": "UgzIZokZSY0BVT6yfQ14AaABAg"
+        },
+        {
+          "id": "UgzIZokZSY0BVT6yfQ14AaABAg.9TxM6yp1QCW9TzBJWccb8c",
+          "text": "@SquareWheelsAuto yea, if you want i could send a video to show you how its reacting, ill post it on my channel if anything",
+          "author": "@mistros5684",
+          "authorChannelId": "UCX2OpeEg0YNGtqiPWpjazCg",
+          "likeCount": 0,
+          "publishedAt": "2021-10-26T23:40:05Z",
+          "parentId": "UgzIZokZSY0BVT6yfQ14AaABAg"
+        },
+        {
+          "id": "UgzIZokZSY0BVT6yfQ14AaABAg.9TxM6yp1QCW9TzCE2gwWy-",
+          "text": "@SquareWheelsAuto I DM’d you",
+          "author": "@mistros5684",
+          "authorChannelId": "UCX2OpeEg0YNGtqiPWpjazCg",
+          "likeCount": 0,
+          "publishedAt": "2021-10-26T23:48:04Z",
+          "parentId": "UgzIZokZSY0BVT6yfQ14AaABAg"
+        }
+      ],
+      "totalReplyCount": 10
+    },
+    {
+      "topLevelComment": {
+        "id": "UgzGuwSPeCMkpdhyHQd4AaABAg",
+        "text": "How did you reseal the lens",
+        "author": "@carlosleyva464",
+        "authorChannelId": "UCkBGzIBOcLA-AStWnv0tf6w",
+        "likeCount": 0,
+        "publishedAt": "2025-10-29T22:58:50Z"
+      },
+      "replies": [
+        {
+          "id": "UgzGuwSPeCMkpdhyHQd4AaABAg.AOsnMS2oDw9ARKhdEiJkuq",
+          "text": "<a href=\"https://www.youtube.com/watch?v=pm0HRAD7f7Q\">https://youtu.be/pm0HRAD7f7Q?si=xXAdTV9r1DX35k8U</a>",
+          "author": "@bigyashi",
+          "authorChannelId": "UCUrWN73HCXBfxPu4U6Ky6zA",
+          "likeCount": 0,
+          "publishedAt": "2025-12-29T21:29:36Z",
+          "parentId": "UgzGuwSPeCMkpdhyHQd4AaABAg"
+        }
+      ],
+      "totalReplyCount": 1
+    },
+    {
+      "topLevelComment": {
+        "id": "Ugz2C9Oc_nQJ55lK-SV4AaABAg",
+        "text": "On the dash does anything come up about the drls? Or does it stay totally fine? The drl on my driver side died and if this doesnt show any issues with drls being unplugged, heck im gonna do exactly this!",
+        "author": "@apperez2406",
+        "authorChannelId": "UC23LgSv1_b-d_sjsdpjfxrQ",
+        "likeCount": 1,
+        "publishedAt": "2021-10-17T19:23:26Z"
+      },
+      "replies": [
+        {
+          "id": "Ugz2C9Oc_nQJ55lK-SV4AaABAg.9TbYmsKZdnc9TbekCgb7aV",
+          "text": "No issues or errors!! 👍🏾👍🏾👍🏾👍🏾",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 0,
+          "publishedAt": "2021-10-17T20:24:14Z",
+          "parentId": "Ugz2C9Oc_nQJ55lK-SV4AaABAg"
+        },
+        {
+          "id": "Ugz2C9Oc_nQJ55lK-SV4AaABAg.9TbYmsKZdnc9Tbf_AqHuUn",
+          "text": "@SquareWheelsAuto wicked, ya just gave me full inspiración for this! Thank you!!!! 🤙🏼",
+          "author": "@apperez2406",
+          "authorChannelId": "UC23LgSv1_b-d_sjsdpjfxrQ",
+          "likeCount": 1,
+          "publishedAt": "2021-10-17T20:31:28Z",
+          "parentId": "Ugz2C9Oc_nQJ55lK-SV4AaABAg"
+        },
+        {
+          "id": "Ugz2C9Oc_nQJ55lK-SV4AaABAg.9TbYmsKZdnc9TbhPkFWfc1",
+          "text": "@apperez2406 be sure to check out part 3 of this series. The Blueghozt controller takes this thing to a whole other level 💯",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 0,
+          "publishedAt": "2021-10-17T20:47:31Z",
+          "parentId": "Ugz2C9Oc_nQJ55lK-SV4AaABAg"
+        }
+      ],
+      "totalReplyCount": 3
+    },
+    {
+      "topLevelComment": {
+        "id": "Ugx4NAKAqsStV458p5B4AaABAg",
+        "text": "Will the lights turn on when you unlock the car at night like before?",
+        "author": "@Mk8boosted",
+        "authorChannelId": "UCT5sWYwGCeP8X6tPqUGGn-g",
+        "likeCount": 1,
+        "publishedAt": "2022-04-25T01:31:49Z"
+      },
+      "replies": [
+        {
+          "id": "Ugx4NAKAqsStV458p5B4AaABAg.9aDsBTC0k0P9aDvBnaPhmf",
+          "text": "Depends how u wire it and what controller u use. Watch part 3 if you’re interested in unlock animations.",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 0,
+          "publishedAt": "2022-04-25T01:58:05Z",
+          "parentId": "Ugx4NAKAqsStV458p5B4AaABAg"
+        },
+        {
+          "id": "Ugx4NAKAqsStV458p5B4AaABAg.9aDsBTC0k0P9aDvS8dvdfD",
+          "text": "@SquareWheelsAuto I was going to use the controller that the rgb lights come with. Would it not be possible under the same relay connection you have in the video? Or should I use another controller such as the ghost one in part 3?",
+          "author": "@Mk8boosted",
+          "authorChannelId": "UCT5sWYwGCeP8X6tPqUGGn-g",
+          "likeCount": 0,
+          "publishedAt": "2022-04-25T02:00:19Z",
+          "parentId": "Ugx4NAKAqsStV458p5B4AaABAg"
+        },
+        {
+          "id": "Ugx4NAKAqsStV458p5B4AaABAg.9aDsBTC0k0P9aDw5tLNoQx",
+          "text": "Any controller can turn the lights on on unlock. Blueghozt  is the only one I&#39;ve found that does a nice animation.",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 0,
+          "publishedAt": "2022-04-25T02:06:01Z",
+          "parentId": "Ugx4NAKAqsStV458p5B4AaABAg"
+        },
+        {
+          "id": "Ugx4NAKAqsStV458p5B4AaABAg.9aDsBTC0k0P9aDyAGKjzR3",
+          "text": "@SquareWheelsAuto Okay that does make sense. With the setup you had in the video does the lights turn on when you unlock or only when the car is on accessory mode?",
+          "author": "@Mk8boosted",
+          "authorChannelId": "UCT5sWYwGCeP8X6tPqUGGn-g",
+          "likeCount": 0,
+          "publishedAt": "2022-04-25T02:24:05Z",
+          "parentId": "Ugx4NAKAqsStV458p5B4AaABAg"
+        }
+      ],
+      "totalReplyCount": 4
+    }
+  ]
+}

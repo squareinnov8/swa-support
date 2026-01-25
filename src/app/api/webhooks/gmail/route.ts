@@ -26,6 +26,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runGmailMonitor } from "@/lib/gmail/monitor";
 import { renewWatchIfNeeded } from "@/lib/gmail/watch";
+import { checkStaleHumanHandling } from "@/lib/threads";
 import { supabase } from "@/lib/db";
 
 const SUPPORT_EMAIL = "support@squarewheelsauto.com";
@@ -103,6 +104,13 @@ export async function POST(request: NextRequest) {
     // The monitor uses historyId from the database for incremental sync
     const result = await runGmailMonitor();
 
+    // Check for stale HUMAN_HANDLING threads (runs on every webhook call)
+    // This ensures threads stuck in human handling are returned to Lina promptly
+    const staleResult = await checkStaleHumanHandling();
+    if (staleResult.threadsReturned > 0) {
+      console.log(`[GmailWebhook] Returned ${staleResult.threadsReturned} stale threads to Lina`);
+    }
+
     // Proactively renew watch if needed (self-healing)
     const watchStatus = await renewWatchIfNeeded(false);
     if (!watchStatus.success) {
@@ -125,6 +133,10 @@ export async function POST(request: NextRequest) {
         draftsGenerated: result.draftsGenerated,
         escalations: result.escalations,
         errors: result.errors,
+      },
+      staleHandling: {
+        threadsReturned: staleResult.threadsReturned,
+        threadIds: staleResult.threadIds,
       },
     });
   } catch (error) {

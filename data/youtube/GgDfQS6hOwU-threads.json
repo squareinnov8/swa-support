@@ -1,0 +1,742 @@
+{
+  "videoId": "GgDfQS6hOwU",
+  "title": "Upgrading the software/firmware on your Tesla-Style Screen (G-Series, MK6, NiftyCity)",
+  "threadCount": 112,
+  "qaPairCount": 33,
+  "threads": [
+    {
+      "topLevelComment": {
+        "id": "UgxOQ3EoKv_Y1Rdtb0V4AaABAg",
+        "text": "&quot;You live, you learn, and you upgrade.&quot;<br>- Abraham Lincoln",
+        "author": "@SquareWheelsAuto",
+        "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+        "likeCount": 3,
+        "publishedAt": "2022-11-06T23:33:51Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgwKUb_5xm4cODOpWct4AaABAg",
+        "text": "I upgraded my unit last week to the Mark 6 and at first, I was frustrated because I was trying to get the unit to be like the factory setting and had to stop thinking that way. Once I start using this unit like it was intended, I was blown away! My advice, be patient and work through the initial frustrations and enjoy! I love this unit with no issues! Rob was amazing....",
+        "author": "@randeharris2760",
+        "authorChannelId": "UChCT-Uk2NwS3KOz2JZmbjtA",
+        "likeCount": 5,
+        "publishedAt": "2022-12-08T03:59:12Z"
+      },
+      "replies": [
+        {
+          "id": "UgwKUb_5xm4cODOpWct4AaABAg.9jMdVTH1mCa9jN_8Plm8AN",
+          "text": "Thrilled to hear you&#39;re loving your 6, Rande!! These things definitely have a bit of a learning curve, but you kept an open mind and got up to speed super quick 🙌🏾🙌🏾<br><br>Thx for the kind words, ENJOY!!!",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 0,
+          "publishedAt": "2022-12-08T12:40:20Z",
+          "parentId": "UgwKUb_5xm4cODOpWct4AaABAg"
+        }
+      ],
+      "totalReplyCount": 1
+    },
+    {
+      "topLevelComment": {
+        "id": "Ugw9vlxQ6y6qVa9hCQx4AaABAg",
+        "text": "Yeah you didnt mention you have to have bought the product from that website to use the firmware. They should give a way to buy the update.",
+        "author": "@AJAX-8",
+        "authorChannelId": "UCzkrXWM2MHOHt0lxZ2bNCQQ",
+        "likeCount": 2,
+        "publishedAt": "2025-07-02T02:18:35Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "Ugw15BTsPauQYViFAeB4AaABAg",
+        "text": "man you are saver !! niftyCity are not able to help and thy don&#39;t have any kind off customer support thy are only fast of charging the money ,, YOU ARE THE BEST",
+        "author": "@tupac1938",
+        "authorChannelId": "UCZG9kIjOI19X31jFuYKPLkw",
+        "likeCount": 2,
+        "publishedAt": "2023-08-11T22:47:27Z"
+      },
+      "replies": [
+        {
+          "id": "Ugw15BTsPauQYViFAeB4AaABAg.9tI5AH7nsba9tJWCaOTpIr",
+          "text": "@tupac1938 aye man u dont know how happy that makes me! 🤓<br>If you wouldnt mind leaving a review on my page it&#39;d hit home as good as a drink!<br><a href=\"https://www.facebook.com/squarewhls/reviews\">https://www.facebook.com/squarewhls/reviews</a>",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 2,
+          "publishedAt": "2023-08-12T12:02:56Z",
+          "parentId": "Ugw15BTsPauQYViFAeB4AaABAg"
+        }
+      ],
+      "totalReplyCount": 1
+    },
+    {
+      "topLevelComment": {
+        "id": "UgxooLcxGSvzZYcpa-d4AaABAg",
+        "text": "Is link for download that you used in this video same for mark 5 screens? And same process to install ?",
+        "author": "@Qfifty",
+        "authorChannelId": "UCLsOBdAYcOHYBfPzRR7Mckg",
+        "likeCount": 3,
+        "publishedAt": "2022-11-09T17:12:49Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "Ugw6-LRlGIvBfGCC0-d4AaABAg",
+        "text": "What&#39;s good i recently installed my unit but currently when I try to download the firmware it&#39;s telling me I&#39;m not allowed to access this page. Plz help.",
+        "author": "@devonkearse3571",
+        "authorChannelId": "UCbGMFo4PFSTYWiW6dQhoziA",
+        "likeCount": 1,
+        "publishedAt": "2025-05-18T04:11:53Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgxCgAme7MgEIPNvdnB4AaABAg",
+        "text": "I was having issues with the updater not launching. What ended up working for me was...  <br>1. Plugging in the USB to the screen first. (Android puts a bunch of files on the drive.) <br>2. Copying the update file to the root of the USB.<br>3. Plugged into the screen and the updated launched as it should.",
+        "author": "@DougNelson",
+        "authorChannelId": "UCRoJnt-I-TdpP1xKcQhuV0A",
+        "likeCount": 1,
+        "publishedAt": "2023-08-30T11:21:14Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "Ugztukem7oxWYu5bwO54AaABAg",
+        "text": "I just received mine few days ago. My problem is the CarPlay. I’m assuming it only accepts Wireless CarPlay which is super laggy.  Because when I connect the wire+bluetooth, it refuses to connect. Only wireless works. <br> Great unit though. Just needs polishing.",
+        "author": "@HENRY243",
+        "authorChannelId": "UC86BnswjoJP-y3qwozvTvwg",
+        "likeCount": 1,
+        "publishedAt": "2023-01-02T08:06:06Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgxSn65ag0D-Ub1Zdkp4AaABAg",
+        "text": "I need that led above your glove box! Where can I find that",
+        "author": "@King_Gw4y",
+        "authorChannelId": "UCsxyNNVEcUdbe28efZrvzMQ",
+        "likeCount": 0,
+        "publishedAt": "2024-05-14T16:59:38Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgwwvtjthRNHqgfV_UN4AaABAg",
+        "text": "what kind of lights are those for your dash? I have a 2021 Q60 S and something like that would be fire. I just got the Tesla Mark 7 and im installing today. Wish me luck because I have never installed a head unit on my own lol.",
+        "author": "@bigoleon",
+        "authorChannelId": "UCQ50TbT75HC5Kyt3W4yzyWw",
+        "likeCount": 0,
+        "publishedAt": "2025-12-29T13:20:28Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "Ugy2FTwDtFOUMp0SxxR4AaABAg",
+        "text": "Im having problems with the tesla style gt6-eau.. I got the correct file which is a update_ezip file that I downloaded directly to the root of the USB drive.. the gt6-eau will not automatically update upon installation of the USB drive in the port of android radio.. it sees the drive on the android. b UT doesn&#39;t automatically update for me.. does nothing..",
+        "author": "@Ruthl3ss1",
+        "authorChannelId": "UC1ZwHM-dyJ7_E4Ucy1WLWKg",
+        "likeCount": 3,
+        "publishedAt": "2023-09-21T15:54:48Z"
+      },
+      "replies": [
+        {
+          "id": "Ugy2FTwDtFOUMp0SxxR4AaABAg.9uvvXp2Q1RX9wpVTdLmLCj",
+          "text": "ciao anch&#39;io Ho i tuoi problemi sono in Europa Italia",
+          "author": "@tinomarzari",
+          "authorChannelId": "UCXRcnlCxvEjiSIw9tz6VXew",
+          "likeCount": 0,
+          "publishedAt": "2023-11-07T21:05:39Z",
+          "parentId": "Ugy2FTwDtFOUMp0SxxR4AaABAg"
+        }
+      ],
+      "totalReplyCount": 1
+    },
+    {
+      "topLevelComment": {
+        "id": "UgzeVwuPxZRVqXK8teZ4AaABAg",
+        "text": "How can I find out what model screen I have ? <br>I recently just purchased my Q50 and it came with a Tesla screen installed. I’m positive it needs an update.",
+        "author": "@cesarsierra5446",
+        "authorChannelId": "UChZMGtK8vrSxDWOXOVmEZKA",
+        "likeCount": 1,
+        "publishedAt": "2022-11-27T15:30:16Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgyxNpzFKIN0VsRwgAt4AaABAg",
+        "text": "Do you have any APK recommendations for Disney Plus, Hulu Plus, and Apple TV to work on the unit?",
+        "author": "@acelegacy8457",
+        "authorChannelId": "UCOlwEHAYBYWLJkt7se-tUJw",
+        "likeCount": 1,
+        "publishedAt": "2023-07-15T12:08:47Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "Ugwc6MKwfYr9dtFRjgJ4AaABAg",
+        "text": "Big issue with July 2023 update is connecting to Carplay. I see my phone connected via Bluetooth and the Wi-Fi hotspot(carletter 1040) but Carplay will not display on the screen. It keeps loading. The only fix is to push and hold the home button to hard reboot the whole system… and the. It works.EVERYTIME.  Kinda wishing I never updated. I",
+        "author": "@im100percentg",
+        "authorChannelId": "UCTNZEtEMd-OCHX5NDacDaYg",
+        "likeCount": 0,
+        "publishedAt": "2023-07-28T18:30:04Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgwVB57k56N98y33akJ4AaABAg",
+        "text": "Hi it&#39;s was interesting, would like to know upgrade work for Gt6-eau android 11",
+        "author": "@Azhar4040",
+        "authorChannelId": "UCNNQ6lagfa_8Hvps7mw9QPg",
+        "likeCount": 0,
+        "publishedAt": "2024-11-12T18:11:16Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgxbU6rcJwzJ20CaqgV4AaABAg",
+        "text": "Do I have to uninstall Zlink before I install the new update on the screen?",
+        "author": "@taylorrun8687",
+        "authorChannelId": "UCTF4z6YV60EeIX3GGDrIPCw",
+        "likeCount": 1,
+        "publishedAt": "2023-01-16T19:08:54Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgxzPH_Yn9m0PDMb6oF4AaABAg",
+        "text": "Thanks for the updates have not done it yet. I do have a question on my 2017 Infiniti QX70 limited purchased GT6-NA model the bottom hazard button just recently stopped working? Turn signals work hazard lights flash when I push button to open hatch, so not sure why hazard button on GT6 is no longer working? Am I missing a blown fuse somewhere?",
+        "author": "@paulwashington2743",
+        "authorChannelId": "UCQia4T4AMy8M1EhaTeHGTiw",
+        "likeCount": 0,
+        "publishedAt": "2025-01-05T01:12:24Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "Ugx0gjRqJFN8TKPApmh4AaABAg",
+        "text": "Is it possible that I could purchase a wire harness for the screen I have a faulty one",
+        "author": "@6purplestar",
+        "authorChannelId": "UCAtrHJfj4J0Jo7tBCQTQFRw",
+        "likeCount": 0,
+        "publishedAt": "2022-11-19T16:02:00Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgyyM1iNewcQ2oMNOVd4AaABAg",
+        "text": "I updated using the link for and it took the update successfully on a 2017 silverado, but now my temperature knobs don&#39;t work do i need to download a different firmware because the link the says android 11 us models upgraded it but knobs aren&#39;t working anymore ideas?",
+        "author": "@aimbot8912",
+        "authorChannelId": "UCIdKEfoaAsvUdHgZwldBMGw",
+        "likeCount": 0,
+        "publishedAt": "2024-12-17T03:00:57Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "Ugy1EaBTX9nnHUwdcpd4AaABAg",
+        "text": "my model keeps saying index and event center keeps stopping, i even went ahead and tried to update it anyways but it’s like the screen can’t detect the usb when i plug it into the port. I even messaged you on instagram you literally opened my message last week and left me on seen, if you didn’t know how to fix your own product atleast tell me that so i can just go back to my stock screen.",
+        "author": "@desiwrlld",
+        "authorChannelId": "UC31UEbZGWH2voNUUXkiRCxw",
+        "likeCount": 1,
+        "publishedAt": "2024-07-30T15:17:27Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgwHMtZy9VJ2r8dLPid4AaABAg",
+        "text": "The last update I had to reboot the unit for it to recognize the update on the stick.  Also, I&#39;ve noticed that the latest update somehow made the cellular connection disappear sometimes which requires a network reset and reboots until it is detected again.",
+        "author": "@kamzu8165",
+        "authorChannelId": "UCrbaEtheCBhZTH_RZcvvZXA",
+        "likeCount": 4,
+        "publishedAt": "2022-11-06T22:13:53Z"
+      },
+      "replies": [
+        {
+          "id": "UgwHMtZy9VJ2r8dLPid4AaABAg.9i6CL8wj1HM9iBmnTed1B-",
+          "text": "Wat method did u use to reboot the system?",
+          "author": "@mdonjuan02",
+          "authorChannelId": "UCGRO2d8W2CDbQ4WBGiSSteA",
+          "likeCount": 0,
+          "publishedAt": "2022-11-09T02:17:24Z",
+          "parentId": "UgwHMtZy9VJ2r8dLPid4AaABAg"
+        },
+        {
+          "id": "UgwHMtZy9VJ2r8dLPid4AaABAg.9i6CL8wj1HM9iCA1BnnIXY",
+          "text": "@mdonjuan02 went into settings. Not the one for Android, but settings for the car. And there is a downward arror that allows you to reboot the unit.",
+          "author": "@kamzu8165",
+          "authorChannelId": "UCrbaEtheCBhZTH_RZcvvZXA",
+          "likeCount": 0,
+          "publishedAt": "2022-11-09T05:49:07Z",
+          "parentId": "UgwHMtZy9VJ2r8dLPid4AaABAg"
+        },
+        {
+          "id": "UgwHMtZy9VJ2r8dLPid4AaABAg.9i6CL8wj1HM9sjYkclfjsy",
+          "text": "You can also reboot by holding down the physical home button for a few seconds. It’s a hard reboot",
+          "author": "@im100percentg",
+          "authorChannelId": "UCTNZEtEMd-OCHX5NDacDaYg",
+          "likeCount": 0,
+          "publishedAt": "2023-07-29T03:33:17Z",
+          "parentId": "UgwHMtZy9VJ2r8dLPid4AaABAg"
+        }
+      ],
+      "totalReplyCount": 3
+    },
+    {
+      "topLevelComment": {
+        "id": "UgyDK8UstZvEC_Uz87t4AaABAg",
+        "text": "Any tips on how to install the update? I have been trying for the last couple of days to install the update but I keep getting an error, I did a hard reset to see if that would fix it, but no luck.",
+        "author": "@tegteg74",
+        "authorChannelId": "UChv5zTTYBZdH8I7ZiV5s5Mg",
+        "likeCount": 0,
+        "publishedAt": "2023-09-03T16:25:40Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgwIMI42u8r7_8zUVcV4AaABAg",
+        "text": "Rob do you have a download one for the mrk5? ?",
+        "author": "@27Colie",
+        "authorChannelId": "UC5g9wyrz0vaoBl7j2zSrPcA",
+        "likeCount": 0,
+        "publishedAt": "2023-03-28T06:52:33Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "Ugxr5zGDZGwzWSqOupl4AaABAg",
+        "text": "How do I get the harness with 2 USB ports that comes with the unit?",
+        "author": "@wisesavior5295",
+        "authorChannelId": "UCz1KZt413zKFgGVObipRJMg",
+        "likeCount": 0,
+        "publishedAt": "2023-09-25T13:26:18Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgynftD6gpIHVn3s7Dt4AaABAg",
+        "text": "is there a way to check on the unit if i have the latest software update??",
+        "author": "@dad3county4lyfe3o5",
+        "authorChannelId": "UCejmUrf9xs6pLHL8ZjLv-vA",
+        "likeCount": 0,
+        "publishedAt": "2024-10-06T14:08:43Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgySRRcQnEON8mAX_kh4AaABAg",
+        "text": "N<br>Another question you may have an answer for , I put a sim card to one of my cells in the Back of the unit , it shows its working and can use like a cell with its own # , I can place a call ,they can hear me but It won&#39;t play over my speakers ,even after pressing the speaker option, I use an android device ,any ideas",
+        "author": "@ericcrom3058",
+        "authorChannelId": "UCcVYXGQXwbTghFMmXoKbHGw",
+        "likeCount": 0,
+        "publishedAt": "2023-05-01T19:34:31Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "Ugz7cJgK-MTHkGt-3S94AaABAg",
+        "text": "I wondering if someone has the new firmware update for this screen GT6-NA, installed in a G37, I having an issue with my android play, thank you  🙏",
+        "author": "@VistaImpactanteTV",
+        "authorChannelId": "UCqSw4rgPoA3sjMalEfTk2Aw",
+        "likeCount": 0,
+        "publishedAt": "2025-07-16T03:02:32Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgxO_SLZjXCbOY1KLf54AaABAg",
+        "text": "Anyone know how to have the Mark 6 shut off when the car shuts off? I’d turn off my car and then a few hours later the screen is picked up on my phone while I’m in my house, which is weird. I don’t want the screen draining my car battery while the car is off.",
+        "author": "@GEL0_12",
+        "authorChannelId": "UCpXZB5JT9A7x098JsgyBRHA",
+        "likeCount": 0,
+        "publishedAt": "2025-04-11T00:31:12Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgxrsfxgJuu05GlJy054AaABAg",
+        "text": "Is there any way to use this updat to replace the xyauto firmware?",
+        "author": "@JJstram84",
+        "authorChannelId": "UCwN7Rh0cNh6gVAE3V-74NHg",
+        "likeCount": 0,
+        "publishedAt": "2023-07-06T18:42:20Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgxAF2_NcZzefeprCAx4AaABAg",
+        "text": "Hey I bought mk6 for someone how do I do a factory reset I don’t have the password to General boss",
+        "author": "@tk354",
+        "authorChannelId": "UCm3hXznav9EkJYgsyo1tAtA",
+        "likeCount": 0,
+        "publishedAt": "2024-04-25T18:39:55Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "Ugx1crgYuEMrO4hz20V4AaABAg",
+        "text": "work for phoenix automotive screen 13&quot; android 12 tesla style screen?",
+        "author": "@Uce_Blasian",
+        "authorChannelId": "UCdL8DG7pBRsszDx2Fia0NFA",
+        "likeCount": 0,
+        "publishedAt": "2024-02-06T04:03:18Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgxcOiVTAtTr2vFXIOx4AaABAg",
+        "text": "trying to get the latest update, but it says link has expire, when can we expect them up again?",
+        "author": "@tegteg74",
+        "authorChannelId": "UChv5zTTYBZdH8I7ZiV5s5Mg",
+        "likeCount": 0,
+        "publishedAt": "2023-08-27T20:01:29Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgwYp0Q3a5TXLb-SL-Z4AaABAg",
+        "text": "i was in my car felling thats I did big mistake of dealing with niftyCity, I come cross your vid her and I told my seld give it try so all what I did I connect the screen on my hotspot and downloaded the file and move it to the root for the screen and that&#39;s it<br>its take only 5 min and after the 1st restart i did hard reset and WOLLA its work great <br><br>man where can i buy you DRINK !!",
+        "author": "@tupac1938",
+        "authorChannelId": "UCZG9kIjOI19X31jFuYKPLkw",
+        "likeCount": 1,
+        "publishedAt": "2023-08-11T22:52:17Z"
+      },
+      "replies": [
+        {
+          "id": "UgwYp0Q3a5TXLb-SL-Z4AaABAg.9tI5ifC9mSC9tJW9htvS61",
+          "text": "@tupac1938 aye man u dont know how happy that makes me! 🤓<br>If you wouldnt mind leaving a review on my page it&#39;d hit home as good as a drink!<br><a href=\"https://www.facebook.com/squarewhls/reviews\">https://www.facebook.com/squarewhls/reviews</a>",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 1,
+          "publishedAt": "2023-08-12T12:02:32Z",
+          "parentId": "UgwYp0Q3a5TXLb-SL-Z4AaABAg"
+        },
+        {
+          "id": "UgwYp0Q3a5TXLb-SL-Z4AaABAg.9tI5ifC9mSC9uCf0mLTa8I",
+          "text": "can you do a step by step on how you did this?",
+          "author": "@tegteg74",
+          "authorChannelId": "UChv5zTTYBZdH8I7ZiV5s5Mg",
+          "likeCount": 0,
+          "publishedAt": "2023-09-03T16:45:25Z",
+          "parentId": "UgwYp0Q3a5TXLb-SL-Z4AaABAg"
+        }
+      ],
+      "totalReplyCount": 2
+    },
+    {
+      "topLevelComment": {
+        "id": "Ugx3rLQeGx2Q2toZpqV4AaABAg",
+        "text": "Does this update enables the unit to have opened Bluetooth? Like connecting a controller or something like that?",
+        "author": "@julioperezm2182",
+        "authorChannelId": "UCDe1r2UL-EqDiKZR10Kzerw",
+        "likeCount": 0,
+        "publishedAt": "2023-06-26T03:15:03Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgwElxYZdjX3l31bbil4AaABAg",
+        "text": "Downloaded the update and installed now the screen is black",
+        "author": "@alexwazh33r",
+        "authorChannelId": "UC8Fspvzcp9fNqqyfOhmcvHQ",
+        "likeCount": 0,
+        "publishedAt": "2024-03-15T00:42:44Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgyVxy6Fsi48Vx2yzWR4AaABAg",
+        "text": "Do you know of any installers in the Richmond, VA area? I just got a 2017 Q50 the other day.",
+        "author": "@kingweb11",
+        "authorChannelId": "UCfBitYt-AY8HXE4d76IR-BQ",
+        "likeCount": 0,
+        "publishedAt": "2023-01-31T16:08:37Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgzxGURiWKPR7833Q-x4AaABAg",
+        "text": "Will the latest update work with gmc sierra 2018?",
+        "author": "@MohammadHarisMania",
+        "authorChannelId": "UCO5G-3rMhRpNaNTatLDBjrA",
+        "likeCount": 0,
+        "publishedAt": "2023-09-11T17:40:17Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgyV3f33Id5JMxe8pGN4AaABAg",
+        "text": "I’m a little confused what was the update for exactly?",
+        "author": "@_TheBLKjedi_",
+        "authorChannelId": "UC4WJq_eQcy7VdF-VU8TG8pA",
+        "likeCount": 0,
+        "publishedAt": "2024-04-13T17:00:55Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "Ugz_oGHqZ6WEzVHrd6Z4AaABAg",
+        "text": "I just boughtk7 I have a SIM card do I still need to use a usb",
+        "author": "@davidthur1858",
+        "authorChannelId": "UCCbXSBDcS9Prdc5iRGET1Ag",
+        "likeCount": 0,
+        "publishedAt": "2025-03-18T23:40:42Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "Ugxl17JRnXvL3caHSpN4AaABAg",
+        "text": "I tried this on my nifty city for the 370z it opened system updater and then did nothing further.  Just curios if it doesn&#39;t work on these screens?",
+        "author": "@guymer1209",
+        "authorChannelId": "UCam7B8-CpEZu1cZqPMskh3Q",
+        "likeCount": 0,
+        "publishedAt": "2023-08-23T17:11:04Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgwnU-5GRAXPGpOzQuN4AaABAg",
+        "text": "So Im still unclear what this does, I know it is a firmware upgrade but does it upgrade you to a newer OS--Android 11 or 12?  I just purchased the tesla style screen for a Dodge ram 1500 which came with android 10 and wondering if this is applicable....How do I know if I have a GSeries screen or MK6?",
+        "author": "@danielpeters1754",
+        "authorChannelId": "UCFIfbxkHU4XGHs_uG7AiMRw",
+        "likeCount": 0,
+        "publishedAt": "2023-01-22T00:46:38Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgyGI7BNPrBYRrgfh9F4AaABAg",
+        "text": "Is there any updates for the mk5 version?",
+        "author": "@Bleider",
+        "authorChannelId": "UCHUPlrcUwLuZF6JOqhfZe_g",
+        "likeCount": 0,
+        "publishedAt": "2024-04-05T22:00:36Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgwpuSENLpKMMqqYzqJ4AaABAg",
+        "text": "Do you have any current upgrades to these screens? I&#39;m late finding this.  Is there a way to get an upgrade?",
+        "author": "@FHGwood",
+        "authorChannelId": "UCqPT8QfljbKZNPwWEcBo5aQ",
+        "likeCount": 0,
+        "publishedAt": "2025-05-04T19:47:41Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "Ugz1bpdaEV8u9U3xWEh4AaABAg",
+        "text": "Do you have to perform android OS updates separately?",
+        "author": "@57331",
+        "authorChannelId": "UCACl32NilDzt1tDxfoY2iGA",
+        "likeCount": 0,
+        "publishedAt": "2024-03-11T20:07:50Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgxbagXMRDCM6hhhVk14AaABAg",
+        "text": "I have the GT6-NA, same exact one from Nifty City but purchased from a different dealer. My framework version is 20240327.192200.... not sure what that means but can i update with yours?",
+        "author": "@DTUFINOPhotography",
+        "authorChannelId": "UCKrcwm7BcFvxhLcuSE_eZXA",
+        "likeCount": 0,
+        "publishedAt": "2024-12-09T20:17:33Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgzN0mn9qaPathq0f2J4AaABAg",
+        "text": "i was hoping to get a newer 12-13 andriod, but I cant access the downloads...no I did not buy your radio, I just have a 12.1 tesla style",
+        "author": "@Venumousll",
+        "authorChannelId": "UCJAxAUqX9rkt5Mw9a6xMAdw",
+        "likeCount": 0,
+        "publishedAt": "2025-06-12T03:29:05Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "UgwivWQLimchceXcrt14AaABAg",
+        "text": "im late to the party here but i have had a &quot;rockchip GT6-CAR&quot; android radio. does any of these updates work on my unit",
+        "author": "@msgtbeast",
+        "authorChannelId": "UCjapzBSpGjFAnDtRCHRKt7g",
+        "likeCount": 0,
+        "publishedAt": "2025-08-11T23:57:52Z"
+      },
+      "replies": [],
+      "totalReplyCount": 0
+    },
+    {
+      "topLevelComment": {
+        "id": "Ugzju8FnJhdO3B3Jv5N4AaABAg",
+        "text": "Hey quick question. i already have hit them up about it but wanted some insight. i installed been running for weeks no issues at all. this morning i start up and the screen does not display anything but it is working cause you can see the back light, all the buttons are working fine just noting is displaying. any clue?",
+        "author": "@JavierValdez-z8y",
+        "authorChannelId": "UCePs3lPgxOBGY6M0a4wosiQ",
+        "likeCount": 1,
+        "publishedAt": "2024-02-28T14:41:26Z"
+      },
+      "replies": [
+        {
+          "id": "Ugzju8FnJhdO3B3Jv5N4AaABAg.A0MmKQvgMr5A0MrMlFjRNx",
+          "text": "These things benefit from periodic reboots just like phones and computers.  Hold down the physical home button for like 10s to force a reboot and you should be back up and running.",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 1,
+          "publishedAt": "2024-02-28T15:25:26Z",
+          "parentId": "Ugzju8FnJhdO3B3Jv5N4AaABAg"
+        },
+        {
+          "id": "Ugzju8FnJhdO3B3Jv5N4AaABAg.A0MmKQvgMr5A0MtkZzrTXR",
+          "text": "glad to know, i just unpluged the car battery and it booted up but now that i know that if it occurs again i will do that instead. thank you for the help and quick response @SquareWheelsAuto",
+          "author": "@JavierValdez-z8y",
+          "authorChannelId": "UCePs3lPgxOBGY6M0a4wosiQ",
+          "likeCount": 0,
+          "publishedAt": "2024-02-28T15:46:18Z",
+          "parentId": "Ugzju8FnJhdO3B3Jv5N4AaABAg"
+        },
+        {
+          "id": "Ugzju8FnJhdO3B3Jv5N4AaABAg.A0MmKQvgMr5A10Q5rEnDV3",
+          "text": "@JavierValdez-z8y  did disconnecting your battery resolve your issue? I have the same issue, but disconnecting the battery for 3 hours didn&#39;t fix my issue so I&#39;m curious what came of your troubleshooting",
+          "author": "@marklowe6352",
+          "authorChannelId": "UCdEf5o0Zk-t1IsiDm9UMyKA",
+          "likeCount": 0,
+          "publishedAt": "2024-03-15T18:46:34Z",
+          "parentId": "Ugzju8FnJhdO3B3Jv5N4AaABAg"
+        },
+        {
+          "id": "Ugzju8FnJhdO3B3Jv5N4AaABAg.A0MmKQvgMr5A10T8XpurB7",
+          "text": "yea it did, if it didnt work hold the home button for 10 or 12 seconds and see if that reboots it. otherwise contact support. they got back to me in a day or less but by than i fixed it with the battery @marklowe6352",
+          "author": "@JavierValdez-z8y",
+          "authorChannelId": "UCePs3lPgxOBGY6M0a4wosiQ",
+          "likeCount": 0,
+          "publishedAt": "2024-03-15T19:13:09Z",
+          "parentId": "Ugzju8FnJhdO3B3Jv5N4AaABAg"
+        }
+      ],
+      "totalReplyCount": 4
+    },
+    {
+      "topLevelComment": {
+        "id": "UgwJLwHVGlx-Ra5K3eR4AaABAg",
+        "text": "does the latest update include all the previous updates in it or do you have to download each update in order?",
+        "author": "@derekakers1197",
+        "authorChannelId": "UCdokMuSzvOfg17oBbP0xFgg",
+        "likeCount": 4,
+        "publishedAt": "2022-11-07T01:58:34Z"
+      },
+      "replies": [
+        {
+          "id": "UgwJLwHVGlx-Ra5K3eR4AaABAg.9i6b2oxvadV9i6jHCPCpNC",
+          "text": "Latest includes all previous 👍🏾",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 2,
+          "publishedAt": "2022-11-07T03:10:26Z",
+          "parentId": "UgwJLwHVGlx-Ra5K3eR4AaABAg"
+        }
+      ],
+      "totalReplyCount": 1
+    },
+    {
+      "topLevelComment": {
+        "id": "UgwU8CVU9juK3lWhnQ54AaABAg",
+        "text": "Awesome Video and Music explain very clearly steps by step does it work with Nissan 370z Australia region<br>Best regards,",
+        "author": "@richardsondiamond1905",
+        "authorChannelId": "UCgPW-gRWnnbTBYPcZN2TIww",
+        "likeCount": 1,
+        "publishedAt": "2022-12-01T06:59:55Z"
+      },
+      "replies": [
+        {
+          "id": "UgwU8CVU9juK3lWhnQ54AaABAg.9j4wc-QKvXH9jVybNUraoc",
+          "text": "Thanks! Yes as long as you have a G-series screen, these updates will work",
+          "author": "@SquareWheelsAuto",
+          "authorChannelId": "UCKsJd8PrUYIc2znG4nh02SQ",
+          "likeCount": 0,
+          "publishedAt": "2022-12-11T18:56:48Z",
+          "parentId": "UgwU8CVU9juK3lWhnQ54AaABAg"
+        }
+      ],
+      "totalReplyCount": 1
+    }
+  ]
+}
