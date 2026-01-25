@@ -80,6 +80,19 @@ export default async function AdminLayout({
               Inbox
             </a>
             <a
+              href="/admin/orders"
+              style={{
+                padding: "8px 14px",
+                fontSize: 14,
+                fontWeight: 500,
+                color: "#99acc2",
+                textDecoration: "none",
+                borderRadius: 4,
+              }}
+            >
+              Orders
+            </a>
+            <a
               href="/admin/kb"
               style={{
                 padding: "8px 14px",

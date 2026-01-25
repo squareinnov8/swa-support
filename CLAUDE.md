@@ -156,6 +156,11 @@ src/
 - `learning_proposals` - AI-generated KB/instruction proposals
 - `resolution_analyses` - Learning extraction from resolved threads
 - `lina_tool_actions` - Audit log of Lina's tool actions from admin chat
+- `orders` - Order records from Shopify notifications
+- `order_vendors` - Per-vendor fulfillment tracking for multi-vendor orders
+- `order_events` - Order activity audit log
+- `blacklisted_customers` - Customers blocked from fulfillment
+- `vendors` - Vendor contact info cached from Google Sheet
 
 ## Environment Variables
 
@@ -203,6 +208,13 @@ YOUTUBE_API_KEY=             # Optional: for YouTube Q&A ingestion
   - Vehicle extraction via LLM (replaces hardcoded make/model lists)
   - Promise detection via LLM (replaces 30+ regex patterns)
 - [x] **Catalog Lookup** - Auto-includes compatible products when customer mentions vehicle
+- [x] **Order Management** - Automated order processing and vendor routing:
+  - Detects Shopify order confirmation emails (`[squarewheels] Order #XXXX placed by`)
+  - Customer blacklist checking with risk assessment
+  - Vendor routing via Google Sheet mapping
+  - Email forwarding to vendors via Gmail API
+  - Separate `/admin/orders` view with status tracking
+  - Support for multi-vendor orders (split forwarding)
 
 ### Pending / Outstanding
 - [ ] **Gmail re-authentication required** - After inbox purge, need to re-auth at `/admin/gmail-setup`

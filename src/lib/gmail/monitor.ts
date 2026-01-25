@@ -38,6 +38,7 @@ import {
   recordObservation,
   wasMessageGeneratedByAgent,
 } from "@/lib/collaboration";
+import { isOrderEmail, processOrderEmail } from "@/lib/orders/processOrder";
 import {
   findEscalationForReply,
   parseResponse,
@@ -59,6 +60,8 @@ export type MonitorResult = {
   ticketsUpdated: number;
   escalations: number;
   escalationResponsesProcessed: number;
+  ordersProcessed: number;
+  ordersForwarded: number;
   errors: string[];
 };
 
@@ -97,6 +100,8 @@ export async function runGmailMonitor(options?: { fetchRecent?: boolean; fetchDa
     ticketsUpdated: 0,
     escalations: 0,
     escalationResponsesProcessed: 0,
+    ordersProcessed: 0,
+    ordersForwarded: 0,
     errors: [],
   };
 
@@ -178,6 +183,12 @@ export async function runGmailMonitor(options?: { fetchRecent?: boolean; fetchDa
         }
         if (threadResult.escalationResponseProcessed) {
           result.escalationResponsesProcessed++;
+        }
+        if (threadResult.orderProcessed) {
+          result.ordersProcessed++;
+        }
+        if (threadResult.orderForwarded) {
+          result.ordersForwarded++;
         }
         if (threadResult.error) {
           result.errors.push(`Thread ${threadId}: ${threadResult.error}`);
@@ -357,6 +368,8 @@ type ThreadProcessResult = {
   ticketUpdated: boolean;
   escalated: boolean;
   escalationResponseProcessed: boolean;
+  orderProcessed: boolean;
+  orderForwarded: boolean;
   skipped: boolean;
   skipReason?: string;
   error?: string;
@@ -453,6 +466,8 @@ async function processGmailThread(
     ticketUpdated: false,
     escalated: false,
     escalationResponseProcessed: false,
+    orderProcessed: false,
+    orderForwarded: false,
     skipped: false,
   };
 
@@ -461,6 +476,32 @@ async function processGmailThread(
   if (!thread || thread.messages.length === 0) {
     result.skipped = true;
     result.skipReason = "Empty thread";
+    return result;
+  }
+
+  // Check if this is an order confirmation email - route to order pipeline
+  const latestIncomingMessage = [...thread.messages].reverse().find((m) => m.isIncoming);
+  if (latestIncomingMessage && isOrderEmail(thread.subject, latestIncomingMessage.from)) {
+    console.log(`[Monitor] Detected order email: ${thread.subject}`);
+
+    const orderResult = await processOrderEmail({
+      subject: thread.subject,
+      body: latestIncomingMessage.body,
+      from: latestIncomingMessage.from,
+      date: latestIncomingMessage.date,
+      gmailMessageId: latestIncomingMessage.id,
+      gmailThreadId,
+    });
+
+    result.orderProcessed = true;
+    if (orderResult.vendorsForwarded && orderResult.vendorsForwarded.length > 0) {
+      result.orderForwarded = true;
+    }
+    if (!orderResult.success) {
+      result.error = orderResult.error;
+    }
+
+    // Order emails are handled separately, don't process through support pipeline
     return result;
   }
 
