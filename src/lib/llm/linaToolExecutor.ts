@@ -44,6 +44,8 @@ export async function executeLinaTool(
 
   try {
     switch (toolName) {
+      case "recommend_reel_topics":
+        return await recommendReelTopics(toolInput, context);
       case "create_kb_article":
         return await createKBArticle(toolInput, context);
       case "update_instruction":
@@ -551,6 +553,365 @@ async function associateThreadCustomer(
       message: `Failed to associate customer: ${error instanceof Error ? error.message : "Unknown error"}`,
     };
   }
+}
+
+/**
+ * Generate reel topic recommendations based on support data
+ */
+async function recommendReelTopics(
+  input: Record<string, unknown>,
+  context: ToolContext
+): Promise<ToolResult> {
+  const { focus_area = "all", time_range = "week", include_hooks = true } = input as {
+    focus_area?: "trending" | "faq" | "product" | "troubleshooting" | "all";
+    time_range?: "week" | "month" | "quarter";
+    include_hooks?: boolean;
+  };
+
+  const dayMap = { week: 7, month: 30, quarter: 90 };
+  const recentDays = dayMap[time_range] || 7;
+  const baselineDays = Math.min(recentDays * 4, 120);
+
+  const topics: Array<{
+    type: string;
+    title: string;
+    description: string;
+    hooks?: string[];
+    data: Record<string, unknown>;
+    score: number;
+  }> = [];
+
+  try {
+    // 1. Get trending intents (rising questions)
+    if (focus_area === "all" || focus_area === "trending" || focus_area === "faq") {
+      const { data: trendingIntents } = await supabase.rpc("get_trending_intents", {
+        recent_days: recentDays,
+        baseline_days: baselineDays,
+      });
+
+      if (trendingIntents && Array.isArray(trendingIntents)) {
+        for (const intent of trendingIntents.slice(0, 5)) {
+          const hooks = include_hooks
+            ? generateHooksForIntent(intent.intent_slug, intent.sample_subjects)
+            : undefined;
+
+          topics.push({
+            type: "trending_intent",
+            title: `Trending: ${formatIntentTitle(intent.intent_slug)}`,
+            description: `${intent.recent_count} questions in the last ${recentDays} days (${intent.trend_score.toFixed(1)}x above baseline). Category: ${intent.intent_category}`,
+            hooks,
+            data: {
+              intentSlug: intent.intent_slug,
+              recentCount: intent.recent_count,
+              trendScore: intent.trend_score,
+              sampleSubjects: intent.sample_subjects,
+            },
+            score: parseFloat(intent.trend_score) || 1,
+          });
+        }
+      }
+    }
+
+    // 2. Get quality resolutions (good storytelling material)
+    if (focus_area === "all" || focus_area === "troubleshooting") {
+      const { data: qualityResolutions } = await supabase.rpc("get_quality_resolutions", {
+        days_back: Math.max(recentDays, 30),
+        min_quality: 0.7,
+      });
+
+      if (qualityResolutions && Array.isArray(qualityResolutions)) {
+        for (const resolution of qualityResolutions.slice(0, 5)) {
+          const hooks = include_hooks
+            ? generateHooksForResolution(resolution)
+            : undefined;
+
+          topics.push({
+            type: "quality_resolution",
+            title: `Story: ${resolution.subject || "Customer Success"}`,
+            description: resolution.dialogue_summary || "High-quality resolved conversation with clear troubleshooting steps",
+            hooks,
+            data: {
+              threadId: resolution.thread_id,
+              intent: resolution.intent_slug,
+              keyInfo: resolution.key_information,
+              steps: resolution.troubleshooting_steps,
+              resolution: resolution.resolution_method,
+              qualityScore: resolution.quality_score,
+            },
+            score: parseFloat(resolution.quality_score) || 0.7,
+          });
+        }
+      }
+    }
+
+    // 3. Get popular product topics
+    if (focus_area === "all" || focus_area === "product") {
+      const { data: productTopics } = await supabase.rpc("get_popular_product_topics", {
+        days_back: Math.max(recentDays, 30),
+      });
+
+      if (productTopics && Array.isArray(productTopics)) {
+        for (const product of productTopics.slice(0, 5)) {
+          const hooks = include_hooks
+            ? generateHooksForProduct(product)
+            : undefined;
+
+          topics.push({
+            type: "product_highlight",
+            title: `Product: ${product.product_title}`,
+            description: `${product.mention_count} customer inquiries. Common questions: ${(product.common_intents || []).join(", ")}`,
+            hooks,
+            data: {
+              productId: product.product_id,
+              productType: product.product_type,
+              mentionCount: product.mention_count,
+              commonIntents: product.common_intents,
+              sampleQuestions: product.sample_questions,
+            },
+            score: parseInt(product.mention_count) || 1,
+          });
+        }
+      }
+    }
+
+    // 4. Add static high-value topic suggestions based on category
+    if (topics.length < 5) {
+      topics.push(...getEvergreenTopics(focus_area, include_hooks));
+    }
+
+    // Sort by score and limit
+    topics.sort((a, b) => b.score - a.score);
+    const finalTopics = topics.slice(0, 10);
+
+    // Save recommendations to database for tracking
+    for (const topic of finalTopics) {
+      await supabase.from("reel_topic_recommendations").insert({
+        topic_type: topic.type,
+        title: topic.title,
+        description: topic.description,
+        hook_ideas: topic.hooks || [],
+        source_data: topic.data,
+        relevance_score: Math.min(topic.score / 10, 1),
+        status: "pending",
+      });
+    }
+
+    // Log the action
+    await logToolAction(context, "recommend_reel_topics", input, {
+      success: true,
+      topic_count: finalTopics.length,
+      focus_area,
+      time_range,
+    });
+
+    return {
+      success: true,
+      message: `Generated ${finalTopics.length} reel topic recommendations`,
+      details: {
+        topics: finalTopics,
+        focusArea: focus_area,
+        timeRange: time_range,
+        dataSource: "support_threads",
+      },
+    };
+  } catch (error) {
+    console.error("[LinaTool] Reel topics error:", error);
+    return {
+      success: false,
+      message: `Failed to generate recommendations: ${error instanceof Error ? error.message : "Unknown error"}`,
+    };
+  }
+}
+
+/**
+ * Format intent slug to readable title
+ */
+function formatIntentTitle(slug: string): string {
+  const titleMap: Record<string, string> = {
+    PRODUCT_SUPPORT: "Product Support Questions",
+    COMPATIBILITY_QUESTION: "Compatibility Questions",
+    FIRMWARE_UPDATE_REQUEST: "Firmware Update Requests",
+    FIRMWARE_ACCESS_ISSUE: "Firmware Access Issues",
+    ORDER_STATUS: "Order Status Questions",
+    INSTALL_GUIDANCE: "Installation Help",
+    PART_IDENTIFICATION: "Part Identification",
+    FUNCTIONALITY_BUG: "Feature/Bug Reports",
+    DOCS_VIDEO_MISMATCH: "Documentation Questions",
+    RETURN_REFUND_REQUEST: "Return/Refund Requests",
+    MISSING_DAMAGED_ITEM: "Missing/Damaged Items",
+  };
+  return titleMap[slug] || slug.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/**
+ * Generate hook ideas for intent-based topics
+ */
+function generateHooksForIntent(
+  intentSlug: string,
+  sampleSubjects: string[] | null
+): string[] {
+  const hooks: string[] = [];
+
+  // Intent-specific hooks
+  const intentHooks: Record<string, string[]> = {
+    COMPATIBILITY_QUESTION: [
+      "Does [product] work with YOUR car? Let me show you how to check...",
+      "STOP! Before you buy, check this compatibility guide",
+      "The #1 question we get: 'Will it fit my [make/model]?'",
+    ],
+    FIRMWARE_UPDATE_REQUEST: [
+      "Your tune might be outdated. Here's how to check...",
+      "Firmware update day! Here's what's new in the latest release",
+      "3 signs you need a firmware update (and how to do it)",
+    ],
+    INSTALL_GUIDANCE: [
+      "Installing your [product]? Don't make THIS mistake",
+      "5-minute install guide that actually works",
+      "The step everyone skips (and regrets later)",
+    ],
+    PRODUCT_SUPPORT: [
+      "Having trouble? Here's the fix 90% of customers need",
+      "This simple setting change fixes most issues",
+      "Before you contact support, try this first",
+    ],
+    ORDER_STATUS: [
+      "Where's my order? Here's how to track it in 30 seconds",
+      "Shipping update: What to expect right now",
+    ],
+  };
+
+  if (intentHooks[intentSlug]) {
+    hooks.push(...intentHooks[intentSlug]);
+  }
+
+  // Generate hooks from sample subjects
+  if (sampleSubjects && sampleSubjects.length > 0) {
+    const subject = sampleSubjects[0];
+    if (subject.length < 100) {
+      hooks.push(`"${subject}" - We hear this a lot. Here's the answer...`);
+    }
+  }
+
+  return hooks.slice(0, 3);
+}
+
+/**
+ * Generate hook ideas for resolution stories
+ */
+function generateHooksForResolution(resolution: {
+  subject?: string;
+  intent_slug?: string;
+  troubleshooting_steps?: string[];
+  resolution_method?: string;
+}): string[] {
+  const hooks: string[] = [];
+
+  if (resolution.subject) {
+    hooks.push(`Customer asked: "${resolution.subject.slice(0, 50)}..." Here's what we found...`);
+  }
+
+  if (resolution.troubleshooting_steps && resolution.troubleshooting_steps.length > 0) {
+    hooks.push(`${resolution.troubleshooting_steps.length} steps to fix this common issue`);
+  }
+
+  if (resolution.resolution_method) {
+    hooks.push(`The surprising fix that worked: ${resolution.resolution_method.slice(0, 50)}...`);
+  }
+
+  hooks.push(
+    "This customer was about to give up. Watch what happened next...",
+    "The troubleshooting trick our support team uses daily"
+  );
+
+  return hooks.slice(0, 3);
+}
+
+/**
+ * Generate hook ideas for product topics
+ */
+function generateHooksForProduct(product: {
+  product_title: string;
+  product_type?: string;
+  sample_questions?: string[];
+}): string[] {
+  const hooks: string[] = [
+    `Everything you need to know about ${product.product_title}`,
+    `${product.product_title}: Your questions answered`,
+    `Is ${product.product_title} worth it? Real customer results`,
+  ];
+
+  if (product.sample_questions && product.sample_questions.length > 0) {
+    const question = product.sample_questions[0];
+    if (question && question.length < 80) {
+      hooks.push(`"${question}" - Let's break it down...`);
+    }
+  }
+
+  return hooks.slice(0, 3);
+}
+
+/**
+ * Get evergreen topic suggestions
+ */
+function getEvergreenTopics(
+  focusArea: string,
+  includeHooks: boolean
+): Array<{
+  type: string;
+  title: string;
+  description: string;
+  hooks?: string[];
+  data: Record<string, unknown>;
+  score: number;
+}> {
+  const evergreenTopics = [
+    {
+      type: "evergreen",
+      title: "Before & After Results",
+      description: "Customer transformation stories with dyno results or performance gains",
+      hooks: includeHooks
+        ? [
+            "0-60 in [X] seconds... Here's how",
+            "Before vs After: The numbers don't lie",
+            "+[X] HP with one simple mod",
+          ]
+        : undefined,
+      data: { category: "results" },
+      score: 0.8,
+    },
+    {
+      type: "evergreen",
+      title: "Common Mistakes to Avoid",
+      description: "Educational content about installation or tuning errors",
+      hooks: includeHooks
+        ? [
+            "3 mistakes that will VOID your warranty",
+            "Stop doing this with your tune!",
+            "The #1 reason tunes fail (it's not what you think)",
+          ]
+        : undefined,
+      data: { category: "education" },
+      score: 0.75,
+    },
+    {
+      type: "evergreen",
+      title: "Quick Tips Series",
+      description: "Bite-sized tips that provide immediate value",
+      hooks: includeHooks
+        ? [
+            "30-second tip that saves hours of frustration",
+            "Pro tip your tuner doesn't tell you",
+            "One setting change. Massive difference.",
+          ]
+        : undefined,
+      data: { category: "tips" },
+      score: 0.7,
+    },
+  ];
+
+  if (focusArea === "all") return evergreenTopics;
+  if (focusArea === "troubleshooting") return evergreenTopics.filter((t) => t.data.category === "education");
+  return evergreenTopics.slice(0, 2);
 }
 
 /**

@@ -15,6 +15,35 @@ export const LINA_ADMIN_TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
   {
     type: "function",
     function: {
+      name: "recommend_reel_topics",
+      description:
+        "Generate content topic recommendations for social media reels based on support data. Analyzes trending customer questions, high-quality resolved issues, popular products, and identifies scroll-stopping content opportunities. Use this when Rob asks for reel ideas, content suggestions, or wants to know what topics are hot.",
+      parameters: {
+        type: "object",
+        properties: {
+          focus_area: {
+            type: "string",
+            enum: ["trending", "faq", "product", "troubleshooting", "all"],
+            description:
+              "Focus on a specific content area: 'trending' for rising topics, 'faq' for frequently asked questions, 'product' for popular products, 'troubleshooting' for solved problems with good storytelling, or 'all' for mixed recommendations",
+          },
+          time_range: {
+            type: "string",
+            enum: ["week", "month", "quarter"],
+            description: "How far back to analyze data (default: week for trending, month for FAQs)",
+          },
+          include_hooks: {
+            type: "boolean",
+            description: "Generate hook/opening line suggestions for each topic (default: true)",
+          },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "create_kb_article",
       description:
         "Create a new knowledge base article. Use this when Rob shares product information, troubleshooting steps, policies, or other knowledge that should be available for future customer queries.",
@@ -238,12 +267,13 @@ export const TOOL_SYSTEM_PROMPT = `
 
 You have tools available to take real action. When Rob gives you information or feedback:
 
-1. **lookup_order** - Look up order details from Shopify by order number. Use this when Rob mentions an order number.
-2. **associate_thread_customer** - Link this thread to a customer. Use after looking up an order to associate the thread properly.
-3. **create_kb_article** - Use for new product info, troubleshooting steps, compatibility info, or policies that should be available for future queries
-4. **update_instruction** - Use for behavior changes, communication rules, or process updates
-5. **draft_relay_response** - Use to send Rob's answers back to the customer with natural framing
-6. **note_feedback** - Use for acknowledgments that don't need permanent KB/instruction changes
+1. **recommend_reel_topics** - Generate content ideas for social media reels based on support data. Use when Rob asks for content ideas, reel topics, or what's trending.
+2. **lookup_order** - Look up order details from Shopify by order number. Use this when Rob mentions an order number.
+3. **associate_thread_customer** - Link this thread to a customer. Use after looking up an order to associate the thread properly.
+4. **create_kb_article** - Use for new product info, troubleshooting steps, compatibility info, or policies that should be available for future queries
+5. **update_instruction** - Use for behavior changes, communication rules, or process updates
+6. **draft_relay_response** - Use to send Rob's answers back to the customer with natural framing
+7. **note_feedback** - Use for acknowledgments that don't need permanent KB/instruction changes
 
 **CRITICAL - Order Lookup and Customer Association Workflow:**
 When Rob says something like "This is [customer], order #[number]" or "associate this thread with order #[number]":
