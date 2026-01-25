@@ -64,13 +64,15 @@ src/
 │   ├── admin/              # Admin UI (inbox, KB, instructions)
 │   │   ├── page.tsx        # Main inbox view (with search & filters)
 │   │   ├── thread/[id]/    # Thread detail view
+│   │   ├── orders/         # Order management UI
+│   │   ├── vendors/        # Vendor management UI
 │   │   ├── learning/       # Learning proposals review UI
 │   │   ├── kb/             # Knowledge base management
 │   │   ├── instructions/   # Agent instruction editor
 │   │   └── gmail-setup/    # Gmail OAuth setup
 │   └── api/
 │       ├── agent/poll/     # Gmail polling endpoint (cron)
-│       ├── admin/          # Admin APIs (settings, KB, chat, learning)
+│       ├── admin/          # Admin APIs (settings, KB, chat, learning, orders, vendors)
 │       ├── ingest/email/   # Email ingestion endpoint
 │       ├── gmail/          # Gmail watch management
 │       └── webhooks/       # Shopify + Gmail push webhooks
@@ -112,16 +114,25 @@ src/
 │   ├── threads/            # Thread state machine
 │   │   ├── stateMachine.ts # State transitions
 │   │   ├── archiveThread.ts # Archive/unarchive logic
+│   │   ├── staleHumanHandling.ts # Return stuck threads to Lina
 │   │   └── clarificationLoopDetector.ts # Detect repeated questions
+│   ├── orders/             # Order management
+│   │   ├── types.ts        # Order/vendor types
+│   │   ├── ingest.ts       # Parse order emails, DB operations
+│   │   └── processOrder.ts # Main order processing pipeline
+│   ├── vendors/            # Vendor lookup
+│   │   ├── types.ts        # Vendor types
+│   │   └── lookup.ts       # Find vendor for product
 │   └── responders/         # Policy gate, macros, promise detection
 │       ├── policyGate.ts   # Safety rules (deterministic)
 │       ├── promisedActions.ts # LLM-based promise detection
 │       └── macros.ts       # Pre-approved response templates
 ├── scripts/
 │   ├── ingest-youtube-comments-api.ts # YouTube Q&A extraction
+│   ├── seed-vendors.ts     # Seed vendor data
 │   └── test-classify.ts    # Test LLM classification
 └── supabase/
-    └── migrations/         # Database migrations (001-028)
+    └── migrations/         # Database migrations (001-032)
 ```
 
 ### Key Data Flow
@@ -143,24 +154,32 @@ src/
 - `HUMAN_HANDLING` - agent is observing, human is responding
 
 ### Key Database Tables
+
+**Support:**
 - `threads` - Support conversations (with archive support)
 - `messages` - Individual messages
 - `events` - Audit log of all actions
 - `intents` - Dynamic intent definitions
 - `thread_intents` - Classified intents per thread
+
+**Knowledge & Learning:**
 - `kb_docs` / `kb_chunks` - Knowledge base with embeddings
 - `agent_instructions` - Dynamic Lina behavior rules
-- `gmail_sync_state` - OAuth tokens and sync state
-- `customers` / `orders` - Synced from Shopify
-- `products` / `product_fitment` - Product catalog with vehicle compatibility
 - `learning_proposals` - AI-generated KB/instruction proposals
 - `resolution_analyses` - Learning extraction from resolved threads
 - `lina_tool_actions` - Audit log of Lina's tool actions from admin chat
+
+**Integrations:**
+- `gmail_sync_state` - OAuth tokens and sync state
+- `customers` - Customer records synced from Shopify
+- `products` / `product_fitment` - Product catalog with vehicle compatibility
+
+**Order Management:**
 - `orders` - Order records from Shopify notifications
 - `order_vendors` - Per-vendor fulfillment tracking for multi-vendor orders
 - `order_events` - Order activity audit log
 - `blacklisted_customers` - Customers blocked from fulfillment
-- `vendors` - Vendor contact info cached from Google Sheet
+- `vendors` - Vendor contacts and product patterns (managed via `/admin/vendors`)
 
 ## Environment Variables
 
@@ -211,13 +230,20 @@ YOUTUBE_API_KEY=             # Optional: for YouTube Q&A ingestion
 - [x] **Order Management** - Automated order processing and vendor routing:
   - Detects Shopify order confirmation emails (`[squarewheels] Order #XXXX placed by`)
   - Customer blacklist checking with risk assessment
-  - Vendor routing via Google Sheet mapping
+  - Vendor routing via product pattern matching
   - Email forwarding to vendors via Gmail API
   - Separate `/admin/orders` view with status tracking
   - Support for multi-vendor orders (split forwarding)
+- [x] **Vendor Management** - Admin UI at `/admin/vendors`:
+  - CRUD operations for vendor contacts and product patterns
+  - No longer requires public Google Sheet
+  - Seed script: `npx tsx scripts/seed-vendors.ts`
+- [x] **Stale HUMAN_HANDLING on Webhook** - Threads stuck 48+ hours now checked on every Gmail push (not just daily poll)
 
 ### Pending / Outstanding
-- [ ] **Gmail re-authentication required** - After inbox purge, need to re-auth at `/admin/gmail-setup`
+- [ ] **Phase 2: LLM Risk Assessment** - Use LLM to assess customer risk based on order history
+- [ ] **Phase 3: Tracking Extraction** - Extract tracking numbers from vendor replies, update Shopify
+- [ ] **Phase 4: Vendor-Customer Coordination** - Address validation, dashboard photos for international
 - [ ] Rate limiting on API endpoints
 
 ## Tech Debt & Known Issues
@@ -332,6 +358,33 @@ Lina takes real actions during admin chat sessions.
 
 **Audit Trail:** All actions logged to `lina_tool_actions` table.
 
+## Order Management
+
+Lina automatically processes Shopify order confirmation emails and routes them to vendors.
+
+### Order Flow
+1. **Detection** - Gmail webhook receives email with subject `[squarewheels] Order #XXXX placed by`
+2. **Parsing** - Extract order details: customer info, shipping address, products
+3. **Blacklist Check** - Check if customer email is blacklisted
+4. **High-Value Check** - Flag orders > $3,000 for manual review
+5. **Vendor Matching** - Match products to vendors via product patterns
+6. **Forwarding** - Forward order email to vendor contact(s) via Gmail API
+7. **Tracking** - Create `order_vendors` records for fulfillment tracking
+
+### Vendor Management
+Vendors are managed at `/admin/vendors`. Each vendor has:
+- **Contact Emails** - Where to forward orders
+- **Product Patterns** - Text patterns to match products (e.g., "G-Series", "Hawkeye")
+- **Instructions** - Optional notes for new orders, cancellations, escalations
+
+### Order Statuses
+- `new` - Just received
+- `pending_review` - Flagged for manual review (blacklist, high value)
+- `processing` - Forwarded to vendor(s)
+- `fulfilled` - Vendor confirmed
+- `shipped` - Tracking number received
+- `delivered` - Delivered to customer
+
 ## YouTube Q&A Knowledge Base
 
 Customer questions from YouTube comments are extracted and embedded into the KB.
@@ -368,7 +421,11 @@ Test files in `src/lib/evals/`:
 
 Deployed via Vercel with automatic deploys from main branch.
 
-**Cron job**: `/api/agent/poll` runs daily at 8am UTC (configured in `vercel.json`)
+**Cron jobs** (configured in `vercel.json`):
+- `/api/agent/poll` - Daily at 8am UTC (fallback polling)
+- `/api/gmail/renew-watch` - Every 6 days (keep Gmail push active)
+
+**Gmail Push Notifications**: Real-time email processing via Google Cloud Pub/Sub. Requires `GMAIL_PUBSUB_TOPIC` env var.
 
 To trigger manual poll:
 ```bash
@@ -378,6 +435,11 @@ curl -X POST "https://support-agent-v2.vercel.app/api/agent/poll?force=true"
 curl -X POST "https://support-agent-v2.vercel.app/api/agent/poll?force=true&fetchRecent=true&fetchDays=3"
 ```
 
+To seed vendors (one-time setup):
+```bash
+npx tsx scripts/seed-vendors.ts
+```
+
 ## Quick Reference
 
 | What | Where |
@@ -385,6 +447,9 @@ curl -X POST "https://support-agent-v2.vercel.app/api/agent/poll?force=true&fetc
 | Login page | `/login` |
 | Inbox UI | `/admin` |
 | Thread detail | `/admin/thread/[id]` |
+| Orders | `/admin/orders` |
+| Order detail | `/admin/orders/[id]` |
+| Vendors | `/admin/vendors` |
 | Learning proposals | `/admin/learning` |
 | KB management | `/admin/kb` |
 | Agent instructions | `/admin/instructions` |
@@ -397,4 +462,7 @@ curl -X POST "https://support-agent-v2.vercel.app/api/agent/poll?force=true&fetc
 | Gmail monitor | `src/lib/gmail/monitor.ts` |
 | Draft generator | `src/lib/llm/draftGenerator.ts` |
 | State machine | `src/lib/threads/stateMachine.ts` |
+| Order processing | `src/lib/orders/processOrder.ts` |
+| Vendor lookup | `src/lib/vendors/lookup.ts` |
+| Stale handling | `src/lib/threads/staleHumanHandling.ts` |
 | Lina tools | `src/lib/llm/linaTools.ts` |

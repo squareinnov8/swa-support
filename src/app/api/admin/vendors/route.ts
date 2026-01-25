@@ -1,17 +1,15 @@
 /**
  * Vendors Admin API
  *
- * GET - List cached vendors
- * POST - Sync vendors from Google Sheet
+ * GET - List all vendors
+ * POST - Create a new vendor
  */
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/db";
-import { syncVendorsFromSheet, getVendorSheetUrl } from "@/lib/vendors";
 
 export async function GET() {
   try {
-
     const { data: vendors, error } = await supabase
       .from("vendors")
       .select("*")
@@ -23,7 +21,6 @@ export async function GET() {
 
     return NextResponse.json({
       vendors: vendors || [],
-      sheetUrl: getVendorSheetUrl(),
     });
   } catch (error) {
     console.error("[API] Failed to list vendors:", error);
@@ -34,18 +31,52 @@ export async function GET() {
   }
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
-    const { synced, vendors } = await syncVendorsFromSheet();
+    const body = await request.json();
 
-    return NextResponse.json({
-      success: true,
-      synced,
-      vendors,
-      sheetUrl: getVendorSheetUrl(),
-    });
+    const {
+      name,
+      contact_emails,
+      product_patterns,
+      new_order_instructions,
+      cancel_instructions,
+      escalation_instructions,
+    } = body;
+
+    if (!name || typeof name !== "string" || !name.trim()) {
+      return NextResponse.json(
+        { error: "Vendor name is required" },
+        { status: 400 }
+      );
+    }
+
+    const { data: vendor, error } = await supabase
+      .from("vendors")
+      .insert({
+        name: name.trim(),
+        contact_emails: contact_emails || [],
+        product_patterns: product_patterns || [],
+        new_order_instructions: new_order_instructions || null,
+        cancel_instructions: cancel_instructions || null,
+        escalation_instructions: escalation_instructions || null,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === "23505") {
+        return NextResponse.json(
+          { error: "A vendor with this name already exists" },
+          { status: 409 }
+        );
+      }
+      throw new Error(`Failed to create vendor: ${error.message}`);
+    }
+
+    return NextResponse.json({ vendor }, { status: 201 });
   } catch (error) {
-    console.error("[API] Failed to sync vendors:", error);
+    console.error("[API] Failed to create vendor:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }

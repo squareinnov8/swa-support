@@ -93,6 +93,19 @@ export default async function AdminLayout({
               Orders
             </a>
             <a
+              href="/admin/vendors"
+              style={{
+                padding: "8px 14px",
+                fontSize: 14,
+                fontWeight: 500,
+                color: "#99acc2",
+                textDecoration: "none",
+                borderRadius: 4,
+              }}
+            >
+              Vendors
+            </a>
+            <a
               href="/admin/kb"
               style={{
                 padding: "8px 14px",

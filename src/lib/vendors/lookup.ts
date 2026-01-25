@@ -2,71 +2,27 @@
  * Vendor Lookup
  *
  * Finds the appropriate vendor for a product based on product patterns.
+ * Vendors are managed via the admin UI at /admin/vendors.
  */
 
 import { supabase } from "@/lib/db";
 import type { Vendor, VendorMatch, VendorRecord } from "./types";
-import { fetchVendorsFromSheet } from "./googleSheets";
 
 /**
- * Sync vendors from Google Sheet to database
+ * Get all vendors from database
  */
-export async function syncVendorsFromSheet(): Promise<{
-  synced: number;
-  vendors: Vendor[];
-}> {
-
-  // Fetch from Google Sheet
-  const sheetVendors = await fetchVendorsFromSheet();
-
-  // Upsert each vendor
-  for (const vendor of sheetVendors) {
-    await supabase.from("vendors").upsert(
-      {
-        name: vendor.name,
-        contact_emails: vendor.contactEmails,
-        product_patterns: vendor.productPatterns,
-        new_order_instructions: vendor.newOrderInstructions,
-        cancel_instructions: vendor.cancelInstructions,
-        escalation_instructions: vendor.escalationInstructions,
-        last_synced_at: new Date().toISOString(),
-      },
-      { onConflict: "name" }
-    );
-  }
-
-  return { synced: sheetVendors.length, vendors: sheetVendors };
-}
-
-/**
- * Get all vendors (from cache or fetch fresh)
- */
-export async function getVendors(forceRefresh = false): Promise<Vendor[]> {
-
-  // Check cache age (refresh if older than 1 hour or forced)
-  const { data: cached } = await supabase
+export async function getVendors(): Promise<Vendor[]> {
+  const { data: vendors, error } = await supabase
     .from("vendors")
     .select("*")
     .order("name");
 
-  // If we have cached data and it's recent, use it
-  if (cached && cached.length > 0 && !forceRefresh) {
-    const oldest = cached.reduce((min, v) => {
-      const syncedAt = v.last_synced_at
-        ? new Date(v.last_synced_at).getTime()
-        : 0;
-      return syncedAt < min ? syncedAt : min;
-    }, Date.now());
-
-    const hourAgo = Date.now() - 60 * 60 * 1000;
-    if (oldest > hourAgo) {
-      return cached.map(recordToVendor);
-    }
+  if (error) {
+    console.error("[vendors/lookup] Failed to fetch vendors:", error.message);
+    return [];
   }
 
-  // Fetch fresh data
-  const { vendors } = await syncVendorsFromSheet();
-  return vendors;
+  return (vendors || []).map(recordToVendor);
 }
 
 /**
@@ -81,7 +37,6 @@ function recordToVendor(record: VendorRecord): Vendor {
     newOrderInstructions: record.new_order_instructions,
     cancelInstructions: record.cancel_instructions,
     escalationInstructions: record.escalation_instructions,
-    lastSyncedAt: record.last_synced_at,
   };
 }
 
@@ -189,7 +144,6 @@ export async function findVendorsForProducts<T extends { title: string }>(
  * Get vendor by name
  */
 export async function getVendorByName(name: string): Promise<Vendor | null> {
-
   const { data } = await supabase
     .from("vendors")
     .select("*")
