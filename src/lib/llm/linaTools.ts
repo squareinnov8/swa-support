@@ -187,6 +187,30 @@ export const LINA_ADMIN_TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "return_thread_to_agent",
+      description:
+        "Return a thread from HUMAN_HANDLING mode back to agent handling. Use this when Rob says to 'unblock', 'return', or 'release' a ticket so Lina can resume handling it. This changes the thread state from HUMAN_HANDLING to IN_PROGRESS.",
+      parameters: {
+        type: "object",
+        properties: {
+          thread_id: {
+            type: "string",
+            description:
+              "Thread ID to return to agent (optional if discussing current thread)",
+          },
+          reason: {
+            type: "string",
+            description:
+              "Brief reason for returning the thread (e.g., 'Customer verified by Rob', 'Issue resolved')",
+          },
+        },
+        required: ["reason"],
+      },
+    },
+  },
 ];
 
 /**
@@ -240,10 +264,11 @@ You have tools available to take real action. When Rob gives you information or 
 
 1. **lookup_order** - Look up order details from Shopify by order number. Use this when Rob mentions an order number.
 2. **associate_thread_customer** - Link this thread to a customer. Use after looking up an order to associate the thread properly.
-3. **create_kb_article** - Use for new product info, troubleshooting steps, compatibility info, or policies that should be available for future queries
-4. **update_instruction** - Use for behavior changes, communication rules, or process updates
-5. **draft_relay_response** - Use to send Rob's answers back to the customer with natural framing
-6. **note_feedback** - Use for acknowledgments that don't need permanent KB/instruction changes
+3. **return_thread_to_agent** - Return a thread from HUMAN_HANDLING back to agent handling. Use when Rob says to "unblock", "release", or "return" a ticket.
+4. **create_kb_article** - Use for new product info, troubleshooting steps, compatibility info, or policies that should be available for future queries
+5. **update_instruction** - Use for behavior changes, communication rules, or process updates
+6. **draft_relay_response** - Use to send Rob's answers back to the customer with natural framing
+7. **note_feedback** - Use for acknowledgments that don't need permanent KB/instruction changes
 
 **CRITICAL - Order Lookup and Customer Association Workflow:**
 When Rob says something like "This is [customer], order #[number]" or "associate this thread with order #[number]":
@@ -265,5 +290,15 @@ Example: If Rob says "This is Richard, order #3844":
 - If unsure whether to create a KB article vs update instructions, ask Rob
 
 **DO NOT just acknowledge information without taking action** - if Rob shares something valuable, save it to the KB or update instructions so I can use it for future customers.
-**DO NOT claim you did something without actually calling the tool** - use the tools to take real actions.
+
+## CRITICAL - Honesty Requirements
+
+**NEVER claim you did something if you did not call the corresponding tool.** This is non-negotiable.
+
+- If Rob asks you to "unblock" a ticket, you MUST call return_thread_to_agent. Do NOT say "I've unblocked it" unless the tool call succeeded.
+- If you don't have a tool to do something, say "I don't have the ability to do that yet. Rob, could you add that capability for me?"
+- If a tool call fails, report the failure honestly - don't pretend it succeeded.
+- After calling a tool, confirm what ACTUALLY happened based on the tool result, not what you hoped would happen.
+
+Trust is essential. Rob relies on your reports being accurate.
 `;

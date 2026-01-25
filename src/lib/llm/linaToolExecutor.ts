@@ -56,6 +56,8 @@ export async function executeLinaTool(
         return await lookupOrder(toolInput, context);
       case "associate_thread_customer":
         return await associateThreadCustomer(toolInput, context);
+      case "return_thread_to_agent":
+        return await returnThreadToAgent(toolInput, context);
       default:
         return { success: false, message: `Unknown tool: ${toolName}` };
     }
@@ -549,6 +551,109 @@ async function associateThreadCustomer(
     return {
       success: false,
       message: `Failed to associate customer: ${error instanceof Error ? error.message : "Unknown error"}`,
+    };
+  }
+}
+
+/**
+ * Return a thread from HUMAN_HANDLING back to agent handling
+ */
+async function returnThreadToAgent(
+  input: Record<string, unknown>,
+  context: ToolContext
+): Promise<ToolResult> {
+  const { thread_id, reason } = input as {
+    thread_id?: string;
+    reason: string;
+  };
+
+  if (!reason) {
+    return { success: false, message: "Missing required field: reason" };
+  }
+
+  const targetThreadId = thread_id || context.threadId;
+  if (!targetThreadId) {
+    return { success: false, message: "No thread ID provided. Please specify the thread." };
+  }
+
+  try {
+    // First check the current thread state
+    const { data: thread, error: fetchError } = await supabase
+      .from("threads")
+      .select("id, state, human_handling_mode, human_handler")
+      .eq("id", targetThreadId)
+      .single();
+
+    if (fetchError || !thread) {
+      return { success: false, message: `Thread not found: ${targetThreadId}` };
+    }
+
+    if (thread.state !== "HUMAN_HANDLING" && !thread.human_handling_mode) {
+      return {
+        success: false,
+        message: `Thread is not in HUMAN_HANDLING mode (current state: ${thread.state})`,
+      };
+    }
+
+    // Update thread state
+    const { error: updateError } = await supabase
+      .from("threads")
+      .update({
+        state: "IN_PROGRESS",
+        human_handling_mode: false,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", targetThreadId);
+
+    if (updateError) {
+      return { success: false, message: `Failed to update thread: ${updateError.message}` };
+    }
+
+    // Close any active observation
+    await supabase
+      .from("intervention_observations")
+      .update({
+        intervention_end: new Date().toISOString(),
+        resolution_type: "admin_returned_to_agent",
+        resolution_summary: reason,
+      })
+      .eq("thread_id", targetThreadId)
+      .is("intervention_end", null);
+
+    // Log event
+    await supabase.from("events").insert({
+      thread_id: targetThreadId,
+      type: "THREAD_RETURNED_TO_AGENT",
+      payload: {
+        previous_state: thread.state,
+        previous_handler: thread.human_handler,
+        reason,
+        returned_by: context.adminEmail,
+      },
+    });
+
+    await logToolAction(context, "return_thread_to_agent", input, {
+      success: true,
+      thread_id: targetThreadId,
+      previous_state: thread.state,
+    });
+
+    return {
+      success: true,
+      message: `Thread returned to agent handling. Reason: ${reason}`,
+      resourceUrl: `/admin/thread/${targetThreadId}`,
+      details: {
+        threadId: targetThreadId,
+        previousState: thread.state,
+        newState: "IN_PROGRESS",
+        reason,
+      },
+    };
+  } catch (error) {
+    console.error("[LinaTool] Return thread to agent failed:", error);
+    return {
+      success: false,
+      message: `Failed to return thread to agent: ${error instanceof Error ? error.message : "Unknown error"}`,
     };
   }
 }
