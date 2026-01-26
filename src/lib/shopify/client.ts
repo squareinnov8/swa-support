@@ -336,7 +336,7 @@ export class ShopifyClient {
       };
     };
 
-    type Response = {
+    type ProductsResponse = {
       products: {
         pageInfo: { hasNextPage: boolean; endCursor: string | null };
         edges: Array<{ node: ProductNode }>;
@@ -348,7 +348,7 @@ export class ShopifyClient {
     let cursor: string | null = null;
 
     while (hasNextPage) {
-      const data = await this.executeGraphQL<Response>(GET_PRODUCTS, {
+      const data: ProductsResponse = await this.executeGraphQL<ProductsResponse>(GET_PRODUCTS, {
         first: 50,
         after: cursor,
       });

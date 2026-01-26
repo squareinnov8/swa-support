@@ -4,6 +4,7 @@ import { LocalTimestamp } from "../../LocalTimestamp";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { OrderActions } from "./OrderActions";
+import { VendorRequestsSection } from "./VendorRequestsSection";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +68,13 @@ export default async function OrderDetailPage({
     .eq("order_id", id)
     .order("created_at", { ascending: false })
     .limit(20);
+
+  // Fetch vendor requests
+  const { data: vendorRequests } = await supabase
+    .from("vendor_requests")
+    .select("*")
+    .eq("order_id", id)
+    .order("created_at", { ascending: true });
 
   const statusColors =
     STATUS_COLORS[order.status as OrderStatus] || STATUS_COLORS.new;
@@ -226,6 +234,11 @@ export default async function OrderDetailPage({
               </div>
             )}
           </div>
+
+          {/* Vendor Requests */}
+          {vendorRequests && vendorRequests.length > 0 && (
+            <VendorRequestsSection requests={vendorRequests} />
+          )}
         </div>
 
         {/* Sidebar - Events */}
