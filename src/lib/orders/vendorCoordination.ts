@@ -89,6 +89,58 @@ export async function findOrderVendorByThread(
 }
 
 /**
+ * Extract order number from subject line
+ * Handles: "Order #1234", "[squarewheels] Order #1234", "FW: Re: Order #1234 placed by..."
+ */
+function extractOrderNumberFromSubject(subject: string): string | null {
+  const match = subject.match(/Order\s*#(\d+)/i);
+  return match ? match[1] : null;
+}
+
+/**
+ * Find order_vendor by order number and vendor email
+ */
+export async function findOrderVendorByOrderNumber(
+  orderNumber: string,
+  vendorEmail: string
+): Promise<OrderVendor | null> {
+  const email = cleanEmailAddress(vendorEmail);
+
+  // Find the vendor first
+  const { data: vendors } = await supabase
+    .from("vendors")
+    .select("id, name, contact_emails");
+
+  if (!vendors) return null;
+
+  const vendor = vendors.find((v) => {
+    const emails = v.contact_emails || [];
+    return emails.some((e: string) => e.toLowerCase() === email);
+  });
+
+  if (!vendor) return null;
+
+  // Find the order by number
+  const { data: order } = await supabase
+    .from("orders")
+    .select("id")
+    .eq("order_number", orderNumber)
+    .single();
+
+  if (!order) return null;
+
+  // Find the order_vendor record
+  const { data: orderVendor } = await supabase
+    .from("order_vendors")
+    .select("*, orders(*)")
+    .eq("order_id", order.id)
+    .eq("vendor_name", vendor.name)
+    .maybeSingle();
+
+  return orderVendor;
+}
+
+/**
  * Find order_vendor by order ID and vendor email
  */
 export async function findOrderVendorByEmail(
@@ -1034,7 +1086,16 @@ export async function processVendorReply(params: {
   // Find the order vendor by thread ID
   let orderVendor = await findOrderVendorByThread(gmailThreadId);
 
-  // If not found by thread, try by email (vendor might have started a new thread)
+  // If not found by thread, try by order number in subject (for forwarded vendor emails)
+  if (!orderVendor) {
+    const orderNumber = extractOrderNumberFromSubject(subject);
+    if (orderNumber) {
+      console.log(`[VendorCoordination] Trying to match by order number: ${orderNumber}`);
+      orderVendor = await findOrderVendorByOrderNumber(orderNumber, fromEmail);
+    }
+  }
+
+  // If still not found, try by email (vendor might have started a new thread)
   if (!orderVendor) {
     const byEmail = await findOrderVendorByEmail(fromEmail);
     if (byEmail) {
