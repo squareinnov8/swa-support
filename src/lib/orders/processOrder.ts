@@ -70,7 +70,26 @@ export async function processOrderEmail(params: {
 
   console.log(`[Orders] Parsed order #${parsed.orderNumber} for ${parsed.customerEmail}`);
 
-  // 2. Check if customer is blacklisted
+  // 2. Check if order already exists (deduplication)
+  const { data: existingOrder } = await supabase
+    .from("orders")
+    .select("id, status")
+    .eq("order_number", parsed.orderNumber)
+    .limit(1)
+    .maybeSingle();
+
+  if (existingOrder) {
+    console.log(`[Orders] Order #${parsed.orderNumber} already exists (${existingOrder.id}), skipping`);
+    return {
+      success: true,
+      orderId: existingOrder.id,
+      orderNumber: parsed.orderNumber,
+      status: existingOrder.status,
+      // Don't forward again - already processed
+    };
+  }
+
+  // 3. Check if customer is blacklisted
   const blacklistCheck = await checkBlacklist(parsed.customerEmail);
 
   if (blacklistCheck.blacklisted) {
