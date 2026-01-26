@@ -9,6 +9,7 @@ import { supabase } from "@/lib/db";
 import { generateDraft, getConversationHistory } from "@/lib/llm/draftGenerator";
 import { sendTakeoverNotification } from "./takeoverNotification";
 import { trackPromisedActions } from "@/lib/responders/promisedActions";
+import { generateContextualEmail, type StaleThreadContext } from "@/lib/llm/contextualEmailGenerator";
 
 // Timeout threshold in hours
 const HUMAN_HANDLING_TIMEOUT_HOURS = 48;
@@ -261,26 +262,43 @@ Example opening: "I sincerely apologize for the delay in getting back to you. I'
     }
 
     // Fallback if LLM generation fails - create a simple apology draft
-    return createFallbackApologyDraft();
+    const historyContext = conversationHistory.map(m =>
+      `${m.direction === "inbound" ? "Customer" : "Lina"}: ${m.body.slice(0, 200)}`
+    );
+    return await createFallbackApologyDraft(undefined, historyContext);
   } catch (err) {
     console.error("[StaleHandling] Draft generation failed:", err);
-    return createFallbackApologyDraft();
+    return await createFallbackApologyDraft();
   }
 }
 
 /**
- * Create a simple fallback apology draft if LLM fails
+ * Create a fallback apology draft using contextual email generator
  */
-function createFallbackApologyDraft(): string {
-  return `Hi there,
+async function createFallbackApologyDraft(
+  customerName?: string,
+  conversationContext?: string[]
+): Promise<string> {
+  const context: StaleThreadContext = {
+    purpose: "stale_thread_return",
+    customerName,
+    daysSinceLastMessage: Math.ceil(HUMAN_HANDLING_TIMEOUT_HOURS / 24),
+    conversationHistory: conversationContext,
+  };
 
-I sincerely apologize for the delay in getting back to you. Our team has been reviewing your case, and I'm now picking this up to help resolve your issue as quickly as possible.
+  try {
+    const email = await generateContextualEmail(context);
+    return email.body;
+  } catch {
+    // Ultimate fallback if even contextual generator fails
+    return `Hi${customerName ? ` ${customerName}` : " there"},
 
-Could you please let me know if there's been any change in your situation since your last message, or if the original issue is still what you need help with?
+I'm really sorry for the delay in getting back to you. That's not the experience we want you to have.
 
-Thank you for your patience, and I'll make sure to prioritize getting you a solution.
+Is this still something you need help with? If so, let me know and I'll make it a priority.
 
 – Lina`;
+  }
 }
 
 /**

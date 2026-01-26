@@ -16,15 +16,17 @@ import { generateDraft, getConversationHistory, type DraftResult } from "@/lib/l
 import { calculateThreadAge, type CustomerContext, type ThreadAgeContext } from "@/lib/llm/prompts";
 import { isLLMConfigured } from "@/lib/llm/client";
 import {
+  generateContextualEmail,
+  type EscalationContext,
+  type ClarificationLoopContext,
+} from "@/lib/llm/contextualEmailGenerator";
+import {
   getNextState,
   getTransitionReason,
   type ThreadState,
   type Action,
 } from "@/lib/threads/stateMachine";
-import {
-  detectClarificationLoop,
-  CLARIFICATION_LOOP_ESCALATION_DRAFT,
-} from "@/lib/threads/clarificationLoopDetector";
+import { detectClarificationLoop } from "@/lib/threads/clarificationLoopDetector";
 import {
   verifyCustomer,
   getVerificationPrompt,
@@ -504,11 +506,25 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
         `asked for "${clarificationLoop.repeatedCategory}" ${clarificationLoop.occurrences} times`
     );
 
+    // Generate clarification loop escalation draft via LLM
+    const loopContext: ClarificationLoopContext = {
+      purpose: "clarification_loop",
+      repeatedQuestion: clarificationLoop.repeatedCategory || undefined,
+      occurrences: clarificationLoop.occurrences,
+    };
+    let loopDraft: string;
+    try {
+      const loopEmail = await generateContextualEmail(loopContext);
+      loopDraft = loopEmail.body;
+    } catch {
+      loopDraft = `I'm having trouble finding the right answer for you. I've asked Rob, our team lead, to take a look - he'll follow up with you directly.\n\n– Lina`;
+    }
+
     await logEvent(threadId, {
       intent,
       confidence,
       action: "ESCALATE_WITH_DRAFT",
-      draft: CLARIFICATION_LOOP_ESCALATION_DRAFT,
+      draft: loopDraft,
       channel: req.channel,
       note: `Clarification loop detected - asked for ${clarificationLoop.repeatedCategory} ${clarificationLoop.occurrences} times`,
       clarificationLoop: {
@@ -525,7 +541,7 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
     await supabase.from("messages").insert({
       thread_id: threadId,
       direction: "outbound",
-      body_text: CLARIFICATION_LOOP_ESCALATION_DRAFT,
+      body_text: loopDraft,
       role: "draft",
       channel: req.channel,
       channel_metadata: {
@@ -540,7 +556,7 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
       intent,
       confidence,
       action: "ESCALATE_WITH_DRAFT",
-      draft: CLARIFICATION_LOOP_ESCALATION_DRAFT,
+      draft: loopDraft,
       state: nextState,
       previous_state: currentState,
     };
@@ -802,14 +818,24 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
   // 6.5. Add escalation notice to customer draft if escalating
   // This tells the customer we're escalating without CC'ing Rob
   if (action === "ESCALATE_WITH_DRAFT") {
-    const escalationNotice = `\n\nI've escalated this to Rob, our team lead, who will follow up with you directly to help resolve this.\n\n– Lina`;
+    const escalationContext: EscalationContext = {
+      purpose: "escalation_notice",
+      customerName: undefined, // Name not available in IngestRequest
+      existingDraft: draft || undefined,
+    };
 
-    if (draft) {
-      // Remove existing "– Lina" signoff if present, then add escalation notice
-      draft = draft.replace(/\n*–\s*Lina\s*$/i, "").trim() + escalationNotice;
-    } else {
-      // No draft exists yet - create an escalation acknowledgment
-      draft = `Thank you for reaching out. I've reviewed your message and I've escalated this to Rob, our team lead, who will follow up with you directly to help resolve this.\n\n– Lina`;
+    try {
+      const escalationEmail = await generateContextualEmail(escalationContext);
+      draft = escalationEmail.body;
+    } catch (err) {
+      console.error("[Process] Escalation email generation failed:", err);
+      // Fallback to simple escalation notice
+      if (draft) {
+        draft = draft.replace(/\n*–\s*Lina\s*$/i, "").trim() +
+          `\n\nI've also looped in Rob, our team lead, who'll follow up personally to help resolve this.\n\n– Lina`;
+      } else {
+        draft = `Thanks for reaching out. I've looped in Rob, our team lead, who'll follow up with you directly to help get this sorted.\n\n– Lina`;
+      }
     }
   }
 

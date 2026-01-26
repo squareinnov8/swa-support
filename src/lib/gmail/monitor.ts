@@ -453,6 +453,11 @@ async function syncGmailMessagesToThread(
     if (!error) {
       synced++;
       console.log(`[Monitor] Synced ${direction} message ${gmailMsg.id} to thread ${threadId}`);
+    } else if (error.code === "23505") {
+      // Unique constraint violation - message was inserted by concurrent call
+      // This is expected with the gmail_message_id unique index
+      skipped++;
+      console.log(`[Monitor] Message ${gmailMsg.id} already synced (concurrent insert)`);
     } else {
       console.warn(`[Monitor] Failed to sync message ${gmailMsg.id}: ${error.message}`);
     }
@@ -600,7 +605,8 @@ async function processGmailThread(
   if (latestIncomingForCustomer) {
     const responseCheck = await isCustomerResponseToVendorRequest(
       thread.subject,
-      latestIncomingForCustomer.from
+      latestIncomingForCustomer.from,
+      gmailThreadId
     );
 
     if (responseCheck.isResponse && responseCheck.orderId) {

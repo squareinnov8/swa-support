@@ -12,6 +12,12 @@
 import { supabase } from "@/lib/db";
 import { getClient, isLLMConfigured } from "@/lib/llm/client";
 import { replyToVendorThread } from "@/lib/gmail/forwardOrder";
+import {
+  generateContextualEmail,
+  type CustomerOutreachContext,
+  type VendorForwardContext,
+  type OrderConfirmationContext,
+} from "@/lib/llm/contextualEmailGenerator";
 import type {
   VendorRequest,
   VendorRequestType,
@@ -403,7 +409,7 @@ export async function createVendorRequests(
 }
 
 /**
- * Generate customer outreach email for vendor requests
+ * Generate customer outreach email for vendor requests using LLM
  */
 export async function generateCustomerOutreachEmail(
   customerName: string,
@@ -411,37 +417,19 @@ export async function generateCustomerOutreachEmail(
   productTitle: string,
   requests: VendorRequest[]
 ): Promise<{ subject: string; body: string }> {
-  const subject = `Action needed for your Order #${orderNumber}`;
+  const context: CustomerOutreachContext = {
+    purpose: "customer_outreach",
+    customerName: customerName || "there",
+    orderNumber,
+    productTitle,
+    requests: requests.map((r) => ({
+      type: r.type,
+      description: r.description,
+      options: r.options,
+    })),
+  };
 
-  // Build request list
-  const requestItems = requests.map((r) => {
-    let item = `• ${r.description}`;
-    if (r.options && r.options.length > 0) {
-      item += `\n  Options: ${r.options.join(", ")}`;
-    }
-    return item;
-  });
-
-  const body = `Hi ${customerName || "there"},
-
-Thank you for your order (#${orderNumber}) for the ${productTitle}.
-
-Our fulfillment team needs a bit more information before they can process your order:
-
-${requestItems.join("\n\n")}
-
-Please reply to this email with the requested information. ${
-    requests.some((r) => r.type === "dashboard_photo")
-      ? "You can attach photos directly to your reply."
-      : ""
-  }
-
-If you have any questions, just let us know!
-
-– Lina
-SquareWheels Auto Support`;
-
-  return { subject, body };
+  return generateContextualEmail(context);
 }
 
 /**
@@ -492,7 +480,21 @@ export async function sendCustomerOutreachEmail(params: {
           description: r.description,
         })),
         gmail_message_id: result.gmailMessageId,
+        gmail_thread_id: result.gmailThreadId,
       });
+
+      // Save the outreach thread ID to the order for tracking customer responses
+      if (result.gmailThreadId) {
+        await supabase
+          .from("orders")
+          .update({
+            customer_outreach_thread_id: result.gmailThreadId,
+            customer_outreach_message_id: result.gmailMessageId,
+          })
+          .eq("id", orderId);
+
+        console.log(`[VendorCoordination] Saved outreach thread ${result.gmailThreadId} to order ${orderId}`);
+      }
 
       // Update request statuses
       await supabase
@@ -642,31 +644,20 @@ export async function forwardCustomerResponseToVendor(params: {
     return { success: false, error: "Order vendor not found" };
   }
 
-  // Build response message
-  const responseLines = responses.map((r) => {
-    if (r.answer) {
-      return `${r.requestType}: ${r.answer}`;
-    }
-    if (r.attachments && r.attachments.length > 0) {
-      return `${r.requestType}: See attached (${r.attachments.length} file(s))`;
-    }
-    return `${r.requestType}: Provided`;
-  });
+  // Generate email using LLM
+  const vendorContext: VendorForwardContext = {
+    purpose: "vendor_forward",
+    orderNumber: orderVendor.orders.order_number,
+    vendorName: orderVendor.vendor_name,
+    responses: responses.map((r) => ({
+      type: r.requestType,
+      answer: r.answer,
+      hasAttachments: (r.attachments?.length || 0) > 0,
+      attachmentCount: r.attachments?.length,
+    })),
+  };
 
-  const body = `Hi,
-
-Here is the customer response for Order #${orderVendor.orders.order_number}:
-
-${responseLines.join("\n")}
-
-${
-  attachments && attachments.length > 0
-    ? `\n${attachments.length} attachment(s) included.`
-    : ""
-}
-
-Thanks,
-SquareWheels Auto`;
+  const { body } = await generateContextualEmail(vendorContext);
 
   // Reply to the vendor thread
   const result = await replyToVendorThread({
@@ -707,21 +698,80 @@ SquareWheels Auto`;
  */
 export async function isCustomerResponseToVendorRequest(
   subject: string,
-  customerEmail: string
+  customerEmail: string,
+  gmailThreadId?: string
 ): Promise<{
   isResponse: boolean;
   orderId?: string;
   orderNumber?: string;
   pendingRequests?: VendorRequest[];
 }> {
-  // Check if subject matches our outreach pattern
+  const cleanedEmail = cleanEmailAddress(customerEmail);
+  console.log(`[VendorCoordination] Checking if email is customer response:`, {
+    subject,
+    customerEmail: cleanedEmail,
+    gmailThreadId,
+  });
+
+  // Method 1: Check if Gmail thread ID matches a known outreach thread
+  if (gmailThreadId) {
+    const { data: orderByThread } = await supabase
+      .from("orders")
+      .select("id, order_number, customer_email")
+      .eq("customer_outreach_thread_id", gmailThreadId)
+      .single();
+
+    if (orderByThread) {
+      console.log(`[VendorCoordination] Found order via outreach thread ID:`, {
+        orderId: orderByThread.id,
+        orderNumber: orderByThread.order_number,
+      });
+
+      // Verify customer email matches
+      if (cleanEmailAddress(orderByThread.customer_email) !== cleanedEmail) {
+        console.log(`[VendorCoordination] Email mismatch via thread ID:`, {
+          expected: cleanEmailAddress(orderByThread.customer_email),
+          actual: cleanedEmail,
+        });
+        return { isResponse: false };
+      }
+
+      // Check for pending vendor requests
+      const { data: requests } = await supabase
+        .from("vendor_requests")
+        .select("*")
+        .eq("order_id", orderByThread.id)
+        .eq("status", "pending");
+
+      if (!requests || requests.length === 0) {
+        console.log(`[VendorCoordination] No pending requests for order via thread ID`);
+        return { isResponse: false };
+      }
+
+      console.log(`[VendorCoordination] Matched via thread ID! ${requests.length} pending requests`);
+      return {
+        isResponse: true,
+        orderId: orderByThread.id,
+        orderNumber: orderByThread.order_number,
+        pendingRequests: requests.map((r) => ({
+          type: r.request_type as VendorRequestType,
+          description: r.description,
+          options: r.options,
+          required: true,
+        })),
+      };
+    }
+  }
+
+  // Method 2: Check if subject matches our outreach pattern
   const orderMatch = subject.match(/Order #(\d+)/i);
   if (!orderMatch) {
+    console.log(`[VendorCoordination] Subject doesn't match order pattern: "${subject}"`);
     return { isResponse: false };
   }
 
   const orderNumber = orderMatch[1];
-  const cleanedEmail = cleanEmailAddress(customerEmail);
+  console.log(`[VendorCoordination] Extracted order number ${orderNumber} from subject`);
 
   // Find the order
   const { data: order } = await supabase
@@ -731,11 +781,22 @@ export async function isCustomerResponseToVendorRequest(
     .single();
 
   if (!order) {
+    console.log(`[VendorCoordination] Order #${orderNumber} not found in database`);
     return { isResponse: false };
   }
 
+  console.log(`[VendorCoordination] Found order:`, {
+    orderId: order.id,
+    orderNumber: order.order_number,
+    customerEmail: cleanEmailAddress(order.customer_email),
+  });
+
   // Verify customer email matches
   if (cleanEmailAddress(order.customer_email) !== cleanedEmail) {
+    console.log(`[VendorCoordination] Email mismatch:`, {
+      expected: cleanEmailAddress(order.customer_email),
+      actual: cleanedEmail,
+    });
     return { isResponse: false };
   }
 
@@ -747,8 +808,13 @@ export async function isCustomerResponseToVendorRequest(
     .eq("status", "pending");
 
   if (!requests || requests.length === 0) {
+    console.log(`[VendorCoordination] No pending vendor requests for order #${orderNumber}`);
     return { isResponse: false };
   }
+
+  console.log(`[VendorCoordination] Matched via subject! ${requests.length} pending requests:`,
+    requests.map(r => ({ type: r.request_type, status: r.status }))
+  );
 
   return {
     isResponse: true,

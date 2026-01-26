@@ -376,19 +376,24 @@ export function buildUserPrompt(params: {
   // Add conversation history if available
   if (previousMessages && previousMessages.length > 0) {
     prompt += "## Conversation History:\n";
-    prompt += "(Review this carefully - prior support responses set the context for your reply)\n\n";
+    prompt += "READ THIS CAREFULLY before responding - this is an ongoing conversation!\n\n";
     for (const msg of previousMessages.slice(-5)) {
       // Last 5 messages for better context
       prompt += `${msg}\n\n`;
     }
-    prompt += `### CRITICAL - Respect Prior Support Actions:
-- If a human support agent (Rob, Lina, or team) already RESOLVED something (approved a return, confirmed a replacement, provided an answer), DO NOT start over
-- Your job is to CONTINUE from where the last support message left off, not repeat apologies or policies
-- If the last outbound message said "we'll do a warranty replacement" - acknowledge that decision and help the customer with next steps
-- NEVER contradict or ignore what a human support agent already committed to
-- If waiting on customer action (photos, shipping, confirmation), remind them gently - don't re-explain the whole policy
+    prompt += `### CRITICAL - Continue the Conversation Naturally:
+- This is an ONGOING conversation - pick up where it left off
+- If the customer already PROVIDED information (color choice, photo, etc.), ACKNOWLEDGE IT - don't ask again
+- Reference what they said: "Thanks for sending the photo!" or "Got it, piano black it is"
+- If you asked a question and they answered, MOVE FORWARD with that answer
+- NEVER ask the same question twice - if they answered partially, acknowledge what you got and only ask for what's missing
+- If a human agent (Rob) already handled something, continue from their message
 
-**Note**: If the customer is asking the same question repeatedly, try explaining differently, use simpler language, or ask what specifically is unclear. If they seem frustrated, acknowledge it.\n\n`;
+### INFORMATION ALREADY PROVIDED:
+Look at the conversation history above. If the customer already shared:
+- A photo → Acknowledge it, don't ask for another
+- A color preference → Use it, don't ask again
+- An answer to your question → Build on it, don't repeat the question\n\n`;
   }
 
   // Add attachment content if available
@@ -409,29 +414,20 @@ export function buildUserPrompt(params: {
 
   // Add instruction - action-oriented, no false promises
   prompt += `## Task:
-Write a helpful, professional response to the customer's message.
+Write a natural, conversational response to continue this conversation.
 
-### ACTION-FIRST RULES (CRITICAL):
-- If VERIFIED ORDER DATA is provided above, use it to answer the customer IMMEDIATELY with facts
-- NEVER say "I'm checking on that" or "Let me look this up" when the data is already in the prompt
-- NEVER say "I'll get back to you shortly" - you're responding NOW with the information
-- Only include tracking info if the customer is specifically asking about shipping, delivery, or order status
-- Do NOT proactively share tracking info for old orders or when customer is asking about product issues
-- If customer asks about shipping AND order is unfulfilled, tell them it hasn't shipped yet
+### RESPONSE STYLE:
+- Write like you're texting a friend who needs help - professional but human
+- Lead with the answer or acknowledgment, then explain if needed
+- Keep it short: 2-3 paragraphs max
+- Don't use numbered lists or bullet points for simple responses - just talk naturally
+- Sign off with "– Lina"
 
-### Response Guidelines:
-1. Lead with the ANSWER or the ACTION you're taking (providing info = action)
-2. Only ask for information you genuinely don't have
-3. Never promise refunds, replacements, or specific timelines
-4. Be concise - 2-3 paragraphs max
-5. Sign off with "– Lina"
-
-### CONTINUATION RULE (when prior support message exists):
-If a human or agent ALREADY addressed the issue (approved replacement, confirmed refund, provided answer), your response must:
-- Reference/acknowledge what was already decided ("As mentioned, we're processing your warranty replacement...")
-- Focus on NEXT STEPS, not re-explaining the situation
-- NOT start with apologies or send customer back to policies
-- Help move the resolution forward, not backwards`;
+### CRITICAL RULES:
+- If the customer already answered your question, acknowledge it and move forward
+- If order data is in the prompt, use it - don't say "let me check"
+- Never promise refunds, replacements, or timelines you can't guarantee
+- If picking up from where Rob or another agent left off, continue naturally`;
 
   return prompt;
 }
