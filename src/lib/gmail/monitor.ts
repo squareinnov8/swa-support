@@ -873,12 +873,58 @@ async function processGmailThread(
     thread.subject
   );
 
-  // Skip vendor emails for now - they should be routed to order management
-  // TODO: Route vendor replies to the appropriate order thread
+  // Handle vendor emails (including forwarded vendor emails from Rob)
   if (resolvedSender.isVendor) {
-    console.log(`[Monitor] Vendor email from ${resolvedSender.vendorName} (${latestIncoming.from}) - skipping support pipeline`);
+    console.log(`[Monitor] Vendor email from ${resolvedSender.vendorName} (${resolvedSender.wasForwarded ? 'forwarded by ' + latestIncoming.from : latestIncoming.from})`);
+
+    // Process through vendor coordination pipeline
+    const vendorResult = await processVendorReply({
+      gmailThreadId,
+      gmailMessageId: latestIncoming.id,
+      fromEmail: resolvedSender.email, // Use resolved vendor email
+      subject: thread.subject,
+      body: latestIncoming.body,
+    });
+
+    result.vendorReplyProcessed = vendorResult.processed;
+    result.vendorRequestsCreated = vendorResult.requestCount;
+    result.customerContacted = vendorResult.customerContacted;
+
+    if (!vendorResult.processed && vendorResult.error) {
+      result.error = vendorResult.error;
+    }
+
+    // Vendor emails don't go through support pipeline
+    return result;
+  }
+
+  // Handle internal admin notes (emails from Rob/internal that don't have an extractable external sender)
+  if (resolvedSender.isInternal) {
+    console.log(`[Monitor] Internal admin note from ${latestIncoming.from} - skipping draft generation`);
+
+    // Still record the message but don't generate a draft
+    // Log as an event for audit trail
+    const { data: existingThread } = await supabase
+      .from("threads")
+      .select("id")
+      .eq("gmail_thread_id", gmailThreadId)
+      .single();
+
+    if (existingThread) {
+      await supabase.from("events").insert({
+        thread_id: existingThread.id,
+        type: "admin_note",
+        payload: {
+          from: latestIncoming.from,
+          subject: thread.subject,
+          body_preview: latestIncoming.body.substring(0, 500),
+          gmail_message_id: latestIncoming.id,
+        },
+      });
+    }
+
     result.skipped = true;
-    result.skipReason = `Vendor email from ${resolvedSender.vendorName}`;
+    result.skipReason = "Internal admin note - no draft needed";
     return result;
   }
 

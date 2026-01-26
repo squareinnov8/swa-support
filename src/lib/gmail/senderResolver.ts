@@ -166,6 +166,7 @@ export type ResolvedSender = {
   originalSender?: string;
   isVendor: boolean;
   vendorName?: string;
+  isInternal: boolean; // True if sender is internal and no external sender was extracted
 };
 
 /**
@@ -189,6 +190,7 @@ export async function resolveSender(
       wasForwarded: false,
       isVendor: true,
       vendorName: vendorCheck.vendorName,
+      isInternal: false,
     };
   }
 
@@ -198,6 +200,21 @@ export async function resolveSender(
     const originalName = extractCustomerNameFromForward(body);
 
     if (originalSender) {
+      // Check if the original sender is a vendor
+      const originalVendorCheck = await isVendorEmail(originalSender);
+      if (originalVendorCheck.isVendor) {
+        console.log(`[SenderResolver] Resolved forwarded vendor email: ${fromEmail} -> ${originalSender} (${originalVendorCheck.vendorName})`);
+        return {
+          email: originalSender.toLowerCase(),
+          name: originalName || undefined,
+          wasForwarded: true,
+          originalSender: normalized,
+          isVendor: true,
+          vendorName: originalVendorCheck.vendorName,
+          isInternal: false,
+        };
+      }
+
       console.log(`[SenderResolver] Resolved forwarded email: ${fromEmail} -> ${originalSender}`);
       return {
         email: originalSender.toLowerCase(),
@@ -205,15 +222,17 @@ export async function resolveSender(
         wasForwarded: true,
         originalSender: normalized,
         isVendor: false,
+        isInternal: false,
       };
     }
 
-    // Couldn't extract original sender - treat as internal communication
-    console.log(`[SenderResolver] Internal email from ${fromEmail}, no original sender found`);
+    // Couldn't extract original sender - treat as internal admin note
+    console.log(`[SenderResolver] Internal admin note from ${fromEmail}, no external sender found`);
     return {
       email: normalized,
       wasForwarded: false,
       isVendor: false,
+      isInternal: true,
     };
   }
 
@@ -222,5 +241,6 @@ export async function resolveSender(
     email: normalized,
     wasForwarded: false,
     isVendor: false,
+    isInternal: false,
   };
 }
