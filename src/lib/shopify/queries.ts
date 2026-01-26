@@ -259,3 +259,49 @@ export const GET_CUSTOMER_ORDERS = `
     }
   }
 `;
+
+/**
+ * Get all products with pagination
+ * Used for catalog sync
+ */
+export const GET_PRODUCTS = `
+  query GetProducts($first: Int!, $after: String) {
+    products(first: $first, after: $after) {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      edges {
+        node {
+          id
+          handle
+          title
+          descriptionHtml
+          productType
+          vendor
+          status
+          tags
+          images(first: 1) {
+            edges {
+              node {
+                url
+              }
+            }
+          }
+          variants(first: 100) {
+            edges {
+              node {
+                id
+                sku
+                title
+                price
+                compareAtPrice
+                inventoryQuantity
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;

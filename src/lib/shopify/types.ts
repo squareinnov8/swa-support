@@ -84,6 +84,28 @@ export type ShopifyGraphQLResponse<T> = {
   }>;
 };
 
+export type ShopifyProductVariant = {
+  id: string;
+  sku: string | null;
+  title: string;
+  price: string;
+  compareAtPrice: string | null;
+  inventoryQuantity: number;
+};
+
+export type ShopifyProduct = {
+  id: string;
+  handle: string;
+  title: string;
+  descriptionHtml: string;
+  productType: string | null;
+  vendor: string | null;
+  status: string;
+  tags: string[];
+  images: Array<{ url: string }>;
+  variants: ShopifyProductVariant[];
+};
+
 // === Order Events Timeline Types ===
 
 export type ShopifyMoney = {

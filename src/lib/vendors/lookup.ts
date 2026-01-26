@@ -41,35 +41,49 @@ function recordToVendor(record: VendorRecord): Vendor {
 }
 
 /**
+ * Check if a pattern matches a product title
+ * Uses word-based matching: all words in the pattern must appear in the product
+ * This handles cases like "Hawkeye Tail Lights" matching "Hawkeye Animated Tail Lights"
+ */
+function patternMatches(productTitle: string, pattern: string): boolean {
+  const productWords = productTitle.toLowerCase().split(/\s+/);
+  const patternWords = pattern.toLowerCase().split(/\s+/);
+
+  // All pattern words must be in the product title
+  return patternWords.every((patternWord) =>
+    productWords.some((productWord) => productWord.includes(patternWord) || patternWord.includes(productWord))
+  );
+}
+
+/**
  * Find vendor for a product title
  *
  * Matches product title against vendor product patterns.
+ * Uses word-based matching (all pattern words must be present).
  * Returns the best match or null if no vendor found.
  */
 export async function findVendorForProduct(
   productTitle: string
 ): Promise<VendorMatch | null> {
   const vendors = await getVendors();
-  const normalizedProduct = productTitle.toLowerCase();
 
   let bestMatch: VendorMatch | null = null;
   let bestScore = 0;
 
   for (const vendor of vendors) {
     for (const pattern of vendor.productPatterns) {
-      const normalizedPattern = pattern.toLowerCase();
-
-      // Check if product contains the pattern
-      if (normalizedProduct.includes(normalizedPattern)) {
-        // Score based on pattern length (longer = more specific = better)
-        const score = normalizedPattern.length / normalizedProduct.length;
+      // Check if pattern matches using word-based matching
+      if (patternMatches(productTitle, pattern)) {
+        // Score based on pattern word count (more words = more specific = better)
+        const patternWordCount = pattern.split(/\s+/).length;
+        const score = patternWordCount;
 
         if (score > bestScore) {
           bestScore = score;
           bestMatch = {
             vendor,
             matchedPattern: pattern,
-            confidence: Math.min(score * 2, 1), // Scale to 0-1
+            confidence: Math.min(score / 3, 1), // Scale: 3+ words = 100% confidence
           };
         }
       }
@@ -94,14 +108,12 @@ export async function findVendorsForProducts<T extends { title: string }>(
   >();
 
   for (const product of products) {
-    const normalizedTitle = product.title.toLowerCase();
-
-    // Find matching vendor
+    // Find matching vendor using word-based pattern matching
     let matchedVendor: Vendor | null = null;
 
     for (const vendor of vendors) {
       for (const pattern of vendor.productPatterns) {
-        if (normalizedTitle.includes(pattern.toLowerCase())) {
+        if (patternMatches(product.title, pattern)) {
           matchedVendor = vendor;
           break;
         }

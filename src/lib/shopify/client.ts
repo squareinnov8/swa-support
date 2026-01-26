@@ -9,12 +9,14 @@ import type {
   ShopifyCredentials,
   ShopifyCustomer,
   ShopifyOrder,
+  ShopifyProduct,
   ShopifyGraphQLResponse,
 } from "./types";
 import {
   GET_CUSTOMER_BY_EMAIL,
   GET_ORDER_BY_NUMBER,
   GET_CUSTOMER_ORDERS,
+  GET_PRODUCTS,
 } from "./queries";
 
 // Rate limiting: minimum delay between requests
@@ -303,6 +305,84 @@ export class ShopifyClient {
       tags: e.node.tags,
       note: e.node.note,
     }));
+  }
+
+  /**
+   * Get all products with pagination
+   * Used for catalog sync
+   */
+  async getAllProducts(): Promise<ShopifyProduct[]> {
+    type ProductNode = {
+      id: string;
+      handle: string;
+      title: string;
+      descriptionHtml: string;
+      productType: string | null;
+      vendor: string | null;
+      status: string;
+      tags: string[];
+      images: { edges: Array<{ node: { url: string } }> };
+      variants: {
+        edges: Array<{
+          node: {
+            id: string;
+            sku: string | null;
+            title: string;
+            price: string;
+            compareAtPrice: string | null;
+            inventoryQuantity: number;
+          };
+        }>;
+      };
+    };
+
+    type Response = {
+      products: {
+        pageInfo: { hasNextPage: boolean; endCursor: string | null };
+        edges: Array<{ node: ProductNode }>;
+      };
+    };
+
+    const allProducts: ShopifyProduct[] = [];
+    let hasNextPage = true;
+    let cursor: string | null = null;
+
+    while (hasNextPage) {
+      const data = await this.executeGraphQL<Response>(GET_PRODUCTS, {
+        first: 50,
+        after: cursor,
+      });
+
+      for (const edge of data.products.edges) {
+        const node = edge.node;
+        allProducts.push({
+          id: node.id,
+          handle: node.handle,
+          title: node.title,
+          descriptionHtml: node.descriptionHtml,
+          productType: node.productType,
+          vendor: node.vendor,
+          status: node.status,
+          tags: node.tags,
+          images: node.images.edges.map((e) => ({ url: e.node.url })),
+          variants: node.variants.edges.map((e) => ({
+            id: e.node.id,
+            sku: e.node.sku,
+            title: e.node.title,
+            price: e.node.price,
+            compareAtPrice: e.node.compareAtPrice,
+            inventoryQuantity: e.node.inventoryQuantity,
+          })),
+        });
+      }
+
+      hasNextPage = data.products.pageInfo.hasNextPage;
+      cursor = data.products.pageInfo.endCursor;
+
+      console.log(`[Shopify] Fetched ${allProducts.length} products...`);
+    }
+
+    return allProducts;
   }
 }
 
