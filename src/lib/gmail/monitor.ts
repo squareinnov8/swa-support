@@ -481,16 +481,18 @@ async function processGmailThread(
   }
 
   // Check if this is an order confirmation email - route to order pipeline
-  const latestIncomingMessage = [...thread.messages].reverse().find((m) => m.isIncoming);
-  if (latestIncomingMessage && isOrderEmail(thread.subject, latestIncomingMessage.from)) {
+  // Note: Shopify order emails come FROM support@squarewheelsauto.com, so they're NOT marked as "incoming"
+  // We need to check ALL messages in the thread for order emails, not just incoming ones
+  const orderMessage = [...thread.messages].reverse().find((m) => isOrderEmail(thread.subject, m.from));
+  if (orderMessage) {
     console.log(`[Monitor] Detected order email: ${thread.subject}`);
 
     const orderResult = await processOrderEmail({
       subject: thread.subject,
-      body: latestIncomingMessage.body,
-      from: latestIncomingMessage.from,
-      date: latestIncomingMessage.date,
-      gmailMessageId: latestIncomingMessage.id,
+      body: orderMessage.body,
+      from: orderMessage.from,
+      date: orderMessage.date,
+      gmailMessageId: orderMessage.id,
       gmailThreadId,
     });
 
