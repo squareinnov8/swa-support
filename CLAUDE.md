@@ -25,6 +25,9 @@ npx supabase db push --linked    # Push migrations to production
 npm run seed:kb      # Seed knowledge base
 npm run embed:kb     # Generate embeddings for KB docs
 npm run sync:catalog # Sync Shopify product catalog
+
+# Catalog documentation ingestion (from catalog-refresh project)
+npx tsx scripts/ingest-catalog-docs-vision.ts  # Extract installation guides via GPT-4o Vision
 ```
 
 ## Architecture
@@ -119,7 +122,8 @@ src/
 │   ├── orders/             # Order management
 │   │   ├── types.ts        # Order/vendor types
 │   │   ├── ingest.ts       # Parse order emails, DB operations
-│   │   └── processOrder.ts # Main order processing pipeline
+│   │   ├── processOrder.ts # Main order processing pipeline
+│   │   └── vendorCoordination.ts # Vendor-customer communication
 │   ├── vendors/            # Vendor lookup
 │   │   ├── types.ts        # Vendor types
 │   │   └── lookup.ts       # Find vendor for product
@@ -128,11 +132,12 @@ src/
 │       ├── promisedActions.ts # LLM-based promise detection
 │       └── macros.ts       # Pre-approved response templates
 ├── scripts/
+│   ├── ingest-catalog-docs-vision.ts # Installation guide extraction via GPT-4o Vision
 │   ├── ingest-youtube-comments-api.ts # YouTube Q&A extraction
 │   ├── seed-vendors.ts     # Seed vendor data
 │   └── test-classify.ts    # Test LLM classification
 └── supabase/
-    └── migrations/         # Database migrations (001-032)
+    └── migrations/         # Database migrations (001-033)
 ```
 
 ### Key Data Flow
@@ -180,6 +185,7 @@ src/
 - `order_events` - Order activity audit log
 - `blacklisted_customers` - Customers blocked from fulfillment
 - `vendors` - Vendor contacts and product patterns (managed via `/admin/vendors`)
+- `vendor_requests` - Tracks vendor requests for customer info (photos, confirmations)
 
 ## Environment Variables
 
@@ -239,11 +245,26 @@ YOUTUBE_API_KEY=             # Optional: for YouTube Q&A ingestion
   - No longer requires public Google Sheet
   - Seed script: `npx tsx scripts/seed-vendors.ts`
 - [x] **Stale HUMAN_HANDLING on Webhook** - Threads stuck 48+ hours now checked on every Gmail push (not just daily poll)
+- [x] **Catalog Documentation Ingestion (Vision)** - Real installation instructions via GPT-4o Vision:
+  - 42 installation guides with actual wiring diagrams, steps, tips (~2,500 chars each)
+  - Extracts from image-based PDFs using vision API
+  - Covers: Audi, Bentley, Cadillac, Chevy, Chrysler, Dodge, Ford, Infiniti, Jeep, Land Rover, Maserati, Nissan, Toyota
+  - Script: `npx tsx scripts/ingest-catalog-docs-vision.ts`
+- [x] **Admin Chat Tool: return_thread_to_agent** - Lina can now unblock tickets stuck in HUMAN_HANDLING
+- [x] **Lina Honesty Requirements** - Explicit rules preventing Lina from claiming actions she didn't take
+
+- [x] **Vendor Coordination (Phase 3 & 4)** - Bi-directional vendor-customer communication:
+  - Detects vendor replies to order threads
+  - LLM-based parsing of vendor requests (photos, color/memory confirmations)
+  - Automatic customer outreach for vendor requests
+  - Photo validation using GPT-4o Vision
+  - Forwards validated customer responses to vendors
+  - Database: `vendor_requests` table tracks request lifecycle
+  - Module: `src/lib/orders/vendorCoordination.ts`
 
 ### Pending / Outstanding
 - [ ] **Phase 2: LLM Risk Assessment** - Use LLM to assess customer risk based on order history
-- [ ] **Phase 3: Tracking Extraction** - Extract tracking numbers from vendor replies, update Shopify
-- [ ] **Phase 4: Vendor-Customer Coordination** - Address validation, dashboard photos for international
+- [ ] **Tracking extraction from vendor replies** - Auto-update Shopify with tracking numbers
 - [ ] Rate limiting on API endpoints
 
 ## Tech Debt & Known Issues
@@ -351,12 +372,17 @@ Drafts are scanned for commitments using LLM-based detection.
 Lina takes real actions during admin chat sessions.
 
 **Available Tools:**
-1. `create_kb_article` - Create new KB articles
-2. `update_instruction` - Update agent behavior rules
-3. `draft_relay_response` - Draft response to relay Rob's answers
-4. `note_feedback` - Acknowledge feedback without changes
+1. `lookup_order` - Look up order details from Shopify by order number
+2. `associate_thread_customer` - Link thread to a customer after order lookup
+3. `return_thread_to_agent` - Return thread from HUMAN_HANDLING back to agent
+4. `create_kb_article` - Create new KB articles
+5. `update_instruction` - Update agent behavior rules
+6. `draft_relay_response` - Draft response to relay Rob's answers
+7. `note_feedback` - Acknowledge feedback without changes
 
 **Audit Trail:** All actions logged to `lina_tool_actions` table.
+
+**Honesty Requirements:** Lina must never claim to have taken an action unless the corresponding tool call succeeded. If she lacks a capability, she'll ask Rob to add it.
 
 ## Order Management
 
@@ -385,6 +411,21 @@ Vendors are managed at `/admin/vendors`. Each vendor has:
 - `shipped` - Tracking number received
 - `delivered` - Delivered to customer
 
+### Vendor Coordination Flow
+When vendors need additional information from customers (photos, confirmations), the system handles bi-directional communication:
+
+1. **Vendor Reply Detection** - Gmail monitor detects replies from known vendor emails
+2. **Request Parsing** - LLM extracts request types: `dashboard_photo`, `color_confirmation`, `memory_confirmation`, `address_validation`, `vehicle_confirmation`
+3. **Customer Outreach** - Automatic email sent to customer requesting the information
+4. **Response Processing** - When customer replies:
+   - Attachments downloaded and stored
+   - Photos validated via GPT-4o Vision (checks for dashboard visibility)
+   - Text responses parsed for confirmation answers
+5. **Vendor Forwarding** - Validated responses forwarded to vendor with attachments
+
+**Database:** `vendor_requests` table tracks each request through its lifecycle:
+- `pending` → `received` → `validated` → `forwarded`
+
 ## YouTube Q&A Knowledge Base
 
 Customer questions from YouTube comments are extracted and embedded into the KB.
@@ -396,6 +437,60 @@ YOUTUBE_API_KEY=xxx npx tsx scripts/ingest-youtube-comments-api.ts
 ```
 
 **Stats:** 629 Q&A pairs from 14 videos, 1324 embedded chunks
+
+## Catalog Documentation Ingestion
+
+Installation guides and product documentation from the `catalog-refresh` project are ingested into the KB using GPT-4o Vision to extract actual instructions from image-based PDFs.
+
+**Ingestion script:** `scripts/ingest-catalog-docs-vision.ts`
+
+```bash
+npx tsx scripts/ingest-catalog-docs-vision.ts
+npm run embed:kb  # Generate embeddings after ingestion
+```
+
+**How it works:**
+1. Converts PDF pages to images using `pdf-to-img`
+2. Sends images to GPT-4o Vision API
+3. Extracts structured installation instructions
+4. Creates KB articles with real content
+
+**What each guide contains:**
+- Tools required
+- Pre-installation notes and warnings
+- Removal steps for factory units
+- Detailed installation steps
+- Wiring/connection diagrams (Type 1, 2, 3 connector mappings)
+- Component lists (harnesses, antennas, adapters)
+- Post-installation testing steps
+- Tips and common issues
+
+**Source:** `/Users/robertramsay/projects/catalog-refresh/data/assets/`
+
+**Stats:** 42 installation guides with ~2,500 chars each, 23 product articles, ~850 embedded chunks
+
+**Covered vehicles:**
+- Audi R8, Bentley Continental GT
+- Cadillac ATS/XTS/SRX/CTS, Escalade
+- Chevrolet Colorado, Silverado, Tahoe
+- Chrysler 300C, Dodge Challenger/Durango/RAM
+- Ford F150/F250/F350, Expedition, Explorer, Mustang, Mondeo
+- Infiniti G37, Q50/Q60
+- Jeep Cherokee, Grand Cherokee, Wrangler/Gladiator
+- Land Rover Discovery 4
+- Maserati Gran Turismo
+- Nissan 350Z, 370Z, GTR, Titan
+- Toyota Tacoma, Tundra
+
+**Example content** (Ford F150 wiring):
+```
+## Wiring/Connections
+- **Type 1 Connection:** Connectors A-a, B-b, C-2, D-3, E-5
+- **Type 2 Connection:** Connectors A-5, B-3, C-2, D-b, E-a, d-6
+- **Type 3 Connection:** Connectors A-5, B-3, C-9, D-2, E-7, a-11
+```
+
+**Cost note:** Vision extraction uses GPT-4o API calls (~$0.01-0.03 per PDF). Run selectively for new guides.
 
 ## Testing
 
@@ -464,5 +559,8 @@ npx tsx scripts/seed-vendors.ts
 | State machine | `src/lib/threads/stateMachine.ts` |
 | Order processing | `src/lib/orders/processOrder.ts` |
 | Vendor lookup | `src/lib/vendors/lookup.ts` |
+| Vendor coordination | `src/lib/orders/vendorCoordination.ts` |
 | Stale handling | `src/lib/threads/staleHumanHandling.ts` |
 | Lina tools | `src/lib/llm/linaTools.ts` |
+| Lina tool executor | `src/lib/llm/linaToolExecutor.ts` |
+| Catalog doc ingestion | `scripts/ingest-catalog-docs-vision.ts` |
