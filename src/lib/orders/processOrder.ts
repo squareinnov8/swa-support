@@ -202,7 +202,7 @@ export async function processOrderEmail(params: {
       continue;
     }
 
-    // Forward email to vendor
+    // Forward email to vendor (with original HTML formatting if available)
     const forwardResult = await forwardOrderToVendor({
       vendorEmails: vendor.contactEmails,
       orderNumber: parsed.orderNumber,
@@ -210,6 +210,7 @@ export async function processOrderEmail(params: {
       originalBody: body,
       originalFrom: from,
       originalDate: date.toISOString(),
+      gmailMessageId, // Pass message ID to fetch original HTML
     });
 
     if (forwardResult.success) {

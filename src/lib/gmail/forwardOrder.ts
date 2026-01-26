@@ -2,6 +2,7 @@
  * Forward Order to Vendor
  *
  * Forwards Shopify order confirmation emails to vendors via Gmail API.
+ * Preserves original HTML formatting when available.
  */
 
 import { supabase } from "@/lib/db";
@@ -10,8 +11,56 @@ import {
   refreshTokenIfNeeded,
   type GmailTokens,
 } from "@/lib/import/gmail/auth";
+import type { gmail_v1 } from "googleapis";
 
 const SUPPORT_EMAIL = "support@squarewheelsauto.com";
+
+/**
+ * Extract HTML body from a Gmail message
+ */
+function extractHtmlBody(payload: gmail_v1.Schema$MessagePart): string | null {
+  // Check if this part is HTML
+  if (payload.mimeType === "text/html" && payload.body?.data) {
+    return Buffer.from(payload.body.data, "base64").toString("utf8");
+  }
+
+  // Recursively check parts (for multipart messages)
+  if (payload.parts) {
+    for (const part of payload.parts) {
+      const html = extractHtmlBody(part);
+      if (html) return html;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Fetch original email HTML from Gmail
+ */
+export async function fetchOriginalEmailHtml(
+  gmailMessageId: string
+): Promise<string | null> {
+  try {
+    const tokens = await getGmailTokens();
+    const gmail = createGmailClient(tokens);
+
+    const message = await gmail.users.messages.get({
+      userId: "me",
+      id: gmailMessageId,
+      format: "full",
+    });
+
+    if (!message.data.payload) {
+      return null;
+    }
+
+    return extractHtmlBody(message.data.payload);
+  } catch (error) {
+    console.error("[ForwardOrder] Failed to fetch original email:", error);
+    return null;
+  }
+}
 
 /**
  * Get valid Gmail tokens for sending
@@ -42,19 +91,21 @@ async function getGmailTokens(): Promise<GmailTokens> {
 
 /**
  * Encode forwarded email as base64url for Gmail API
+ * If originalHtmlBody is provided, uses it directly to preserve Shopify formatting
  */
 function encodeForwardedEmail(params: {
   to: string[];
   from: string;
   subject: string;
   originalBody: string;
+  originalHtmlBody?: string | null;
   originalFrom: string;
   originalDate: string;
   originalSubject: string;
 }): string {
   const boundary = `boundary_${Date.now()}`;
 
-  // Build forward body
+  // Build forward header
   const forwardHeader = [
     "---------- Forwarded message ----------",
     `From: ${params.originalFrom}`,
@@ -65,8 +116,31 @@ function encodeForwardedEmail(params: {
 
   const forwardBody = forwardHeader + params.originalBody;
 
-  // Convert plain text to HTML
-  const htmlBody = `<!DOCTYPE html>
+  // If we have the original HTML, wrap it with forward header
+  // Otherwise, convert plain text to basic HTML
+  let htmlBody: string;
+  if (params.originalHtmlBody) {
+    // Inject forward header into the original HTML
+    const forwardHeaderHtml = `
+      <div style="padding: 10px 0; margin-bottom: 20px; border-bottom: 1px solid #ccc; font-family: Arial, sans-serif; font-size: 12px; color: #666;">
+        <strong>---------- Forwarded message ----------</strong><br>
+        From: ${params.originalFrom}<br>
+        Date: ${params.originalDate}<br>
+        Subject: ${params.originalSubject}
+      </div>
+    `;
+    // Insert forward header at the start of body content
+    htmlBody = params.originalHtmlBody.replace(
+      /<body[^>]*>/i,
+      (match) => `${match}${forwardHeaderHtml}`
+    );
+    // If no body tag found, wrap it
+    if (!htmlBody.includes(forwardHeaderHtml)) {
+      htmlBody = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>${forwardHeaderHtml}${params.originalHtmlBody}</body></html>`;
+    }
+  } else {
+    // Fallback: convert plain text to HTML
+    htmlBody = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
@@ -79,6 +153,7 @@ function encodeForwardedEmail(params: {
     .replace(/\n/g, "<br>")}</div>
 </body>
 </html>`;
+  }
 
   const headers = [
     `From: SquareWheels Orders <${params.from}>`,
@@ -114,6 +189,7 @@ function encodeForwardedEmail(params: {
 
 /**
  * Forward an order email to vendor(s)
+ * If gmailMessageId is provided, fetches and preserves the original HTML formatting
  */
 export async function forwardOrderToVendor(params: {
   vendorEmails: string[];
@@ -122,6 +198,7 @@ export async function forwardOrderToVendor(params: {
   originalBody: string;
   originalFrom: string;
   originalDate: string;
+  gmailMessageId?: string;
 }): Promise<{
   success: boolean;
   gmailMessageId?: string;
@@ -135,6 +212,7 @@ export async function forwardOrderToVendor(params: {
     originalBody,
     originalFrom,
     originalDate,
+    gmailMessageId: originalMessageId,
   } = params;
 
   if (vendorEmails.length === 0) {
@@ -145,11 +223,21 @@ export async function forwardOrderToVendor(params: {
   }
 
   try {
+    // Fetch original HTML if we have the message ID
+    let originalHtmlBody: string | null = null;
+    if (originalMessageId) {
+      originalHtmlBody = await fetchOriginalEmailHtml(originalMessageId);
+      if (originalHtmlBody) {
+        console.log(`[ForwardOrder] Using original HTML formatting for order #${orderNumber}`);
+      }
+    }
+
     const rawEmail = encodeForwardedEmail({
       to: vendorEmails,
       from: SUPPORT_EMAIL,
       subject: originalSubject,
       originalBody,
+      originalHtmlBody,
       originalFrom,
       originalDate,
       originalSubject,
