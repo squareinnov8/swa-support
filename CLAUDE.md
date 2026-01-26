@@ -261,6 +261,11 @@ YOUTUBE_API_KEY=             # Optional: for YouTube Q&A ingestion
   - Forwards validated customer responses to vendors
   - Database: `vendor_requests` table tracks request lifecycle
   - Module: `src/lib/orders/vendorCoordination.ts`
+- [x] **Internal Email Handling** - Proper handling of admin/internal emails:
+  - Emails from internal addresses (rob@, support@) detected via `isInternal` flag
+  - Forwarded vendor emails extracted and processed through vendor coordination
+  - Order matching by order number in subject (for forwarded emails creating new threads)
+  - Internal emails without external sender treated as admin notes (no draft generated)
 
 ### Pending / Outstanding
 - [ ] **Phase 2: LLM Risk Assessment** - Use LLM to assess customer risk based on order history
