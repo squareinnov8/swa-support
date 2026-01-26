@@ -39,6 +39,7 @@ import {
   wasMessageGeneratedByAgent,
 } from "@/lib/collaboration";
 import { isOrderEmail, processOrderEmail } from "@/lib/orders/processOrder";
+import { resolveSender, isInternalEmail } from "@/lib/gmail/senderResolver";
 import {
   findEscalationForReply,
   parseResponse,
@@ -719,11 +720,32 @@ async function processGmailThread(
     }
   }
 
-  // Build ingest request
+  // Resolve the actual sender (handles internal forwards and vendor replies)
+  const resolvedSender = await resolveSender(
+    latestIncoming.from,
+    latestIncoming.body,
+    thread.subject
+  );
+
+  // Skip vendor emails for now - they should be routed to order management
+  // TODO: Route vendor replies to the appropriate order thread
+  if (resolvedSender.isVendor) {
+    console.log(`[Monitor] Vendor email from ${resolvedSender.vendorName} (${latestIncoming.from}) - skipping support pipeline`);
+    result.skipped = true;
+    result.skipReason = `Vendor email from ${resolvedSender.vendorName}`;
+    return result;
+  }
+
+  // Log if this was a forwarded email
+  if (resolvedSender.wasForwarded) {
+    console.log(`[Monitor] Resolved forwarded email: ${latestIncoming.from} -> ${resolvedSender.email}`);
+  }
+
+  // Build ingest request with resolved sender
   const ingestRequest: IngestRequest = {
     channel: "email",
     external_id: gmailThreadId,
-    from_identifier: latestIncoming.from,
+    from_identifier: resolvedSender.email, // Use resolved customer email
     to_identifier: latestIncoming.to[0],
     subject: thread.subject,
     body_text: latestIncoming.body,
@@ -735,6 +757,10 @@ async function processGmailThread(
       gmail_message_id: latestIncoming.id,
       gmail_date: latestIncoming.date.toISOString(),
       attachment_count: latestIncoming.attachments?.length || 0,
+      // Track forwarding info
+      was_forwarded: resolvedSender.wasForwarded,
+      original_sender: resolvedSender.originalSender,
+      resolved_customer_name: resolvedSender.name,
     },
   };
 
