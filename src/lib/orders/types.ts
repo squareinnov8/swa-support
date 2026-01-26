@@ -186,3 +186,93 @@ export interface OrderListOptions {
   limit?: number;
   offset?: number;
 }
+
+/**
+ * Types of information vendors may request from customers
+ */
+export type VendorRequestType =
+  | "dashboard_photo" // Photo of car dashboard to confirm fitment
+  | "color_confirmation" // Confirm color choice (piano black, matte black, etc.)
+  | "memory_confirmation" // Confirm memory/storage option (4-64, 8-128, etc.)
+  | "address_validation" // Validate shipping address
+  | "vehicle_confirmation" // Confirm vehicle year/make/model
+  | "other"; // Other custom request
+
+/**
+ * Parsed vendor request from their email
+ */
+export interface VendorRequest {
+  type: VendorRequestType;
+  description: string; // Human-readable description
+  options?: string[]; // For confirmations, the available choices
+  required: boolean;
+}
+
+/**
+ * Result of parsing a vendor reply
+ */
+export interface ParsedVendorReply {
+  hasTrackingNumber: boolean;
+  trackingNumber?: string;
+  trackingCarrier?: string;
+  hasRequests: boolean;
+  requests: VendorRequest[];
+  rawMessage: string;
+}
+
+/**
+ * Customer response to a vendor request
+ */
+export interface CustomerResponse {
+  requestType: VendorRequestType;
+  answer?: string; // Text answer (for confirmations)
+  attachments?: CustomerAttachment[];
+  validated: boolean;
+  validationNotes?: string;
+}
+
+/**
+ * Attachment from customer with validation info
+ */
+export interface CustomerAttachment {
+  filename: string;
+  mimeType: string;
+  size: number;
+  gmailAttachmentId: string;
+  validated: boolean;
+  validationResult?: {
+    isValid: boolean;
+    description: string;
+    confidence: number;
+    issues?: string[];
+  };
+}
+
+/**
+ * Status of a vendor request
+ */
+export type VendorRequestStatus =
+  | "pending" // Waiting for customer response
+  | "received" // Customer responded, pending validation
+  | "validated" // Response validated and ready to forward
+  | "forwarded" // Response forwarded to vendor
+  | "rejected"; // Response invalid, needs re-request
+
+/**
+ * Vendor request record for database
+ */
+export interface VendorRequestRecord {
+  id: string;
+  order_id: string;
+  order_vendor_id: string;
+  request_type: VendorRequestType;
+  description: string;
+  options?: string[];
+  status: VendorRequestStatus;
+  customer_contacted_at?: string;
+  customer_response_at?: string;
+  forwarded_at?: string;
+  response_data?: CustomerResponse;
+  created_at: string;
+  updated_at: string;
+}

@@ -358,3 +358,66 @@ export function isGmailSendConfigured(): boolean {
     process.env.GOOGLE_CLIENT_SECRET
   );
 }
+
+/**
+ * Send a new email to a customer (not a reply to existing thread)
+ * Used for vendor request outreach, proactive notifications, etc.
+ */
+export async function sendEmailToCustomer(params: {
+  to: string;
+  subject: string;
+  body: string;
+  replyTo?: string;
+}): Promise<{
+  success: boolean;
+  gmailMessageId?: string;
+  gmailThreadId?: string;
+  error?: string;
+}> {
+  const { to, subject, body, replyTo } = params;
+
+  try {
+    const htmlBody = textToHtml(body);
+
+    const rawEmail = encodeEmail({
+      to,
+      from: SUPPORT_EMAIL,
+      subject,
+      textBody: body,
+      htmlBody,
+    });
+
+    const tokens = await getGmailTokens();
+    const gmail = createGmailClient(tokens);
+
+    const response = await gmail.users.messages.send({
+      userId: "me",
+      requestBody: {
+        raw: rawEmail,
+      },
+    });
+
+    const gmailMessageId = response.data.id;
+    const gmailThreadId = response.data.threadId;
+
+    if (!gmailMessageId) {
+      throw new Error("Gmail API did not return a message ID");
+    }
+
+    console.log(`[SendEmail] Sent email to ${to}: ${subject}`);
+
+    return {
+      success: true,
+      gmailMessageId,
+      gmailThreadId: gmailThreadId || undefined,
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error("[SendEmail] Failed to send email:", errorMessage);
+
+    return {
+      success: false,
+      error: errorMessage,
+    };
+  }
+}

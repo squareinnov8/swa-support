@@ -39,6 +39,13 @@ import {
   wasMessageGeneratedByAgent,
 } from "@/lib/collaboration";
 import { isOrderEmail, processOrderEmail } from "@/lib/orders/processOrder";
+import {
+  isVendorEmail,
+  processVendorReply,
+  findOrderVendorByThread,
+  isCustomerResponseToVendorRequest,
+  processCustomerResponse,
+} from "@/lib/orders/vendorCoordination";
 import { resolveSender, isInternalEmail } from "@/lib/gmail/senderResolver";
 import {
   findEscalationForReply,
@@ -63,6 +70,9 @@ export type MonitorResult = {
   escalationResponsesProcessed: number;
   ordersProcessed: number;
   ordersForwarded: number;
+  vendorRepliesProcessed: number;
+  vendorRequestsCreated: number;
+  customersContacted: number;
   errors: string[];
 };
 
@@ -103,6 +113,9 @@ export async function runGmailMonitor(options?: { fetchRecent?: boolean; fetchDa
     escalationResponsesProcessed: 0,
     ordersProcessed: 0,
     ordersForwarded: 0,
+    vendorRepliesProcessed: 0,
+    vendorRequestsCreated: 0,
+    customersContacted: 0,
     errors: [],
   };
 
@@ -190,6 +203,15 @@ export async function runGmailMonitor(options?: { fetchRecent?: boolean; fetchDa
         }
         if (threadResult.orderForwarded) {
           result.ordersForwarded++;
+        }
+        if (threadResult.vendorReplyProcessed) {
+          result.vendorRepliesProcessed++;
+        }
+        if (threadResult.vendorRequestsCreated > 0) {
+          result.vendorRequestsCreated += threadResult.vendorRequestsCreated;
+        }
+        if (threadResult.customerContacted) {
+          result.customersContacted++;
         }
         if (threadResult.error) {
           result.errors.push(`Thread ${threadId}: ${threadResult.error}`);
@@ -371,6 +393,9 @@ type ThreadProcessResult = {
   escalationResponseProcessed: boolean;
   orderProcessed: boolean;
   orderForwarded: boolean;
+  vendorReplyProcessed: boolean;
+  vendorRequestsCreated: number;
+  customerContacted: boolean;
   skipped: boolean;
   skipReason?: string;
   error?: string;
@@ -469,6 +494,9 @@ async function processGmailThread(
     escalationResponseProcessed: false,
     orderProcessed: false,
     orderForwarded: false,
+    vendorReplyProcessed: false,
+    vendorRequestsCreated: 0,
+    customerContacted: false,
     skipped: false,
   };
 
@@ -506,6 +534,122 @@ async function processGmailThread(
 
     // Order emails are handled separately, don't process through support pipeline
     return result;
+  }
+
+  // Check if this is a vendor reply to an order thread
+  // Vendor replies should be processed through the vendor coordination pipeline
+  const latestIncomingForVendor = [...thread.messages].reverse().find((m) => m.isIncoming);
+  if (latestIncomingForVendor) {
+    const vendorCheck = await isVendorEmail(latestIncomingForVendor.from);
+    if (vendorCheck.isVendor) {
+      console.log(`[Monitor] Detected vendor reply from ${vendorCheck.vendorName}: ${thread.subject}`);
+
+      const vendorResult = await processVendorReply({
+        gmailThreadId,
+        gmailMessageId: latestIncomingForVendor.id,
+        fromEmail: latestIncomingForVendor.from,
+        subject: thread.subject,
+        body: latestIncomingForVendor.body,
+      });
+
+      result.vendorReplyProcessed = vendorResult.processed;
+      result.vendorRequestsCreated = vendorResult.requestCount;
+      result.customerContacted = vendorResult.customerContacted;
+
+      if (!vendorResult.processed && vendorResult.error) {
+        result.error = vendorResult.error;
+      }
+
+      // Vendor replies don't go through support pipeline
+      return result;
+    }
+  }
+
+  // Also check if this thread is associated with a vendor forward thread
+  // (handles Rob's forwards of vendor emails)
+  const orderVendorByThread = await findOrderVendorByThread(gmailThreadId);
+  if (orderVendorByThread) {
+    console.log(`[Monitor] Thread matches vendor forward thread for order ${orderVendorByThread.order_id}`);
+
+    // Get the latest message from this thread
+    const latestMsg = thread.messages[thread.messages.length - 1];
+    if (latestMsg) {
+      const vendorResult = await processVendorReply({
+        gmailThreadId,
+        gmailMessageId: latestMsg.id,
+        fromEmail: latestMsg.from,
+        subject: thread.subject,
+        body: latestMsg.body,
+      });
+
+      result.vendorReplyProcessed = vendorResult.processed;
+      result.vendorRequestsCreated = vendorResult.requestCount;
+      result.customerContacted = vendorResult.customerContacted;
+
+      if (!vendorResult.processed && vendorResult.error) {
+        result.error = vendorResult.error;
+      }
+
+      return result;
+    }
+  }
+
+  // Check if this is a customer response to a vendor request outreach
+  // (customer replying with dashboard photos, color confirmation, etc.)
+  const latestIncomingForCustomer = [...thread.messages].reverse().find((m) => m.isIncoming);
+  if (latestIncomingForCustomer) {
+    const responseCheck = await isCustomerResponseToVendorRequest(
+      thread.subject,
+      latestIncomingForCustomer.from
+    );
+
+    if (responseCheck.isResponse && responseCheck.orderId) {
+      console.log(`[Monitor] Detected customer response for order #${responseCheck.orderNumber}`);
+
+      const attachments: Array<{ filename: string; mimeType: string; content: Buffer }> = [];
+
+      // Get attachments from the message
+      if (latestIncomingForCustomer.attachments) {
+        for (const att of latestIncomingForCustomer.attachments) {
+          if (att.id && att.mimeType.startsWith("image/")) {
+            try {
+              const content = await downloadAttachment(
+                tokens,
+                latestIncomingForCustomer.id,
+                att.id
+              );
+              if (content) {
+                attachments.push({
+                  filename: att.filename,
+                  mimeType: att.mimeType,
+                  content,
+                });
+              }
+            } catch (err) {
+              console.error(`[Monitor] Failed to download attachment ${att.filename}:`, err);
+            }
+          }
+        }
+      }
+
+      const responseResult = await processCustomerResponse({
+        orderId: responseCheck.orderId,
+        orderNumber: responseCheck.orderNumber!,
+        gmailMessageId: latestIncomingForCustomer.id,
+        emailBody: latestIncomingForCustomer.body,
+        attachments,
+      });
+
+      result.vendorReplyProcessed = true; // Reusing field for customer response too
+      result.customerContacted = responseResult.forwardedToVendor;
+
+      if (!responseResult.processed && responseResult.error) {
+        result.error = responseResult.error;
+      }
+
+      // Customer responses to vendor requests don't go through support pipeline
+      return result;
+    }
   }
 
   // Check if thread exists in our system first (needed for intervention detection)
