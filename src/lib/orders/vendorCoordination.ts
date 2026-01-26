@@ -659,14 +659,13 @@ export async function forwardCustomerResponseToVendor(params: {
 
   const { body } = await generateContextualEmail(vendorContext);
 
-  // Reply to the vendor thread
+  // Reply to the vendor thread with attachments
   const result = await replyToVendorThread({
     vendorEmails: orderVendor.vendor_emails,
     vendorThreadId: orderVendor.forward_thread_id,
     subject: `Re: Order #${orderVendor.orders.order_number}`,
     body,
-    // Note: For attachments, we'd need to update replyToVendorThread to support them
-    // This is a TODO - for now, we mention they're attached but actually need Gmail API update
+    attachments, // Forward customer photos/documents to vendor
   });
 
   if (result.success) {

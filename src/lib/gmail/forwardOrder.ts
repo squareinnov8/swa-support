@@ -283,6 +283,7 @@ export async function forwardOrderToVendor(params: {
 
 /**
  * Reply to a vendor thread (e.g., to forward customer response)
+ * Supports optional attachments (photos, documents, etc.)
  */
 export async function replyToVendorThread(params: {
   vendorEmails: string[];
@@ -290,16 +291,18 @@ export async function replyToVendorThread(params: {
   subject: string;
   body: string;
   inReplyToMessageId?: string;
+  attachments?: Array<{ filename: string; content: Buffer; mimeType: string }>;
 }): Promise<{
   success: boolean;
   gmailMessageId?: string;
   error?: string;
 }> {
-  const { vendorEmails, vendorThreadId, subject, body, inReplyToMessageId } =
+  const { vendorEmails, vendorThreadId, subject, body, inReplyToMessageId, attachments } =
     params;
 
   try {
     const boundary = `boundary_${Date.now()}`;
+    const hasAttachments = attachments && attachments.length > 0;
 
     const htmlBody = `<!DOCTYPE html>
 <html>
@@ -315,12 +318,17 @@ export async function replyToVendorThread(params: {
 </body>
 </html>`;
 
+    // Use multipart/mixed when we have attachments, multipart/alternative otherwise
+    const contentType = hasAttachments
+      ? `multipart/mixed; boundary="${boundary}"`
+      : `multipart/alternative; boundary="${boundary}"`;
+
     const headers = [
       `From: SquareWheels Support <${SUPPORT_EMAIL}>`,
       `To: ${vendorEmails.join(", ")}`,
       `Subject: Re: ${subject}`,
       `MIME-Version: 1.0`,
-      `Content-Type: multipart/alternative; boundary="${boundary}"`,
+      `Content-Type: ${contentType}`,
     ];
 
     if (inReplyToMessageId) {
@@ -328,21 +336,61 @@ export async function replyToVendorThread(params: {
       headers.push(`References: <${inReplyToMessageId}>`);
     }
 
-    const email = [
-      headers.join("\r\n"),
-      "",
-      `--${boundary}`,
-      "Content-Type: text/plain; charset=UTF-8",
-      "Content-Transfer-Encoding: base64",
-      "",
-      Buffer.from(body).toString("base64"),
-      `--${boundary}`,
-      "Content-Type: text/html; charset=UTF-8",
-      "Content-Transfer-Encoding: base64",
-      "",
-      Buffer.from(htmlBody).toString("base64"),
-      `--${boundary}--`,
-    ].join("\r\n");
+    // Build email parts
+    const emailParts: string[] = [headers.join("\r\n"), ""];
+
+    if (hasAttachments) {
+      // With attachments: nested multipart/alternative for text/html, then attachments
+      const altBoundary = `alt_${Date.now()}`;
+
+      emailParts.push(
+        `--${boundary}`,
+        `Content-Type: multipart/alternative; boundary="${altBoundary}"`,
+        "",
+        `--${altBoundary}`,
+        "Content-Type: text/plain; charset=UTF-8",
+        "Content-Transfer-Encoding: base64",
+        "",
+        Buffer.from(body).toString("base64"),
+        `--${altBoundary}`,
+        "Content-Type: text/html; charset=UTF-8",
+        "Content-Transfer-Encoding: base64",
+        "",
+        Buffer.from(htmlBody).toString("base64"),
+        `--${altBoundary}--`
+      );
+
+      // Add each attachment
+      for (const att of attachments!) {
+        emailParts.push(
+          `--${boundary}`,
+          `Content-Type: ${att.mimeType}; name="${att.filename}"`,
+          `Content-Disposition: attachment; filename="${att.filename}"`,
+          "Content-Transfer-Encoding: base64",
+          "",
+          att.content.toString("base64")
+        );
+      }
+
+      emailParts.push(`--${boundary}--`);
+    } else {
+      // No attachments: simple multipart/alternative
+      emailParts.push(
+        `--${boundary}`,
+        "Content-Type: text/plain; charset=UTF-8",
+        "Content-Transfer-Encoding: base64",
+        "",
+        Buffer.from(body).toString("base64"),
+        `--${boundary}`,
+        "Content-Type: text/html; charset=UTF-8",
+        "Content-Transfer-Encoding: base64",
+        "",
+        Buffer.from(htmlBody).toString("base64"),
+        `--${boundary}--`
+      );
+    }
+
+    const email = emailParts.join("\r\n");
 
     const rawEmail = Buffer.from(email)
       .toString("base64")
@@ -364,6 +412,10 @@ export async function replyToVendorThread(params: {
     const gmailMessageId = response.data.id;
     if (!gmailMessageId) {
       throw new Error("Gmail API did not return a message ID");
+    }
+
+    if (hasAttachments) {
+      console.log(`[ReplyToVendor] Sent reply with ${attachments!.length} attachment(s)`);
     }
 
     return {
