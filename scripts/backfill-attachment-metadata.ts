@@ -146,10 +146,11 @@ async function main() {
   // We look for messages where:
   // 1. attachment_count > 0, OR
   // 2. The body contains [image or attachment references
+  // 3. synced_from_gmail messages (might have missed attachments)
   // AND attachments array is missing
   const { data: messages, error } = await supabase
     .from("messages")
-    .select("id, channel_metadata")
+    .select("id, body_text, channel_metadata")
     .not("channel_metadata", "is", null)
     .order("created_at", { ascending: false });
 
@@ -163,8 +164,24 @@ async function main() {
     const meta = m.channel_metadata as ChannelMetadata | null;
     if (!meta?.gmail_message_id) return false;
 
+    // Already has attachments array - skip
+    if (meta.attachments && meta.attachments.length > 0) {
+      return false;
+    }
+
     // Has attachment_count but no attachments array
-    if (meta.attachment_count && meta.attachment_count > 0 && !meta.attachments) {
+    if (meta.attachment_count && meta.attachment_count > 0) {
+      return true;
+    }
+
+    // Check if body contains attachment placeholders like [image0.jpeg]
+    const body = m.body_text || "";
+    if (/\[image\d*\.(jpeg|jpg|png|gif)\]/i.test(body)) {
+      return true;
+    }
+
+    // Synced messages might have attachments we didn't capture
+    if (meta.synced_from_gmail === true) {
       return true;
     }
 
@@ -185,8 +202,10 @@ async function main() {
   for (const message of needsBackfill) {
     const meta = message.channel_metadata as ChannelMetadata;
     const gmailMessageId = meta.gmail_message_id!;
+    const bodyPreview = (message.body_text || "").substring(0, 50);
 
     console.log(`Processing message ${message.id} (Gmail: ${gmailMessageId})...`);
+    console.log(`  Body preview: ${bodyPreview}...`);
 
     // Fetch attachment metadata from Gmail
     const attachments = await fetchAttachmentMetadata(gmail, gmailMessageId);
