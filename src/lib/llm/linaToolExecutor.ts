@@ -416,6 +416,20 @@ async function lookupOrder(
       customer_email: customerEmail,
     });
 
+    // Format full shipping address
+    const addr = order.shippingAddress;
+    const shippingAddressFormatted = addr
+      ? [
+          addr.name,
+          addr.address1,
+          addr.address2,
+          `${addr.city || ""}, ${addr.provinceCode || ""} ${addr.zip || ""}`.trim(),
+          addr.country,
+        ]
+          .filter(Boolean)
+          .join("\n")
+      : "No shipping address";
+
     return {
       success: true,
       message: `Found order ${order.name}`,
@@ -428,8 +442,16 @@ async function lookupOrder(
         items: lineItemsList,
         tracking: trackingInfo,
         createdAt: order.createdAt,
-        shippingCity: order.shippingAddress?.city,
-        shippingState: order.shippingAddress?.provinceCode,
+        // Full shipping address details
+        shippingAddress: shippingAddressFormatted,
+        shippingName: addr?.name,
+        shippingAddress1: addr?.address1,
+        shippingAddress2: addr?.address2,
+        shippingCity: addr?.city,
+        shippingState: addr?.provinceCode,
+        shippingZip: addr?.zip,
+        shippingCountry: addr?.country,
+        shippingPhone: addr?.phone,
         customerTags: order.customer?.tags || [],
       },
     };

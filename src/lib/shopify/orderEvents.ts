@@ -33,7 +33,7 @@ type TimelineResponse = {
         totalPriceSet: { shopMoney: { amount: string; currencyCode: string } } | null;
         subtotalPriceSet: { shopMoney: { amount: string; currencyCode: string } } | null;
         totalRefundedSet: { shopMoney: { amount: string; currencyCode: string } } | null;
-        shippingAddress: { city: string | null; provinceCode: string | null; country: string | null } | null;
+        shippingAddress: { name: string | null; address1: string | null; address2: string | null; city: string | null; provinceCode: string | null; zip: string | null; country: string | null; phone: string | null } | null;
         fulfillments: Array<{
           id: string;
           status: string;

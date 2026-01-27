@@ -61,9 +61,14 @@ export const GET_ORDER_BY_NUMBER = `
           tags
           note
           shippingAddress {
+            name
+            address1
+            address2
             city
             provinceCode
+            zip
             country
+            phone
           }
           fulfillments(first: 5) {
             id
@@ -144,9 +149,14 @@ export const GET_ORDER_TIMELINE = `
             }
           }
           shippingAddress {
+            name
+            address1
+            address2
             city
             provinceCode
+            zip
             country
+            phone
           }
           fulfillments(first: 10) {
             id

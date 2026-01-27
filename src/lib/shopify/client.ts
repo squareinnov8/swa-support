@@ -191,9 +191,14 @@ export class ShopifyClient {
             tags: string[];
             note: string | null;
             shippingAddress: {
+              name: string | null;
+              address1: string | null;
+              address2: string | null;
               city: string | null;
               provinceCode: string | null;
+              zip: string | null;
               country: string | null;
+              phone: string | null;
             } | null;
             fulfillments: FulfillmentResponse[];
             lineItems: {
