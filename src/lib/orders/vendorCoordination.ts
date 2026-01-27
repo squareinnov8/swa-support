@@ -361,14 +361,28 @@ function fallbackParseVendorReply(emailBody: string): ParsedVendorReply {
 }
 
 /**
+ * Result of creating vendor requests - distinguishes new from existing
+ */
+type CreateVendorRequestsResult = {
+  createdIds: string[];
+  existingIds: string[];
+  newRequestTypes: string[];
+};
+
+/**
  * Create vendor request records in database (with deduplication)
+ * Returns separate arrays for newly created vs existing requests
  */
 export async function createVendorRequests(
   orderId: string,
   orderVendorId: string,
   requests: VendorRequest[]
-): Promise<string[]> {
-  const createdIds: string[] = [];
+): Promise<CreateVendorRequestsResult> {
+  const result: CreateVendorRequestsResult = {
+    createdIds: [],
+    existingIds: [],
+    newRequestTypes: [],
+  };
 
   for (const request of requests) {
     // Check if this request type already exists for this order
@@ -381,7 +395,7 @@ export async function createVendorRequests(
 
     if (existing) {
       console.log(`[VendorCoordination] Request type ${request.type} already exists for order, skipping`);
-      createdIds.push(existing.id);
+      result.existingIds.push(existing.id);
       continue;
     }
 
@@ -399,13 +413,14 @@ export async function createVendorRequests(
       .single();
 
     if (data && !error) {
-      createdIds.push(data.id);
+      result.createdIds.push(data.id);
+      result.newRequestTypes.push(request.type);
     } else if (error) {
       console.error("[VendorCoordination] Failed to create request:", error.message);
     }
   }
 
-  return createdIds;
+  return result;
 }
 
 /**
@@ -496,7 +511,7 @@ export async function sendCustomerOutreachEmail(params: {
         console.log(`[VendorCoordination] Saved outreach thread ${result.gmailThreadId} to order ${orderId}`);
       }
 
-      // Update request statuses
+      // Update request statuses - only set customer_contacted_at if not already set
       await supabase
         .from("vendor_requests")
         .update({
@@ -504,6 +519,7 @@ export async function sendCustomerOutreachEmail(params: {
           status: "pending",
         })
         .eq("order_id", orderId)
+        .is("customer_contacted_at", null)
         .in(
           "request_type",
           requests.map((r) => r.type)
@@ -765,7 +781,51 @@ export async function isCustomerResponseToVendorRequest(
   // Method 2: Check if subject matches our outreach pattern
   const orderMatch = subject.match(/Order #(\d+)/i);
   if (!orderMatch) {
-    console.log(`[VendorCoordination] Subject doesn't match order pattern: "${subject}"`);
+    // Method 3: Fallback - check by customer email + recent pending requests
+    // This catches replies where Gmail threading broke or subject was customized
+    console.log(`[VendorCoordination] Subject doesn't match order pattern, trying email fallback: "${subject}"`);
+
+    const { data: ordersWithPendingRequests } = await supabase
+      .from("orders")
+      .select(`
+        id,
+        order_number,
+        customer_email,
+        customer_outreach_thread_id,
+        vendor_requests!inner (
+          id,
+          request_type,
+          description,
+          options,
+          status,
+          customer_contacted_at
+        )
+      `)
+      .ilike("customer_email", `%${cleanedEmail}%`)
+      .eq("vendor_requests.status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (ordersWithPendingRequests && ordersWithPendingRequests.length > 0) {
+      const order = ordersWithPendingRequests[0];
+      const requests = order.vendor_requests;
+
+      console.log(`[VendorCoordination] Matched via email fallback! Order #${order.order_number} has ${requests.length} pending requests`);
+
+      return {
+        isResponse: true,
+        orderId: order.id,
+        orderNumber: order.order_number,
+        pendingRequests: requests.map((r: { request_type: string; description: string; options: string[] | null }) => ({
+          type: r.request_type as VendorRequestType,
+          description: r.description,
+          options: r.options || undefined,
+          required: true,
+        })),
+      };
+    }
+
+    console.log(`[VendorCoordination] No pending requests found for email ${cleanedEmail}`);
     return { isResponse: false };
   }
 
@@ -1233,35 +1293,47 @@ export async function processVendorReply(params: {
     result.hasRequests = true;
     result.requestCount = parsed.requests.length;
 
-    // Create request records
-    const requestIds = await createVendorRequests(
+    // Create request records (with deduplication)
+    const requestResult = await createVendorRequests(
       orderId,
       orderVendor.id,
       parsed.requests
     );
 
     console.log(
-      `[VendorCoordination] Created ${requestIds.length} vendor request records for order #${order.order_number}`
+      `[VendorCoordination] Request records for order #${order.order_number}: ` +
+      `${requestResult.createdIds.length} new, ${requestResult.existingIds.length} existing`
     );
 
-    // Contact customer automatically
-    const outreachResult = await sendCustomerOutreachEmail({
-      customerEmail: order.customer_email,
-      customerName: order.customer_name || "",
-      orderNumber: order.order_number,
-      productTitle: order.line_items?.[0]?.title || "your product",
-      requests: parsed.requests,
-      orderId,
-    });
-
-    if (outreachResult.success) {
-      result.customerContacted = true;
-      console.log(
-        `[VendorCoordination] Customer contacted for order #${order.order_number}`
+    // Only contact customer if there are NEW requests (not already sent)
+    if (requestResult.createdIds.length > 0) {
+      // Filter to only new request types for outreach
+      const newRequests = parsed.requests.filter(r =>
+        requestResult.newRequestTypes.includes(r.type)
       );
+
+      const outreachResult = await sendCustomerOutreachEmail({
+        customerEmail: order.customer_email,
+        customerName: order.customer_name || "",
+        orderNumber: order.order_number,
+        productTitle: order.line_items?.[0]?.title || "your product",
+        requests: newRequests,
+        orderId,
+      });
+
+      if (outreachResult.success) {
+        result.customerContacted = true;
+        console.log(
+          `[VendorCoordination] Customer contacted for order #${order.order_number} (${newRequests.length} new requests)`
+        );
+      } else {
+        console.error(
+          `[VendorCoordination] Failed to contact customer: ${outreachResult.error}`
+        );
+      }
     } else {
-      console.error(
-        `[VendorCoordination] Failed to contact customer: ${outreachResult.error}`
+      console.log(
+        `[VendorCoordination] Skipping customer outreach for order #${order.order_number} - all requests already exist`
       );
     }
   }
