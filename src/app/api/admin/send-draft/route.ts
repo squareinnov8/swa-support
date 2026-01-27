@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { thread_id, draft_text, draft_generation_id, was_edited, edit_distance } = body;
+    const { thread_id, draft_text, draft_generation_id, draft_message_id, was_edited, edit_distance } = body;
 
     // Validate required fields
     if (!thread_id || !draft_text) {
@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
       threadId: thread_id,
       draftText: draft_text,
       draftGenerationId: draft_generation_id,
+      draftMessageId: draft_message_id,
       wasEdited: was_edited || false,
       editDistance: edit_distance,
     });

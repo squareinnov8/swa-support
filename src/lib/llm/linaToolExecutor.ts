@@ -257,16 +257,18 @@ async function updateInstruction(
 }
 
 /**
- * Create a draft response to relay information to the customer
+ * Create a draft response to relay information to the customer or forward to vendors
  */
 async function draftRelayResponse(
   input: Record<string, unknown>,
   context: ToolContext
 ): Promise<ToolResult> {
-  const { customer_message, attribution, thread_id } = input as {
+  const { customer_message, attribution, thread_id, include_attachments_from_message, recipient_override } = input as {
     customer_message: string;
     attribution: string;
     thread_id?: string;
+    include_attachments_from_message?: string;
+    recipient_override?: string;
   };
 
   if (!customer_message || !attribution) {
@@ -278,9 +280,48 @@ async function draftRelayResponse(
     return { success: false, message: "No thread ID provided for draft. Please specify the thread." };
   }
 
-  // Use the message as-is - Lina writes the complete natural message including
-  // greeting, relay context ("I heard back from Rob..."), content, and signature
+  // Use the message as-is - Lina writes the complete natural message
   const fullMessage = customer_message;
+
+  // Build channel metadata
+  const channelMetadata: Record<string, unknown> = {
+    relay_response: true,
+    attribution,
+    created_via: "lina_tool",
+    created_by: context.adminEmail,
+  };
+
+  // If recipient override is provided (for vendor forwards), store it
+  if (recipient_override) {
+    channelMetadata.recipient_override = recipient_override;
+  }
+
+  // If attachments should be included, fetch the attachment metadata from the source message
+  let attachmentCount = 0;
+  if (include_attachments_from_message) {
+    const { data: sourceMessage } = await supabase
+      .from("messages")
+      .select("channel_metadata")
+      .eq("id", include_attachments_from_message)
+      .single();
+
+    if (sourceMessage?.channel_metadata) {
+      const sourceMeta = sourceMessage.channel_metadata as {
+        gmail_message_id?: string;
+        attachments?: Array<{ id: string; filename: string; mimeType: string; size: number }>;
+      };
+
+      if (sourceMeta.attachments && sourceMeta.attachments.length > 0 && sourceMeta.gmail_message_id) {
+        // Store attachment references for later fetching when sending
+        channelMetadata.forward_attachments = {
+          source_message_id: include_attachments_from_message,
+          gmail_message_id: sourceMeta.gmail_message_id,
+          attachments: sourceMeta.attachments,
+        };
+        attachmentCount = sourceMeta.attachments.length;
+      }
+    }
+  }
 
   // Insert as a draft message
   const { data: draft, error } = await supabase
@@ -291,12 +332,7 @@ async function draftRelayResponse(
       body_text: fullMessage,
       role: "draft",
       channel: "email",
-      channel_metadata: {
-        relay_response: true,
-        attribution,
-        created_via: "lina_tool",
-        created_by: context.adminEmail,
-      },
+      channel_metadata: channelMetadata,
     })
     .select()
     .single();
@@ -324,6 +360,9 @@ async function draftRelayResponse(
       message_id: draft.id,
       attribution,
       created_by: context.adminEmail,
+      has_attachments: attachmentCount > 0,
+      attachment_count: attachmentCount,
+      recipient_override: recipient_override || null,
     },
   });
 
@@ -334,13 +373,27 @@ async function draftRelayResponse(
     success: true,
     draft_id: draft.id,
     thread_id: targetThreadId,
+    attachment_count: attachmentCount,
   });
+
+  const recipientNote = recipient_override
+    ? ` to ${recipient_override}`
+    : " for customer";
+  const attachmentNote = attachmentCount > 0
+    ? ` with ${attachmentCount} attachment(s)`
+    : "";
 
   return {
     success: true,
-    message: `Created draft response for customer (will be sent after your approval)`,
+    message: `Created draft${recipientNote}${attachmentNote} (will be sent after your approval)`,
     resourceUrl: `/admin/thread/${targetThreadId}`,
-    details: { draftId: draft.id, attribution, threadId: targetThreadId },
+    details: {
+      draftId: draft.id,
+      attribution,
+      threadId: targetThreadId,
+      attachmentCount,
+      recipientOverride: recipient_override,
+    },
   };
 }
 

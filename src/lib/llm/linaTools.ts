@@ -89,24 +89,34 @@ export const LINA_ADMIN_TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
     function: {
       name: "draft_relay_response",
       description:
-        "Create a draft response to relay information from Rob or the team to the customer. Use this when Rob provides an answer to an escalated question that should be communicated to the customer.",
+        "Create a draft response to relay information to customers OR forward to vendors. Use this when: (1) Rob provides an answer to relay to the customer, or (2) you need to forward customer photos/info to vendors. Can include attachments from customer messages.",
       parameters: {
         type: "object",
         properties: {
           customer_message: {
             type: "string",
             description:
-              "The complete natural message to send. Start with greeting (e.g. 'Hi [Name],'), then naturally mention you heard back from Rob/the team as part of the message body, include the information, and sign off with '– Lina'.",
+              "The complete message to send. For customer replies: Start with greeting (e.g. 'Hi [Name],'), naturally mention you heard back from Rob/the team, include the info, and sign off with '– Lina'. For vendor forwards: Write a professional message with relevant order/customer details.",
           },
           attribution: {
             type: "string",
-            enum: ["rob", "technical_team", "shipping_team", "support_team"],
-            description: "Who provided the information being relayed",
+            enum: ["rob", "technical_team", "shipping_team", "support_team", "vendor_forward"],
+            description: "Who provided the information being relayed, or 'vendor_forward' when forwarding to vendors",
           },
           thread_id: {
             type: "string",
             description:
               "Thread ID to add the draft to (optional if discussing current thread)",
+          },
+          include_attachments_from_message: {
+            type: "string",
+            description:
+              "Message ID to include attachments from (e.g., the customer's message containing photos). The attachments will be forwarded when the draft is sent.",
+          },
+          recipient_override: {
+            type: "string",
+            description:
+              "Override recipient email address. Use for vendor forwards instead of sending to customer. If not set, sends to the thread's customer.",
           },
         },
         required: ["customer_message", "attribution"],
@@ -241,6 +251,9 @@ export const RELAY_TEMPLATES = {
     "I was able to get more information.\n\n",
     "I have an update for you.\n\n",
     "", // Sometimes no prefix needed
+  ],
+  vendor_forward: [
+    "", // No prefix for vendor communications
   ],
 };
 

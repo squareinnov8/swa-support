@@ -236,6 +236,7 @@ export function ThreadActions({
           thread_id: threadId,
           draft_text: latestDraft,
           draft_generation_id: latestDraftGenerationId,
+          draft_message_id: latestDraftMessageId,
           was_edited: false,
         }),
       });
