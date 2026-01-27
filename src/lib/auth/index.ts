@@ -6,18 +6,25 @@
  * Gmail monitoring token if a new one was received.
  */
 
-import { SignJWT, jwtVerify } from "jose";
+import { SignJWT } from "jose";
 import { cookies } from "next/headers";
-import type { NextRequest } from "next/server";
 import { google } from "googleapis";
 import { supabase } from "@/lib/db";
 import { storeGmailTokens } from "@/lib/gmail";
+import {
+  ADMIN_EMAIL,
+  SESSION_COOKIE,
+  verifyAdminSession,
+} from "./edge";
 
-// Admin email - only this account can access admin routes
-export const ADMIN_EMAIL = "support@squarewheelsauto.com";
-
-// Cookie name for session
-export const SESSION_COOKIE = "admin_session";
+// Re-export edge-compatible functions
+export {
+  ADMIN_EMAIL,
+  SESSION_COOKIE,
+  verifyAdminSession,
+  getSessionFromRequest,
+  isAllowedAdmin,
+} from "./edge";
 
 // Session duration: 24 hours
 const SESSION_DURATION = 24 * 60 * 60;
@@ -133,34 +140,6 @@ export async function createAdminSession(email: string): Promise<string> {
 }
 
 /**
- * Verify a session token and return the payload
- */
-export async function verifyAdminSession(
-  token: string
-): Promise<{ email: string } | null> {
-  try {
-    const { payload } = await jwtVerify(token, getSecret());
-    if (typeof payload.email === "string") {
-      return { email: payload.email };
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Get session from request cookies (for middleware)
- */
-export async function getSessionFromRequest(
-  request: NextRequest
-): Promise<{ email: string } | null> {
-  const token = request.cookies.get(SESSION_COOKIE)?.value;
-  if (!token) return null;
-  return verifyAdminSession(token);
-}
-
-/**
  * Get session from server component cookies
  */
 export async function getSession(): Promise<{ email: string } | null> {
@@ -221,11 +200,4 @@ export async function maybeUpdateGmailToken(
     console.error("Failed to update Gmail token:", error);
     return false;
   }
-}
-
-/**
- * Check if email is allowed admin
- */
-export function isAllowedAdmin(email: string): boolean {
-  return email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
 }
