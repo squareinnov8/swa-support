@@ -98,6 +98,11 @@ src/
 │   │   ├── contextualEmailGenerator.ts # LLM-generated emails (no templates)
 │   │   ├── linaTools.ts    # Admin chat tools (KB, instructions, relay)
 │   │   └── linaToolExecutor.ts # Tool execution logic
+│   ├── context/            # Unified Lina context
+│   │   ├── types.ts        # LinaContext, PendingAction interfaces
+│   │   ├── builder.ts      # buildLinaContext() aggregator
+│   │   ├── adminDecisions.ts # Extract decisions from lina_tool_actions
+│   │   └── pendingActions.ts # Set/clear/get pending actions
 │   ├── instructions/       # Dynamic agent instructions
 │   │   └── index.ts        # Load from database
 │   ├── kb/                 # Knowledge base
@@ -139,7 +144,7 @@ src/
 │   ├── seed-vendors.ts     # Seed vendor data
 │   └── test-classify.ts    # Test LLM classification
 └── supabase/
-    └── migrations/         # Database migrations (001-035)
+    └── migrations/         # Database migrations (001-036)
 ```
 
 ### Key Data Flow
@@ -286,6 +291,19 @@ YOUTUBE_API_KEY=             # Optional: for YouTube Q&A ingestion
   - Gmail thread ID matching against `customer_outreach_thread_id`
   - Better logging for debugging routing failures
   - Migration 035 adds tracking columns to orders table
+- [x] **Unified LinaContext System** - Single context aggregator for all Lina operations:
+  - `buildLinaContext()` aggregates thread, messages, admin decisions, order data, customer history
+  - Admin decisions extracted from `lina_tool_actions` table
+  - Used in admin chat for informed tool execution and email generation
+  - Module: `src/lib/context/`
+- [x] **Auto-Send Vendor Forwards** - Vendor emails sent immediately without manual approval:
+  - `draft_relay_response` with `recipient_override` auto-sends via Gmail
+  - Low-risk since vendor emails are not customer-facing
+  - Sets pending action to track waiting for vendor response
+- [x] **Pending Action Tracking** - Track what Lina is waiting for per thread:
+  - JSONB `pending_action` column on threads table (migration 036)
+  - Types: `awaiting_vendor_response`, `awaiting_customer_photos`, `awaiting_customer_confirmation`, `awaiting_admin_decision`
+  - Helper functions in `src/lib/context/pendingActions.ts`
 
 ### Pending / Outstanding
 - [ ] **Phase 2: LLM Risk Assessment** - Use LLM to assess customer risk based on order history
@@ -408,6 +426,39 @@ Lina takes real actions during admin chat sessions.
 **Audit Trail:** All actions logged to `lina_tool_actions` table.
 
 **Honesty Requirements:** Lina must never claim to have taken an action unless the corresponding tool call succeeded. If she lacks a capability, she'll ask Rob to add it.
+
+## Unified Context System
+
+All Lina operations now use a unified context aggregator for consistent, informed decision-making.
+
+**LinaContext structure:**
+```typescript
+interface LinaContext {
+  thread: ThreadContext;       // Thread ID, subject, state, pending action
+  messages: ThreadMessage[];   // Conversation history
+  adminDecisions: AdminDecision[]; // Decisions from lina_tool_actions
+  customer?: CustomerInfo;     // Name, email, order count
+  order?: ShopifyOrderContext; // Order status, tracking, items
+  customerHistory?: CustomerHistory; // Previous tickets, orders
+}
+```
+
+**How it's used:**
+1. Admin chat builds context before tool execution via `buildLinaContext()`
+2. Context passed to `executeLinaTool()` for informed email generation
+3. Formatted context included in system prompt for Lina awareness
+
+**Pending Action Tracking:**
+Threads can have a pending action indicating what Lina is waiting for:
+- `awaiting_vendor_response` - Sent email to vendor, waiting for reply
+- `awaiting_customer_photos` - Asked customer for photos
+- `awaiting_customer_confirmation` - Waiting for customer to confirm something
+- `awaiting_admin_decision` - Escalated, waiting for Rob
+
+**Key files:**
+- `src/lib/context/builder.ts` - Main context aggregator
+- `src/lib/context/pendingActions.ts` - Set/clear/get pending actions
+- `src/lib/context/adminDecisions.ts` - Extract decisions from audit log
 
 ## Order Management
 
@@ -589,4 +640,6 @@ npx tsx scripts/seed-vendors.ts
 | Stale handling | `src/lib/threads/staleHumanHandling.ts` |
 | Lina tools | `src/lib/llm/linaTools.ts` |
 | Lina tool executor | `src/lib/llm/linaToolExecutor.ts` |
+| Unified context | `src/lib/context/builder.ts` |
+| Pending actions | `src/lib/context/pendingActions.ts` |
 | Catalog doc ingestion | `scripts/ingest-catalog-docs-vision.ts` |
