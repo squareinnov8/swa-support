@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const messageId = searchParams.get("messageId");
   const attachmentId = searchParams.get("attachmentId");
+  const mimeType = searchParams.get("mimeType");
 
   if (!messageId || !attachmentId) {
     return NextResponse.json(
@@ -68,11 +69,13 @@ export async function GET(request: NextRequest) {
     const base64 = response.data.data.replace(/-/g, "+").replace(/_/g, "/");
     const buffer = Buffer.from(base64, "base64");
 
-    // Return the image with appropriate content type
-    // Default to jpeg if we can't determine the type
+    // Return the file with appropriate content type
+    // Use provided mimeType, default to application/octet-stream if not specified
+    const contentType = mimeType || "application/octet-stream";
+
     return new NextResponse(buffer, {
       headers: {
-        "Content-Type": "image/jpeg",
+        "Content-Type": contentType,
         "Cache-Control": "private, max-age=3600", // Cache for 1 hour
       },
     });

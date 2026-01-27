@@ -566,16 +566,31 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
               </div>
               <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
                 {messages && messages.length > 0 ? (
-                  messages.map((m) => (
-                    <MessageBubble
-                      key={m.id}
-                      direction={m.direction as "inbound" | "outbound"}
-                      fromEmail={m.from_email}
-                      createdAt={m.created_at}
-                      bodyText={m.body_text}
-                      bodyHtml={m.body_html}
-                    />
-                  ))
+                  messages.map((m) => {
+                    // Extract attachment metadata from channel_metadata
+                    const metadata = m.channel_metadata as {
+                      gmail_message_id?: string;
+                      attachments?: Array<{
+                        id: string;
+                        filename: string;
+                        mimeType: string;
+                        size: number;
+                      }>;
+                    } | null;
+
+                    return (
+                      <MessageBubble
+                        key={m.id}
+                        direction={m.direction as "inbound" | "outbound"}
+                        fromEmail={m.from_email}
+                        createdAt={m.created_at}
+                        bodyText={m.body_text}
+                        bodyHtml={m.body_html}
+                        gmailMessageId={metadata?.gmail_message_id}
+                        attachments={metadata?.attachments}
+                      />
+                    );
+                  })
                 ) : (
                   <p style={{ color: "#7c98b6", fontSize: 13, margin: 0 }}>No messages yet</p>
                 )}

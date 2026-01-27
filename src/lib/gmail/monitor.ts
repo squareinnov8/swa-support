@@ -939,6 +939,14 @@ async function processGmailThread(
     console.log(`[Monitor] Resolved forwarded email: ${latestIncoming.from} -> ${resolvedSender.email}`);
   }
 
+  // Build attachment metadata for storage (needed to fetch from Gmail later)
+  const attachmentMeta = latestIncoming.attachments?.map(att => ({
+    id: att.id,
+    filename: att.filename,
+    mimeType: att.mimeType,
+    size: att.size,
+  })) || [];
+
   // Build ingest request with resolved sender
   const ingestRequest: IngestRequest = {
     channel: "email",
@@ -955,6 +963,8 @@ async function processGmailThread(
       gmail_message_id: latestIncoming.id,
       gmail_date: latestIncoming.date.toISOString(),
       attachment_count: latestIncoming.attachments?.length || 0,
+      // Store attachment metadata with IDs for later retrieval
+      attachments: attachmentMeta.length > 0 ? attachmentMeta : undefined,
       // Track forwarding info
       was_forwarded: resolvedSender.wasForwarded,
       original_sender: resolvedSender.originalSender,
