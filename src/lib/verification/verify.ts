@@ -45,9 +45,10 @@ export async function verifyCustomer(
   // Check if already verified for this thread
   const { data: existingVerification } = await supabase
     .from("customer_verifications")
-    .select("status, flags, customer_name, customer_email, shopify_order_id")
+    .select("id, status, flags, customer_name, customer_email, shopify_order_id, order_number, total_orders, total_spent")
     .eq("thread_id", input.threadId)
-    .eq("status", "verified")
+    .order("created_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   if (existingVerification?.status === "verified") {
@@ -59,13 +60,18 @@ export async function verifyCustomer(
             shopifyId: "",
             email: existingVerification.customer_email || "",
             name: existingVerification.customer_name,
-            totalOrders: 0,
-            totalSpent: 0,
+            totalOrders: existingVerification.total_orders || 0,
+            totalSpent: existingVerification.total_spent || 0,
           }
         : undefined,
       message: "Already verified for this thread",
     };
   }
+
+  // Track if we have a pending verification to update (instead of creating new)
+  const pendingVerificationId = existingVerification?.status === "pending"
+    ? existingVerification.id
+    : null;
 
   // Extract all possible emails (from input + message body)
   const emailCandidates: string[] = [];
@@ -137,7 +143,7 @@ export async function verifyCustomer(
             await saveVerification(input.threadId, candidateEmail, "pending", result, undefined, {
               recentOrders,
               likelyProduct,
-            });
+            }, pendingVerificationId);
 
             return result;
           }
@@ -154,7 +160,7 @@ export async function verifyCustomer(
           await saveVerification(input.threadId, candidateEmail, "pending", result, undefined, {
             recentOrders,
             likelyProduct,
-          });
+          }, pendingVerificationId);
 
           return result;
         }
@@ -176,7 +182,7 @@ export async function verifyCustomer(
     };
 
     // Store the pending verification so UI can show correct status
-    await saveVerification(input.threadId, email, "pending", result);
+    await saveVerification(input.threadId, email, "pending", result, undefined, {}, pendingVerificationId);
 
     return result;
   }
@@ -188,7 +194,7 @@ export async function verifyCustomer(
       status: "verified",
       flags: [],
       message: "Shopify not configured - auto-verified",
-    });
+    }, undefined, {}, pendingVerificationId);
 
     return {
       status: "verified",
@@ -209,7 +215,7 @@ export async function verifyCustomer(
         message: `Order #${orderNumber} not found in Shopify`,
       };
 
-      await saveVerification(input.threadId, email, orderNumber, result);
+      await saveVerification(input.threadId, email, orderNumber, result, undefined, {}, pendingVerificationId);
       return result;
     }
 
@@ -226,7 +232,7 @@ export async function verifyCustomer(
         message: `Customer flagged: ${flags.join(", ")}`,
       };
 
-      await saveVerification(input.threadId, email, orderNumber, result, order, {});
+      await saveVerification(input.threadId, email, orderNumber, result, order, {}, pendingVerificationId);
       return result;
     }
 
@@ -325,7 +331,7 @@ export async function verifyCustomer(
     await saveVerification(input.threadId, email, orderNumber, result, order, {
       recentOrders,
       likelyProduct,
-    });
+    }, pendingVerificationId);
 
     // Update thread verification status
     await supabase
@@ -350,7 +356,7 @@ export async function verifyCustomer(
     };
 
     // Store the pending verification so we have a record of the attempt
-    await saveVerification(input.threadId, email, orderNumber || "unknown", result);
+    await saveVerification(input.threadId, email, orderNumber || "unknown", result, undefined, {}, pendingVerificationId);
 
     return result;
   }
@@ -372,6 +378,7 @@ type CustomerContextExtras = {
 
 /**
  * Save verification result to database
+ * If existingId is provided, updates that record instead of inserting new
  */
 async function saveVerification(
   threadId: string,
@@ -379,9 +386,10 @@ async function saveVerification(
   orderNumber: string,
   result: VerificationResult,
   order?: { id: string; customer?: { id: string; email: string } | null },
-  extras: CustomerContextExtras = {}
+  extras: CustomerContextExtras = {},
+  existingId?: string | null
 ): Promise<void> {
-  await supabase.from("customer_verifications").insert({
+  const data = {
     thread_id: threadId,
     email: email ?? null,
     order_number: orderNumber,
@@ -396,7 +404,17 @@ async function saveVerification(
     // New fields for richer customer context
     recent_orders: extras.recentOrders ? JSON.stringify(extras.recentOrders) : null,
     likely_product: extras.likelyProduct ?? null,
-  });
+  };
+
+  if (existingId) {
+    // Update existing pending verification instead of creating new
+    await supabase
+      .from("customer_verifications")
+      .update(data)
+      .eq("id", existingId);
+  } else {
+    await supabase.from("customer_verifications").insert(data);
+  }
 }
 
 /**

@@ -489,6 +489,38 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
     console.log(
       `Customer verified for thread ${threadId}: order ${verification.order?.number}`
     );
+
+    // IMPORTANT: After successful verification, update classification to reflect
+    // that we now have order context. The original classification was made WITHOUT
+    // knowing what order data we'd have - now we know!
+    if (verification.status === "verified" && verification.order) {
+      // If we have verified order data, the "missing" order info is no longer missing
+      // Update can_proceed if the only missing info was order-related
+      const orderRelatedFields = ["order_number", "order_info", "product_info", "purchase_date"];
+      const nonOrderMissingInfo = classification.missing_info.filter(
+        (info) => !orderRelatedFields.some((field) => info.id.toLowerCase().includes(field))
+      );
+
+      // If all missing info was order-related and we now have the order, we can proceed
+      if (nonOrderMissingInfo.length === 0 && classification.missing_info.length > 0) {
+        console.log(
+          `[Ingest] Verification provided order context - updating can_proceed from false to true`
+        );
+        classification.can_proceed = true;
+        classification.missing_info = [];
+      } else if (nonOrderMissingInfo.length < classification.missing_info.length) {
+        // Some order-related info was satisfied, but other info still needed
+        console.log(
+          `[Ingest] Verification satisfied ${classification.missing_info.length - nonOrderMissingInfo.length} missing fields, ` +
+          `${nonOrderMissingInfo.length} still needed: ${nonOrderMissingInfo.map(f => f.id).join(", ")}`
+        );
+        classification.missing_info = nonOrderMissingInfo;
+        // If the remaining missing info is minimal, allow proceeding
+        if (nonOrderMissingInfo.every(f => !f.required)) {
+          classification.can_proceed = true;
+        }
+      }
+    }
   }
 
   // 4. Missing info is now detected by LLM classification (classification.can_proceed, classification.missing_info)
