@@ -12,6 +12,13 @@ import { chunkMarkdown } from "@/lib/retrieval/chunk";
 import { getShopifyClient } from "@/lib/shopify/client";
 import { isShopifyConfigured } from "@/lib/shopify/customer";
 import { trackPromisedActions } from "@/lib/responders/promisedActions";
+import { sendApprovedDraft, isGmailSendConfigured } from "@/lib/gmail/sendDraft";
+import {
+  setPendingAction,
+  clearPendingAction,
+  createVendorResponseAction,
+} from "@/lib/context";
+import type { LinaContext } from "@/lib/context";
 
 /**
  * Result of a tool execution
@@ -30,6 +37,8 @@ export interface ToolContext {
   threadId?: string;
   adminEmail: string;
   conversationId?: string;
+  /** Full Lina context for email generation (optional) */
+  linaContext?: LinaContext;
 }
 
 /**
@@ -258,6 +267,7 @@ async function updateInstruction(
 
 /**
  * Create a draft response to relay information to the customer or forward to vendors
+ * Vendor forwards (with recipient_override) are auto-sent immediately
  */
 async function draftRelayResponse(
   input: Record<string, unknown>,
@@ -352,7 +362,75 @@ async function draftRelayResponse(
     .eq("id", targetThreadId)
     .in("state", ["ESCALATED", "HUMAN_HANDLING"]);
 
-  // Log event
+  // Track any promised actions in the draft (non-blocking audit trail)
+  await trackPromisedActions(targetThreadId, fullMessage);
+
+  // AUTO-SEND FOR VENDOR FORWARDS
+  // Vendor forwards are low-risk (not customer-facing), so send immediately
+  if (recipient_override && isGmailSendConfigured()) {
+    console.log(`[LinaTool] Auto-sending vendor forward to ${recipient_override}`);
+
+    const sendResult = await sendApprovedDraft({
+      threadId: targetThreadId,
+      draftText: fullMessage,
+      draftMessageId: draft.id,
+    });
+
+    if (sendResult.success) {
+      // Set pending action - waiting for vendor response
+      try {
+        await setPendingAction(targetThreadId, createVendorResponseAction(recipient_override));
+      } catch (pendingError) {
+        console.error("[LinaTool] Failed to set pending action:", pendingError);
+        // Don't fail the whole operation
+      }
+
+      // Log events
+      await supabase.from("events").insert({
+        thread_id: targetThreadId,
+        event_type: "VENDOR_FORWARD_SENT",
+        payload: {
+          message_id: draft.id,
+          gmail_message_id: sendResult.gmailMessageId,
+          vendor_email: recipient_override,
+          attachment_count: attachmentCount,
+          auto_sent: true,
+          created_by: context.adminEmail,
+        },
+      });
+
+      await logToolAction(context, "draft_relay_response", input, {
+        success: true,
+        draft_id: draft.id,
+        thread_id: targetThreadId,
+        attachment_count: attachmentCount,
+        auto_sent: true,
+        gmail_message_id: sendResult.gmailMessageId,
+      });
+
+      const attachmentNote = attachmentCount > 0 ? ` with ${attachmentCount} attachment(s)` : "";
+      return {
+        success: true,
+        message: `Sent to vendor ${recipient_override}${attachmentNote}. Now waiting for their response.`,
+        resourceUrl: `/admin/thread/${targetThreadId}`,
+        details: {
+          draftId: draft.id,
+          attribution,
+          threadId: targetThreadId,
+          attachmentCount,
+          recipientOverride: recipient_override,
+          autoSent: true,
+          gmailMessageId: sendResult.gmailMessageId,
+          pendingAction: "awaiting_vendor_response",
+        },
+      };
+    } else {
+      // Auto-send failed - fall back to draft for manual approval
+      console.error(`[LinaTool] Auto-send to vendor failed: ${sendResult.error}`);
+    }
+  }
+
+  // Standard draft flow (customer replies or failed vendor auto-send)
   await supabase.from("events").insert({
     thread_id: targetThreadId,
     event_type: "LINA_TOOL_DRAFT_CREATED",
@@ -365,9 +443,6 @@ async function draftRelayResponse(
       recipient_override: recipient_override || null,
     },
   });
-
-  // Track any promised actions in the draft (non-blocking audit trail)
-  await trackPromisedActions(targetThreadId, fullMessage);
 
   await logToolAction(context, "draft_relay_response", input, {
     success: true,
@@ -670,12 +745,13 @@ async function returnThreadToAgent(
       };
     }
 
-    // Update thread state
+    // Update thread state and clear pending action
     const { error: updateError } = await supabase
       .from("threads")
       .update({
         state: "IN_PROGRESS",
         human_handling_mode: false,
+        pending_action: null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", targetThreadId);

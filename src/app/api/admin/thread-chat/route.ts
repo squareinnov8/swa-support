@@ -18,6 +18,7 @@ import { buildAdminChatPrompt } from "@/lib/llm/prompts";
 import { hybridSearch } from "@/lib/retrieval/search";
 import { LINA_ADMIN_TOOLS, TOOL_SYSTEM_PROMPT } from "@/lib/llm/linaTools";
 import { executeLinaTool, type ToolResult } from "@/lib/llm/linaToolExecutor";
+import { buildLinaContext, formatLinaContextForPrompt } from "@/lib/context";
 import type { Intent } from "@/lib/intents/taxonomy";
 
 /**
@@ -140,6 +141,15 @@ export async function POST(request: NextRequest) {
 
     const intent = (thread.last_intent || "UNKNOWN") as Intent;
 
+    // Build unified Lina context for tool execution and email generation
+    const linaContext = await buildLinaContext({
+      threadId,
+      includeOrderData: true,
+      includeCustomerHistory: true,
+      includeAdminDecisions: true,
+      messageLimit: 20,
+    });
+
     // Fetch messages
     const { data: messages } = await supabase
       .from("messages")
@@ -224,7 +234,10 @@ ${latestDraft?.policy_violations?.length ? `- Policy violations: ${latestDraft.p
 ${verification ? `- Status: ${verification.status}\n- Order: ${verification.order_number || "N/A"}\n- Flags: ${verification.flags?.join(", ") || "None"}` : "Not verified yet"}
 
 ## KB Articles Relevant to Admin's Question
-${searchResults.length > 0 ? searchResults.map((r) => `[KB: ${r.doc.title}] (${(r.score * 100).toFixed(0)}% match): ${r.chunk?.content?.slice(0, 200) || r.doc.body.slice(0, 200)}...`).join("\n\n") : "No relevant KB articles found for this question"}`;
+${searchResults.length > 0 ? searchResults.map((r) => `[KB: ${r.doc.title}] (${(r.score * 100).toFixed(0)}% match): ${r.chunk?.content?.slice(0, 200) || r.doc.body.slice(0, 200)}...`).join("\n\n") : "No relevant KB articles found for this question"}
+
+## Full Context (for email generation)
+${formatLinaContextForPrompt(linaContext)}`;
 
     // Build chat history for the LLM (OpenAI format)
     const openaiMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
@@ -290,6 +303,7 @@ ${searchResults.length > 0 ? searchResults.map((r) => `[KB: ${r.doc.title}] (${(
           threadId,
           adminEmail: "rob@squarewheelsauto.com", // TODO: Get from auth
           conversationId,
+          linaContext,
         });
 
         toolsUsed.push({ name: toolName, result });
