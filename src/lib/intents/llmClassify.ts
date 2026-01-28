@@ -86,12 +86,23 @@ function buildIntentReference(intents: Intent[]): string {
 }
 
 /**
+ * Order context for classification - helps LLM avoid unnecessary escalations
+ */
+export interface OrderContextForClassification {
+  orderNumber: string;
+  fulfillmentStatus: string;
+  financialStatus?: string;
+  hasTracking?: boolean;
+}
+
+/**
  * Classify a message using LLM against database intents
  */
 export async function classifyWithLLM(
   subject: string,
   body: string,
-  conversationContext?: string
+  conversationContext?: string,
+  orderContext?: OrderContextForClassification
 ): Promise<ClassificationResult> {
   // Check if LLM is configured before attempting classification
   if (!isLLMConfigured()) {
@@ -158,6 +169,8 @@ Set auto_escalate: true if:
 - Request involves refunds over $200 or unusual circumstances
 - Something feels "off" that a human should review
 
+IMPORTANT: If ORDER CONTEXT is provided showing the order is DELIVERED or FULFILLED, do NOT auto_escalate just because the customer is asking about order status. The order is already complete - only escalate if there's an actual problem (damaged, wrong item, etc.)
+
 MISSING INFORMATION ASSESSMENT:
 Identify what information is MISSING that we would need to help this customer. Consider:
 - Order-related requests: Do we have an order number or enough info to find their order?
@@ -190,13 +203,20 @@ Return a JSON object with this exact structure:
   "can_proceed": false
 }`;
 
+  // Build order context section if available
+  const orderContextSection = orderContext
+    ? `\nORDER CONTEXT:
+Order #${orderContext.orderNumber}
+Fulfillment Status: ${orderContext.fulfillmentStatus}${orderContext.financialStatus ? `\nPayment Status: ${orderContext.financialStatus}` : ""}${orderContext.hasTracking ? "\nTracking: Available" : ""}`
+    : "";
+
   const userMessage = `Classify this customer message:
 
 SUBJECT: ${subject}
 
 BODY:
 ${body}
-${conversationContext ? `\nCONVERSATION CONTEXT:\n${conversationContext}` : ""}
+${conversationContext ? `\nCONVERSATION CONTEXT:\n${conversationContext}` : ""}${orderContextSection}
 
 Return ONLY the JSON classification, no other text.`;
 
@@ -352,7 +372,8 @@ export async function getThreadPrimaryIntent(threadId: string): Promise<string |
 export async function reclassifyThread(
   threadId: string,
   newMessage: { subject: string; body: string },
-  messageId?: string
+  messageId?: string,
+  orderContext?: OrderContextForClassification
 ): Promise<ClassificationResult> {
   // Get existing intents
   const { data: existingIntents } = await supabase
@@ -381,7 +402,8 @@ export async function reclassifyThread(
   const classification = await classifyWithLLM(
     newMessage.subject,
     newMessage.body,
-    context
+    context,
+    orderContext
   );
 
   // Add new intents to thread

@@ -269,13 +269,44 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
 
   // Use LLM classification - reclassifyThread for follow-ups, classifyWithLLM for new threads
   if (isLLMConfigured()) {
+    // For follow-up threads, fetch existing verification to provide order context to LLM
+    // This prevents unnecessary escalations when orders are already delivered
+    let orderContextForClassification: { orderNumber: string; fulfillmentStatus: string; financialStatus?: string; hasTracking?: boolean } | undefined;
+    if (isFollowUp) {
+      const { data: existingVerification } = await supabase
+        .from("customer_verifications")
+        .select("order_number")
+        .eq("thread_id", threadId)
+        .eq("status", "verified")
+        .maybeSingle();
+
+      if (existingVerification?.order_number) {
+        try {
+          const orderTimeline = await getOrderTimeline(existingVerification.order_number);
+          if (orderTimeline) {
+            orderContextForClassification = {
+              orderNumber: orderTimeline.name,
+              fulfillmentStatus: orderTimeline.displayFulfillmentStatus || "UNKNOWN",
+              financialStatus: orderTimeline.displayFinancialStatus,
+              hasTracking: (orderTimeline.fulfillments?.length ?? 0) > 0,
+            };
+            console.log(`[Ingest] Order context for classification: ${orderTimeline.name} - ${orderTimeline.displayFulfillmentStatus}`);
+          }
+        } catch (error) {
+          console.error("[Ingest] Error fetching order timeline for classification:", error);
+        }
+      }
+    }
+
     if (isFollowUp) {
       // Follow-up message: use reclassifyThread which considers conversation history
       // and properly updates thread_intents (removes UNKNOWN when real intent detected)
       console.log(`[Ingest] Follow-up message on thread ${threadId}, reclassifying...`);
       classification = await reclassifyThread(
         threadId,
-        { subject: req.subject, body: req.body_text }
+        { subject: req.subject, body: req.body_text },
+        undefined,
+        orderContextForClassification
       );
     } else {
       // New thread: use standard classification with conversation context
@@ -717,14 +748,32 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
     const conversationHistory = await getConversationHistory(threadId);
 
     // Build order context from verified order (for action-oriented responses)
-    // Fetch full order timeline including returns/refunds from Shopify
+    // IMPORTANT: Fetch FRESH order data from Shopify to avoid stale verification data
+    // The verification.order data is captured at verification time and may be outdated
+    // (e.g., order was "FULFILLED" at verification but is now "DELIVERED")
     let orderStatusSummary: string | undefined;
+    let freshFulfillmentStatus: string | undefined;
+    let freshFinancialStatus: string | undefined;
+    // Match TrackingInfo type from verification/types.ts
+    let freshTracking: Array<{ carrier: string | null; trackingNumber: string | null; trackingUrl: string | null }> | undefined;
+
     if (verification?.order?.number) {
       try {
         const orderTimeline = await getOrderTimeline(verification.order.number);
         if (orderTimeline) {
           orderStatusSummary = buildOrderStatusSummary(orderTimeline);
-          console.log(`[Ingest] Order timeline for ${verification.order.number}:`, orderStatusSummary);
+          // Use FRESH status from Shopify, not stale verification data
+          freshFulfillmentStatus = orderTimeline.displayFulfillmentStatus;
+          freshFinancialStatus = orderTimeline.displayFinancialStatus;
+          // Map Shopify tracking info to our TrackingInfo format
+          freshTracking = orderTimeline.fulfillments?.flatMap((f) =>
+            f.trackingInfo?.map((t) => ({
+              carrier: t.company,
+              trackingNumber: t.number,
+              trackingUrl: t.url,
+            })) || []
+          );
+          console.log(`[Ingest] Fresh order data for ${verification.order.number}: ${freshFulfillmentStatus} (was: ${verification.order.fulfillmentStatus})`);
         }
       } catch (error) {
         console.error("[Ingest] Error fetching order timeline:", error);
@@ -734,10 +783,12 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
     const orderContext = verification?.order
       ? {
           orderNumber: verification.order.number,
-          status: verification.order.status,
-          fulfillmentStatus: verification.order.fulfillmentStatus,
+          // Use FRESH status from Shopify if available, fall back to verification data
+          status: freshFinancialStatus || verification.order.status,
+          fulfillmentStatus: freshFulfillmentStatus || verification.order.fulfillmentStatus,
           createdAt: verification.order.createdAt,
-          tracking: verification.order.tracking,
+          // Use FRESH tracking from Shopify if available
+          tracking: freshTracking || verification.order.tracking,
           lineItems: verification.order.lineItems?.map((item) => ({
             title: item.title,
             quantity: item.quantity,

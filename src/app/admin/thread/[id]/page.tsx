@@ -7,7 +7,7 @@ import { ThreadRefresher } from "./ThreadRefresher";
 import { OrderEventsTimeline } from "./OrderEventsTimeline";
 import { DraftModule } from "./DraftModule";
 import { lookupCustomerByEmail } from "@/lib/shopify/customer";
-import { getOrderEvents } from "@/lib/shopify/orderEvents";
+import { getOrderEvents, getOrderTimeline } from "@/lib/shopify/orderEvents";
 import type { OrderEvent } from "@/lib/shopify/types";
 // Verification requirements now determined dynamically by LLM during classification
 
@@ -268,9 +268,36 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
   }
 
   // Fetch order events if we have an order number
+  // Also fetch fresh order timeline to update customerContext with current fulfillment status
+  // This fixes the mismatch between stale verification data and fresh order activity
   if (orderNumber) {
     try {
       orderEvents = await getOrderEvents(orderNumber);
+
+      // Get fresh order timeline to sync customerContext with actual Shopify status
+      const freshOrderTimeline = await getOrderTimeline(orderNumber);
+      if (freshOrderTimeline && customerContext?.recentOrders) {
+        // Update the matching order in recentOrders with fresh fulfillment status
+        const orderName = `#${orderNumber}`;
+        const freshStatus = freshOrderTimeline.displayFulfillmentStatus;
+        const freshFinancialStatus = freshOrderTimeline.displayFinancialStatus;
+
+        customerContext = {
+          ...customerContext,
+          recentOrders: customerContext.recentOrders.map(order => {
+            // Match by order number (handle with or without #)
+            const normalizedOrderNum = order.orderNumber.replace(/^#/, '');
+            if (normalizedOrderNum === orderNumber || order.orderNumber === orderName) {
+              return {
+                ...order,
+                fulfillmentStatus: freshStatus || order.fulfillmentStatus,
+                status: freshFinancialStatus || order.status,
+              };
+            }
+            return order;
+          }),
+        };
+      }
     } catch (error) {
       console.error("Error fetching order events:", error);
     }
