@@ -201,7 +201,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // Get conversation history - use higher limit to include vendor replies and full context
-    const conversationHistory = await getConversationHistory(threadId, 20);
+    // Pass the message ID being responded to so we exclude it specifically (not just the most recent)
+    const conversationHistory = await getConversationHistory(threadId, 20, latestMessage.id);
 
     // Fetch customer verification data
     const { data: verification } = await supabase

@@ -349,32 +349,50 @@ async function recordDraftGeneration(params: {
 
 /**
  * Get conversation history for a thread
- * Returns the most recent messages (excluding the current one being processed)
+ * Returns the most recent messages, optionally excluding a specific message
+ *
+ * @param threadId - The thread to get history for
+ * @param limit - Maximum number of messages to return (default 6)
+ * @param excludeMessageId - Optional message ID to exclude (e.g., the message being responded to)
  */
 export async function getConversationHistory(
   threadId: string,
-  limit: number = 6
+  limit: number = 6,
+  excludeMessageId?: string
 ): Promise<ConversationMessage[]> {
   const { data, error } = await supabase
     .from("messages")
-    .select("direction, body_text, created_at, from_email")
+    .select("id, direction, body_text, created_at, from_email")
     .eq("thread_id", threadId)
+    .neq("role", "draft") // Exclude draft messages from history
     .order("created_at", { ascending: false })
-    .limit(limit + 1); // Get one extra since we'll exclude the latest inbound
+    .limit(limit + 1); // Get one extra in case we need to exclude
 
   if (error) {
     console.error("Failed to fetch conversation history:", error.message);
     return [];
   }
 
-  if (!data || data.length <= 1) {
-    return []; // No history (only current message)
+  if (!data || data.length === 0) {
+    return [];
   }
 
-  // Skip the most recent message (it's the current one being processed)
-  // and reverse to chronological order
-  return data
-    .slice(1)
+  // Filter out the specific message if provided, otherwise filter out the most recent inbound
+  let filteredData = data;
+  if (excludeMessageId) {
+    // Exclude the specific message
+    filteredData = data.filter((msg) => msg.id !== excludeMessageId);
+  } else {
+    // Legacy behavior: skip the most recent message (assumed to be the one being processed)
+    filteredData = data.slice(1);
+  }
+
+  if (filteredData.length === 0) {
+    return [];
+  }
+
+  // Reverse to chronological order and map to ConversationMessage
+  return filteredData
     .reverse()
     .map((msg) => ({
       direction: msg.direction as "inbound" | "outbound",
