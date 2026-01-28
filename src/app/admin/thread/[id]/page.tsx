@@ -40,12 +40,12 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
   const stateColors = STATE_COLORS[state];
   const stateLabel = STATE_LABELS[state];
   const isArchived = thread?.is_archived === true;
-  // Fetch messages - newest first for better UX
+  // Fetch messages - oldest first for chronological conversation flow
   const { data: allMessages } = await supabase
     .from("messages")
     .select("*")
     .eq("thread_id", threadId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: true });
 
   // Separate draft messages from regular messages
   // Filter out messages with role="draft" OR relay_response metadata (catches legacy relay drafts)
@@ -57,10 +57,10 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
   };
   const draftMessages = allMessages?.filter(isDraftMessage) || [];
   const messages = allMessages?.filter(m => !isDraftMessage(m)) || [];
-  const latestDraftMessage = draftMessages[0]; // Most recent draft
+  const latestDraftMessage = draftMessages[draftMessages.length - 1]; // Most recent draft (array is oldest-first)
 
-  // Get the customer email from the first inbound message
-  const firstInboundMessage = messages?.slice().reverse().find(m => m.direction === "inbound");
+  // Get the customer email from the first inbound message (array is oldest-first, so just find)
+  const firstInboundMessage = messages?.find(m => m.direction === "inbound");
   const customerEmail = firstInboundMessage?.from_email;
 
   const { data: events } = await supabase
