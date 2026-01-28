@@ -1,98 +1,80 @@
-import 'dotenv/config';
-import { createClient } from '@supabase/supabase-js';
+import "dotenv/config";
+import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+const threadId = process.argv[2] || "65714a1f-f970-4951-b804-d39df85690b8";
 
 async function main() {
-  const threadId = process.argv[2] || '85ccd857-da8e-4b13-89cc-7c64ff1a6bb0';
-
-  // Get thread
   const { data: thread } = await supabase
-    .from('threads')
-    .select('*')
-    .eq('id', threadId)
+    .from("threads")
+    .select("*")
+    .eq("id", threadId)
     .single();
 
-  console.log('=== THREAD ===');
-  console.log(JSON.stringify(thread, null, 2));
+  console.log("=== THREAD ===");
+  console.log("Subject:", thread?.subject);
+  console.log("State:", thread?.state);
+  console.log("Intent:", thread?.last_intent);
 
-  // Get all messages including drafts
   const { data: messages } = await supabase
-    .from('messages')
-    .select('*')
-    .eq('thread_id', threadId)
-    .order('created_at', { ascending: false })
-    .limit(5);
+    .from("messages")
+    .select("*")
+    .eq("thread_id", threadId)
+    .order("created_at", { ascending: true });
 
-  console.log('\n=== RECENT MESSAGES (newest first) ===');
+  console.log("\n=== MESSAGES ===");
   for (const m of messages || []) {
-    console.log('\n---');
-    console.log('ID:', m.id);
-    console.log('Direction:', m.direction);
-    console.log('Role:', m.role);
-    console.log('From:', m.from_email);
-    console.log('Created:', m.created_at);
-    console.log('Body preview:', (m.body_text || '').substring(0, 300));
-    console.log('Metadata:', JSON.stringify(m.channel_metadata, null, 2));
+    console.log("---");
+    console.log("Dir:", m.direction, "| Role:", m.role);
+    console.log("From:", m.from_email);
+    console.log("Body:", m.body_text?.slice(0, 800));
   }
 
-  // Get events
-  const { data: events } = await supabase
-    .from('events')
-    .select('*')
-    .eq('thread_id', threadId)
-    .order('created_at', { ascending: false })
-    .limit(10);
+  const { data: conv } = await supabase
+    .from("admin_lina_conversations")
+    .select("id")
+    .eq("thread_id", threadId)
+    .single();
 
-  console.log('\n=== RECENT EVENTS ===');
-  for (const e of events || []) {
-    console.log('\n---');
-    console.log('Type:', e.type);
-    console.log('Created:', e.created_at);
-    console.log('Payload:', JSON.stringify(e.payload, null, 2));
+  if (conv) {
+    const { data: chatMsgs } = await supabase
+      .from("admin_lina_messages")
+      .select("*")
+      .eq("conversation_id", conv.id)
+      .order("created_at", { ascending: true });
+
+    console.log("\n=== ADMIN CHAT ===");
+    for (const m of chatMsgs || []) {
+      console.log("---");
+      console.log(m.role.toUpperCase() + ":");
+      console.log(m.content?.slice(0, 1500));
+    }
+  } else {
+    console.log("\n=== ADMIN CHAT ===");
+    console.log("No admin chat conversation found");
   }
 
-  // Get draft generations
-  const { data: draftGens } = await supabase
-    .from('draft_generations')
-    .select('*')
-    .eq('thread_id', threadId)
-    .order('created_at', { ascending: false })
-    .limit(3);
+  const { data: actions } = await supabase
+    .from("lina_tool_actions")
+    .select("*")
+    .eq("thread_id", threadId)
+    .order("created_at", { ascending: true });
 
-  console.log('\n=== DRAFT GENERATIONS ===');
-  for (const d of draftGens || []) {
-    console.log('\n---');
-    console.log('ID:', d.id);
-    console.log('Created:', d.created_at);
-    console.log('Intent:', d.intent);
-    console.log('Confidence:', d.confidence);
-    console.log('Auto-send eligible:', d.auto_send_eligible);
-    console.log('Auto-send blocked:', d.auto_send_blocked);
-    console.log('Block reason:', d.auto_send_block_reason);
-    console.log('Policy gate passed:', d.policy_gate_passed);
-    console.log('Policy violations:', d.policy_violations);
+  if (actions?.length) {
+    console.log("\n=== TOOL ACTIONS ===");
+    for (const a of actions) {
+      console.log("---");
+      console.log("Tool:", a.tool_name);
+      console.log("Input:", JSON.stringify(a.tool_input).slice(0, 600));
+    }
+  } else {
+    console.log("\n=== TOOL ACTIONS ===");
+    console.log("No tool actions found");
   }
-
-  // Check for related orders
-  const { data: orders } = await supabase
-    .from('orders')
-    .select('*, order_vendors(*), vendor_requests(*)')
-    .or('order_number.ilike.%4069%,customer_email.ilike.%legoboy%');
-
-  console.log('\n=== RELATED ORDERS ===');
-  console.log(JSON.stringify(orders, null, 2));
-
-  // Check verification
-  const { data: verification } = await supabase
-    .from('customer_verifications')
-    .select('*')
-    .eq('thread_id', threadId)
-    .order('created_at', { ascending: false })
-    .limit(1);
-
-  console.log('\n=== VERIFICATION ===');
-  console.log(JSON.stringify(verification, null, 2));
 }
 
-main().catch(console.error);
+main();

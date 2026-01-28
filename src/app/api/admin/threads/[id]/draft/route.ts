@@ -132,21 +132,53 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "Thread not found" }, { status: 404 });
     }
 
-    // Get the latest inbound message
-    const { data: latestMessage, error: messageError } = await supabase
+    // Get the FIRST inbound message to identify the original customer
+    const { data: firstInbound } = await supabase
       .from("messages")
-      .select("*")
+      .select("from_email")
       .eq("thread_id", threadId)
       .eq("direction", "inbound")
-      .order("created_at", { ascending: false })
+      .order("created_at", { ascending: true })
       .limit(1)
       .single();
 
-    if (messageError || !latestMessage) {
-      return NextResponse.json(
-        { error: "No inbound message found in thread" },
-        { status: 400 }
-      );
+    const originalCustomerEmail = firstInbound?.from_email || thread.from_identifier;
+
+    // Get the latest inbound message FROM THE CUSTOMER (not vendors/internal)
+    // This ensures we respond to the customer, not to internal/vendor messages
+    let latestMessage;
+    if (originalCustomerEmail) {
+      const { data: customerMessage } = await supabase
+        .from("messages")
+        .select("*")
+        .eq("thread_id", threadId)
+        .eq("direction", "inbound")
+        .eq("from_email", originalCustomerEmail)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      latestMessage = customerMessage;
+    }
+
+    // Fallback to latest inbound if no customer-specific message found
+    if (!latestMessage) {
+      const { data: fallbackMessage, error: messageError } = await supabase
+        .from("messages")
+        .select("*")
+        .eq("thread_id", threadId)
+        .eq("direction", "inbound")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (messageError || !fallbackMessage) {
+        return NextResponse.json(
+          { error: "No inbound message found in thread" },
+          { status: 400 }
+        );
+      }
+      latestMessage = fallbackMessage;
     }
 
     // Delete existing draft messages first
@@ -168,8 +200,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       intent = classification.primary_intent || "UNKNOWN";
     }
 
-    // Get conversation history
-    const conversationHistory = await getConversationHistory(threadId);
+    // Get conversation history - use higher limit to include vendor replies and full context
+    const conversationHistory = await getConversationHistory(threadId, 20);
 
     // Fetch customer verification data
     const { data: verification } = await supabase

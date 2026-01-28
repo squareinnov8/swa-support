@@ -140,15 +140,47 @@ export async function reprocessThread(
 
     console.log(`[Reprocess] Proceeding: ${reprocessCheck.reason}`);
 
-    // Get the latest inbound message
-    const { data: latestMessage } = await supabase
+    // Get the FIRST inbound message to identify the original customer
+    const { data: firstInbound } = await supabase
       .from("messages")
-      .select("*")
+      .select("from_email")
       .eq("thread_id", threadId)
       .eq("direction", "inbound")
-      .order("created_at", { ascending: false })
+      .order("created_at", { ascending: true })
       .limit(1)
       .single();
+
+    const originalCustomerEmail = firstInbound?.from_email || thread.from_identifier;
+
+    // Get the latest inbound message FROM THE CUSTOMER (not vendors/internal)
+    let latestMessage;
+    if (originalCustomerEmail) {
+      const { data: customerMessage } = await supabase
+        .from("messages")
+        .select("*")
+        .eq("thread_id", threadId)
+        .eq("direction", "inbound")
+        .eq("from_email", originalCustomerEmail)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      latestMessage = customerMessage;
+    }
+
+    // Fallback to latest inbound if no customer-specific message found
+    if (!latestMessage) {
+      const { data: fallbackMessage } = await supabase
+        .from("messages")
+        .select("*")
+        .eq("thread_id", threadId)
+        .eq("direction", "inbound")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      latestMessage = fallbackMessage;
+    }
 
     if (!latestMessage) {
       return {
@@ -186,15 +218,15 @@ export async function reprocessThread(
       messageLimit: 30,
     });
 
-    // Get conversation history
-    const conversationHistory = await getConversationHistory(threadId);
+    // Get conversation history - use higher limit to include vendor replies
+    const conversationHistory = await getConversationHistory(threadId, 20);
 
     // Build customer context
     let orderContext: OrderContext | undefined;
     let customerContext: CustomerContext | undefined;
 
-    // Check for associated customer
-    let customerEmail = latestMessage.from_email;
+    // Check for associated customer - use original customer email, not the latest message sender
+    let customerEmail = originalCustomerEmail || latestMessage.from_email;
     let customerName: string | undefined;
 
     if (thread.customer_id) {
