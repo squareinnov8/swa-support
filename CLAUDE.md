@@ -144,7 +144,7 @@ src/
 │   ├── seed-vendors.ts     # Seed vendor data
 │   └── test-classify.ts    # Test LLM classification
 └── supabase/
-    └── migrations/         # Database migrations (001-036)
+    └── migrations/         # Database migrations (001-037)
 ```
 
 ### Key Data Flow
@@ -304,10 +304,20 @@ YOUTUBE_API_KEY=             # Optional: for YouTube Q&A ingestion
   - JSONB `pending_action` column on threads table (migration 036)
   - Types: `awaiting_vendor_response`, `awaiting_customer_photos`, `awaiting_customer_confirmation`, `awaiting_admin_decision`
   - Helper functions in `src/lib/context/pendingActions.ts`
+- [x] **Shopify Fulfillment Integration** - Full fulfillment lifecycle:
+  - Create fulfillment when forwarding order to vendor (via `createFulfillment`)
+  - Update tracking when vendor provides tracking number (via `addTrackingToOrder`)
+  - Customer notification with tracking info sent via Shopify
+  - Migration 037 adds `shopify_fulfillment_id` to orders table
+  - Mutations: `fulfillmentCreate`, `fulfillmentTrackingInfoUpdateV2`
+- [x] **Vendor Response Recognition in Drafts** - Lina now treats vendor confirmations as authoritative:
+  - Conversation history includes `from_email` to detect vendor messages
+  - Vendor messages labeled as "Vendor (name)" instead of "Customer"
+  - Prompt guidance tells Lina to trust vendor responses as definitive answers
+  - Fixes issue where Lina ignored vendor confirmations and said she needed to check
 
 ### Pending / Outstanding
 - [ ] **Phase 2: LLM Risk Assessment** - Use LLM to assess customer risk based on order history
-- [ ] **Tracking extraction from vendor replies** - Auto-update Shopify with tracking numbers
 - [ ] Rate limiting on API endpoints
 
 ## Tech Debt & Known Issues
