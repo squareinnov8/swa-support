@@ -144,7 +144,7 @@ src/
 │   ├── seed-vendors.ts     # Seed vendor data
 │   └── test-classify.ts    # Test LLM classification
 └── supabase/
-    └── migrations/         # Database migrations (001-037)
+    └── migrations/         # Database migrations (001-038)
 ```
 
 ### Key Data Flow
@@ -315,6 +315,13 @@ YOUTUBE_API_KEY=             # Optional: for YouTube Q&A ingestion
   - Vendor messages labeled as "Vendor (name)" instead of "Customer"
   - Prompt guidance tells Lina to trust vendor responses as definitive answers
   - Fixes issue where Lina ignored vendor confirmations and said she needed to check
+- [x] **Thread Titles for Inbox** - Brief, scannable titles instead of email subjects:
+  - LLM generates 3-6 word titles capturing thread essence
+  - Format: "prospect: military discount, jeep compatibility" or "order #4094: tracking"
+  - Generated during initial processing, stored in `title` column
+  - Inbox displays title with subject as secondary info
+  - Backfill script: `npx tsx scripts/backfill-thread-titles.ts`
+  - Migration 038 adds title column
 
 ### Pending / Outstanding
 - [ ] **Phase 2: LLM Risk Assessment** - Use LLM to assess customer risk based on order history
