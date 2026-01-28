@@ -209,12 +209,13 @@ export async function reprocessThread(
       intent = classification.primary_intent || "UNKNOWN";
     }
 
-    // Build context including admin decisions from chat
+    // Build context including admin decisions AND admin chat messages
     const linaContext = await buildLinaContext({
       threadId,
       includeOrderData: true,
       includeCustomerHistory: true,
       includeAdminDecisions: true,
+      includeAdminChat: true, // Include Rob's chat guidance
       messageLimit: 30,
     });
 
@@ -299,14 +300,25 @@ export async function reprocessThread(
       }
     }
 
-    // Include admin decisions in the draft context
-    // This is the key part - admin chat responses are included in the conversation history
-    // via the buildLinaContext which extracts lina_tool_actions
-    const adminDecisionsSummary = linaContext.adminDecisions?.length
-      ? `\n\nRecent admin guidance:\n${linaContext.adminDecisions
-          .map((d) => `- ${d.toolUsed}: ${d.decision}`)
-          .join("\n")}`
-      : "";
+    // Include admin decisions AND chat messages in the draft context
+    // This ensures Lina incorporates Rob's guidance when generating drafts
+    let adminGuidance = "";
+
+    // Tool actions (e.g., KB articles created, instructions updated)
+    if (linaContext.adminDecisions?.length) {
+      adminGuidance += `\n\nAdmin tool actions:\n${linaContext.adminDecisions
+        .map((d) => `- ${d.toolUsed}: ${d.decision}`)
+        .join("\n")}`;
+    }
+
+    // Chat messages (Rob's direct guidance)
+    if (linaContext.adminChatMessages?.length) {
+      adminGuidance += `\n\nCRITICAL - Rob's guidance for this thread (follow exactly):\n${linaContext.adminChatMessages
+        .map((m) => `[${m.role === "user" ? "Rob" : "Lina"}]: ${m.content}`)
+        .join("\n")}`;
+    }
+
+    const adminDecisionsSummary = adminGuidance;
 
     // Build draft input with full context
     const draftInput: DraftInput = {

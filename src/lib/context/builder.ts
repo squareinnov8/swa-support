@@ -19,6 +19,7 @@ import type {
   PreviousTicket,
   PreviousOrder,
   PendingAction,
+  AdminChatMessage,
 } from "./types";
 
 /**
@@ -32,6 +33,7 @@ export async function buildLinaContext(
     includeOrderData = false,
     includeCustomerHistory = false,
     includeAdminDecisions = true,
+    includeAdminChat = false,
     messageLimit = 15,
   } = options;
 
@@ -46,16 +48,22 @@ export async function buildLinaContext(
     ? await getAdminDecisions(threadId)
     : [];
 
-  // 4. Fetch customer info and verification data
+  // 4. Fetch admin chat messages (Rob's conversation with Lina)
+  let adminChatMessages: AdminChatMessage[] | undefined;
+  if (includeAdminChat) {
+    adminChatMessages = await fetchAdminChatMessages(threadId);
+  }
+
+  // 5. Fetch customer info and verification data
   const { customer, orderNumber } = await fetchCustomerInfo(threadId);
 
-  // 5. Optionally fetch Shopify order data
+  // 6. Optionally fetch Shopify order data
   let order: ShopifyOrderContext | undefined;
   if (includeOrderData && orderNumber) {
     order = await fetchShopifyOrder(orderNumber);
   }
 
-  // 6. Optionally fetch customer history
+  // 7. Optionally fetch customer history
   let customerHistory: CustomerHistory | undefined;
   if (includeCustomerHistory && customer?.email) {
     customerHistory = await fetchCustomerHistory(customer.email, threadId);
@@ -65,6 +73,7 @@ export async function buildLinaContext(
     thread,
     messages,
     adminDecisions,
+    adminChatMessages,
     customer,
     order,
     customerHistory,
@@ -279,6 +288,30 @@ async function fetchCustomerHistory(
 }
 
 /**
+ * Fetch admin chat messages for a thread
+ * These are Rob's conversations with Lina about this specific thread
+ */
+async function fetchAdminChatMessages(threadId: string): Promise<AdminChatMessage[]> {
+  const { data, error } = await supabase
+    .from("admin_chat_messages")
+    .select("role, content, created_at")
+    .eq("thread_id", threadId)
+    .order("created_at", { ascending: true })
+    .limit(20); // Limit to recent messages
+
+  if (error) {
+    console.error("[ContextBuilder] Error fetching admin chat messages:", error);
+    return [];
+  }
+
+  return (data || []).map((msg) => ({
+    role: msg.role as "user" | "assistant",
+    content: msg.content || "",
+    createdAt: new Date(msg.created_at),
+  }));
+}
+
+/**
  * Format LinaContext for LLM prompt
  */
 export function formatLinaContextForPrompt(context: LinaContext): string {
@@ -331,13 +364,25 @@ export function formatLinaContextForPrompt(context: LinaContext): string {
     }
   }
 
-  // Admin decisions
+  // Admin decisions (tool actions)
   if (context.adminDecisions.length > 0) {
     sections.push("");
     sections.push(`## Admin Decisions on This Thread`);
     sections.push(`IMPORTANT: Continue from these decisions. Honor what Rob approved.`);
     for (const decision of context.adminDecisions) {
       sections.push(`- [${decision.timestamp.toLocaleString()}] ${decision.decision}`);
+    }
+  }
+
+  // Admin chat messages (Rob's guidance to Lina)
+  if (context.adminChatMessages && context.adminChatMessages.length > 0) {
+    sections.push("");
+    sections.push(`## Admin Chat (Rob's Guidance)`);
+    sections.push(`CRITICAL: Rob has provided specific guidance below. Follow his instructions exactly.`);
+    for (const msg of context.adminChatMessages) {
+      const role = msg.role === "user" ? "Rob" : "Lina";
+      const content = msg.content.length > 500 ? msg.content.slice(0, 500) + "..." : msg.content;
+      sections.push(`\n[${role}]: ${content}`);
     }
   }
 

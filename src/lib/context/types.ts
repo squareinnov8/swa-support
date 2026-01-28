@@ -53,6 +53,15 @@ export interface AdminDecision {
 }
 
 /**
+ * Admin chat message (conversation with Rob)
+ */
+export interface AdminChatMessage {
+  role: "user" | "assistant";
+  content: string;
+  createdAt: Date;
+}
+
+/**
  * Customer info from verification
  */
 export interface CustomerInfo {
@@ -145,6 +154,8 @@ export interface LinaContext {
   thread: ThreadContext;
   messages: ThreadMessage[];
   adminDecisions: AdminDecision[];
+  /** Admin chat messages (Rob's conversation with Lina about this thread) */
+  adminChatMessages?: AdminChatMessage[];
   customer?: CustomerInfo;
   order?: ShopifyOrderContext;
   customerHistory?: CustomerHistory;
@@ -158,5 +169,7 @@ export interface BuildLinaContextOptions {
   includeOrderData?: boolean;
   includeCustomerHistory?: boolean;
   includeAdminDecisions?: boolean;
+  /** Include admin chat messages (Rob's conversation with Lina) */
+  includeAdminChat?: boolean;
   messageLimit?: number;
 }

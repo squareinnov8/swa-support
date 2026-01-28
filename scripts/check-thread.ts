@@ -1,33 +1,82 @@
-import 'dotenv/config';
-import { createClient } from '@supabase/supabase-js';
+import "dotenv/config";
+import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
-async function main() {
-  const threadId = process.argv[2] || '85ccd857-da8e-4b13-89cc-7c64ff1a6bb0';
+const threadId = "85ccd857-da8e-4b13-89cc-7c64ff1a6bb0";
 
+async function check() {
+  // Get thread state
   const { data: thread } = await supabase
-    .from('threads')
-    .select('id, subject, state, last_intent, human_handling_mode, verification_status')
-    .eq('id', threadId)
+    .from("threads")
+    .select("state, subject, customer_id")
+    .eq("id", threadId)
     .single();
+  
+  console.log("Thread state:", thread?.state);
+  console.log("Subject:", thread?.subject);
 
-  console.log('Thread:', JSON.stringify(thread, null, 2));
+  // Check for vendor_requests
+  const { data: vendorRequests } = await supabase
+    .from("vendor_requests")
+    .select("*")
+    .eq("thread_id", threadId);
+  
+  console.log("\nVendor requests:", vendorRequests?.length || 0);
+  if (vendorRequests?.length) {
+    for (const vr of vendorRequests) {
+      console.log(`  - ${vr.request_type}: ${vr.status}`);
+    }
+  }
 
+  // Check for orders linked to this thread
+  const { data: orders } = await supabase
+    .from("orders")
+    .select("id, order_number, status, vendor_status")
+    .eq("thread_id", threadId);
+  
+  console.log("\nOrders linked:", orders?.length || 0);
+  if (orders?.length) {
+    for (const o of orders) {
+      console.log(`  - #${o.order_number}: ${o.status} / vendor: ${o.vendor_status}`);
+    }
+  }
+
+  // Get recent messages to see current state
   const { data: messages } = await supabase
-    .from('messages')
-    .select('id, direction, from_email, body_text, channel_metadata, created_at')
-    .eq('thread_id', threadId)
-    .order('created_at', { ascending: true });
-
-  console.log('\nMessages:', messages?.length);
+    .from("messages")
+    .select("id, direction, from_email, body_text, channel_metadata, created_at")
+    .eq("thread_id", threadId)
+    .order("created_at", { ascending: false })
+    .limit(5);
+  
+  console.log("\nRecent messages:");
   for (const m of messages || []) {
-    const meta = m.channel_metadata as Record<string, unknown> | null;
-    console.log('\n[' + m.direction + '] ' + m.from_email + ' - ' + new Date(m.created_at).toLocaleString());
-    const bodyPreview = m.body_text?.substring(0, 300) || '(empty)';
-    console.log('  Body: ' + bodyPreview + '...');
-    console.log('  Full metadata: ' + JSON.stringify(meta, null, 2));
+    const preview = (m.body_text || "").slice(0, 100).replace(/\n/g, " ");
+    const meta = m.channel_metadata as any;
+    const isDraft = meta?.is_draft;
+    console.log(`  [${m.direction}${isDraft ? '/DRAFT' : ''}] ${m.from_email?.slice(0, 30)}`);
+    console.log(`    ${preview}...`);
+    if (meta?.attachments?.length) {
+      console.log(`    Attachments: ${meta.attachments.length}`);
+    }
+  }
+
+  // Check events for any pending actions
+  const { data: events } = await supabase
+    .from("events")
+    .select("type, payload, created_at")
+    .eq("thread_id", threadId)
+    .order("created_at", { ascending: false })
+    .limit(10);
+  
+  console.log("\nRecent events:");
+  for (const e of events || []) {
+    console.log(`  - ${e.type}`);
   }
 }
 
-main();
+check().catch(console.error);
