@@ -148,45 +148,26 @@ export async function findOrderVendorByOrderNumber(
 }
 
 /**
- * Find order_vendor by order ID and vendor email
+ * Check if an email is from a known vendor
+ * Returns vendor name if found, null otherwise
  */
-export async function findOrderVendorByEmail(
+export async function getVendorNameFromEmail(
   fromEmail: string
-): Promise<{ orderVendor: OrderVendor; orderId: string } | null> {
+): Promise<string | null> {
   const email = cleanEmailAddress(fromEmail);
 
-  // Find vendor by email
   const { data: vendors } = await supabase
     .from("vendors")
     .select("name, contact_emails");
 
-  let vendorName: string | null = null;
   for (const vendor of vendors || []) {
     const emails = vendor.contact_emails || [];
     if (emails.some((e: string) => e.toLowerCase() === email)) {
-      vendorName = vendor.name;
-      break;
+      return vendor.name;
     }
   }
 
-  if (!vendorName) return null;
-
-  // Find most recent order_vendor for this vendor that's in "forwarded" status
-  const { data: orderVendor } = await supabase
-    .from("order_vendors")
-    .select("*, orders(*)")
-    .eq("vendor_name", vendorName)
-    .eq("status", "forwarded")
-    .order("forwarded_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (!orderVendor) return null;
-
-  return {
-    orderVendor,
-    orderId: orderVendor.order_id,
-  };
+  return null;
 }
 
 /**
@@ -1209,8 +1190,9 @@ export async function processVendorReply(params: {
     customerContacted: false,
   };
 
-  // Find the order vendor by thread ID
+  // Find the order vendor by thread ID (most reliable method)
   let orderVendor = await findOrderVendorByThread(gmailThreadId);
+  let matchMethod = "thread_id";
 
   // If not found by thread, try by order number in subject (for forwarded vendor emails)
   if (!orderVendor) {
@@ -1218,23 +1200,41 @@ export async function processVendorReply(params: {
     if (orderNumber) {
       console.log(`[VendorCoordination] Trying to match by order number: ${orderNumber}`);
       orderVendor = await findOrderVendorByOrderNumber(orderNumber, fromEmail);
+      matchMethod = "order_number";
     }
   }
 
-  // If still not found, try by email (vendor might have started a new thread)
+  // SAFETY: Do NOT fall back to email-only matching
+  // This was causing cross-customer contamination when vendors reply without
+  // including order numbers or using the original thread.
+  // If we can't match reliably, flag for manual review instead.
   if (!orderVendor) {
-    const byEmail = await findOrderVendorByEmail(fromEmail);
-    if (byEmail) {
-      orderVendor = byEmail.orderVendor;
-    }
-  }
+    const vendorName = await getVendorNameFromEmail(fromEmail);
 
-  if (!orderVendor) {
+    if (vendorName) {
+      // Log this for manual review - we know it's from a vendor but can't match the order
+      console.error(`[VendorCoordination] MANUAL REVIEW NEEDED: Vendor "${vendorName}" (${fromEmail}) sent email but could not match to order.`, {
+        subject,
+        gmailThreadId,
+        hint: "Vendor should include order number in subject line",
+      });
+
+      return {
+        ...result,
+        error: `Vendor reply from "${vendorName}" could not be matched to a specific order. Order number not found in subject. Requires manual review.`,
+      };
+    }
+
     return {
       ...result,
       error: "Could not match vendor email to any order",
     };
   }
+
+  console.log(`[VendorCoordination] Matched vendor reply via ${matchMethod}:`, {
+    orderId: orderVendor.order_id,
+    vendorName: orderVendor.vendor_name,
+  });
 
   const orderId = orderVendor.order_id;
 
