@@ -522,15 +522,16 @@ async function processGmailThread(
   if (orderVendorByThread) {
     console.log(`[Monitor] Thread matches vendor forward thread for order ${orderVendorByThread.order_id}`);
 
-    // Get the latest message from this thread
-    const latestMsg = thread.messages[thread.messages.length - 1];
-    if (latestMsg) {
+    // IMPORTANT: Get the latest INCOMING message, not just any message
+    // This prevents processing Lina's own outbound forward as a "vendor reply"
+    const latestIncomingMsg = [...thread.messages].reverse().find((m) => m.isIncoming);
+    if (latestIncomingMsg) {
       const vendorResult = await processVendorReply({
         gmailThreadId,
-        gmailMessageId: latestMsg.id,
-        fromEmail: latestMsg.from,
+        gmailMessageId: latestIncomingMsg.id,
+        fromEmail: latestIncomingMsg.from,
         subject: thread.subject,
-        body: latestMsg.body,
+        body: latestIncomingMsg.body,
       });
 
       result.vendorReplyProcessed = vendorResult.processed;
@@ -541,6 +542,10 @@ async function processGmailThread(
         result.error = vendorResult.error;
       }
 
+      return result;
+    } else {
+      // No incoming messages yet - this is just Lina's outbound forward, skip processing
+      console.log(`[Monitor] Vendor thread has no incoming messages yet (only outbound forward)`);
       return result;
     }
   }
