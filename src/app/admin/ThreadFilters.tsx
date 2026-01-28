@@ -26,11 +26,6 @@ const SORT_OPTIONS = [
   { value: "created_at:asc", label: "Oldest Created" },
 ];
 
-const ARCHIVED_OPTIONS = [
-  { value: "hide", label: "Active Only" },
-  { value: "show", label: "Include Archived" },
-  { value: "only", label: "Archived Only" },
-];
 
 export default function ThreadFilters() {
   const router = useRouter();
@@ -41,11 +36,15 @@ export default function ThreadFilters() {
   const currentEscalated = searchParams.get("escalated") || "";
   const currentSort = searchParams.get("sort") || "updated_at:desc";
   const currentIntent = searchParams.get("intent") || "";
-  const currentArchived = searchParams.get("archived") || "hide";
+  const currentView = searchParams.get("view") || "active";
 
   const updateFilter = useCallback(
     (key: string, value: string) => {
       const params = new URLSearchParams(searchParams.toString());
+      // Always preserve the view parameter
+      if (!params.has("view") && currentView) {
+        params.set("view", currentView);
+      }
       if (value) {
         params.set(key, value);
       } else {
@@ -53,14 +52,15 @@ export default function ThreadFilters() {
       }
       router.push(`/admin?${params.toString()}`);
     },
-    [router, searchParams]
+    [router, searchParams, currentView]
   );
 
   const clearFilters = useCallback(() => {
-    router.push("/admin");
-  }, [router]);
+    // Preserve the current view when clearing filters
+    router.push(`/admin?view=${currentView}`);
+  }, [router, currentView]);
 
-  const hasActiveFilters = currentSearch || currentState || currentEscalated || currentIntent || currentArchived !== "hide";
+  const hasActiveFilters = currentSearch || currentState || currentEscalated || currentIntent;
 
   const selectStyle = {
     padding: "6px 10px",
@@ -171,25 +171,6 @@ export default function ThreadFilters() {
           onChange={(e) => updateFilter("intent", e.target.value)}
           style={currentIntent ? inputActiveStyle : inputStyle}
         />
-      </div>
-
-      {/* Archived Filter */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <label htmlFor="archived-filter" style={{ fontSize: 13, color: "#516f90" }}>
-          Show:
-        </label>
-        <select
-          id="archived-filter"
-          value={currentArchived}
-          onChange={(e) => updateFilter("archived", e.target.value)}
-          style={currentArchived !== "hide" ? selectActiveStyle : selectStyle}
-        >
-          {ARCHIVED_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
       </div>
 
       {/* Spacer */}

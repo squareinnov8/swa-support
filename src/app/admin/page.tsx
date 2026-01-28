@@ -34,6 +34,7 @@ type SearchParams = {
   intent?: string;
   sort?: string;
   archived?: string;
+  view?: string; // 'active' | 'resolved' | 'archived' | 'all'
 };
 
 export default async function AdminPage({
@@ -47,7 +48,7 @@ export default async function AdminPage({
   const escalatedFilter = params.escalated || "";
   const intentFilter = params.intent || "";
   const sortParam = params.sort || "last_message_at:desc";
-  const archivedFilter = params.archived || "hide";
+  const currentView = params.view || "active"; // Default to active tickets
 
   // Parse sort parameter
   const [sortField, sortDirection] = sortParam.split(":") as [string, "asc" | "desc"];
@@ -57,16 +58,25 @@ export default async function AdminPage({
     .from("threads")
     .select("id,subject,title,state,last_intent,updated_at,created_at,last_message_at,human_handling_mode,human_handler,summary,verification_status,is_archived");
 
-  // Apply archived filter (default: hide archived)
-  if (archivedFilter === "hide") {
-    query = query.or("is_archived.is.null,is_archived.eq.false");
-  } else if (archivedFilter === "only") {
+  // Apply view filter (controls which tickets to show)
+  if (currentView === "active") {
+    // Active: not resolved AND not archived - these need attention
+    query = query
+      .neq("state", "RESOLVED")
+      .or("is_archived.is.null,is_archived.eq.false");
+  } else if (currentView === "resolved") {
+    // Resolved: resolved but not archived
+    query = query
+      .eq("state", "RESOLVED")
+      .or("is_archived.is.null,is_archived.eq.false");
+  } else if (currentView === "archived") {
+    // Archived: only archived tickets
     query = query.eq("is_archived", true);
   }
-  // "show" means include all, no filter needed
+  // "all" means no filter - show everything
 
-  // Apply state filter
-  if (stateFilter) {
+  // Apply state filter (only if not using view-based filtering for resolved)
+  if (stateFilter && currentView === "all") {
     query = query.eq("state", stateFilter);
   }
 
@@ -125,6 +135,24 @@ export default async function AdminPage({
     .select("*", { count: "exact", head: true })
     .eq("status", "pending");
 
+  // Get counts for view tabs
+  const { count: activeCount } = await supabase
+    .from("threads")
+    .select("*", { count: "exact", head: true })
+    .neq("state", "RESOLVED")
+    .or("is_archived.is.null,is_archived.eq.false");
+
+  const { count: resolvedCount } = await supabase
+    .from("threads")
+    .select("*", { count: "exact", head: true })
+    .eq("state", "RESOLVED")
+    .or("is_archived.is.null,is_archived.eq.false");
+
+  const { count: archivedCount } = await supabase
+    .from("threads")
+    .select("*", { count: "exact", head: true })
+    .eq("is_archived", true);
+
   return (
     <div style={{ padding: "0 0 24px 0", maxWidth: 1200, margin: "0 auto" }}>
       {/* Page Header - more compact */}
@@ -136,14 +164,47 @@ export default async function AdminPage({
         borderBottom: "1px solid #dfe3eb",
         backgroundColor: "#fff",
       }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
           <h1 style={{ fontSize: 20, fontWeight: 500, color: "#33475b", margin: 0 }}>Tickets</h1>
-          <span style={{ fontSize: 13, color: "#7c98b6" }}>
-            {threads?.length || 0} total
-            {(searchQuery || stateFilter || escalatedFilter || intentFilter || archivedFilter !== "hide") && (
-              <span style={{ color: "#0091ae", marginLeft: 4 }}>• filtered</span>
-            )}
-          </span>
+          {/* View Tabs */}
+          <div style={{ display: "flex", gap: 4 }}>
+            {[
+              { key: "active", label: "Active", count: activeCount ?? 0 },
+              { key: "resolved", label: "Resolved", count: resolvedCount ?? 0 },
+              { key: "archived", label: "Archived", count: archivedCount ?? 0 },
+            ].map((tab) => (
+              <a
+                key={tab.key}
+                href={`/admin?view=${tab.key}${searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : ""}`}
+                style={{
+                  padding: "6px 12px",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: currentView === tab.key ? "#0073aa" : "#516f90",
+                  backgroundColor: currentView === tab.key ? "#e5f5f8" : "transparent",
+                  borderRadius: 4,
+                  textDecoration: "none",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                {tab.label}
+                <span style={{
+                  fontSize: 11,
+                  color: currentView === tab.key ? "#0091ae" : "#99acc2",
+                  backgroundColor: currentView === tab.key ? "#fff" : "#eaf0f6",
+                  padding: "1px 6px",
+                  borderRadius: 10,
+                }}>
+                  {tab.count}
+                </span>
+              </a>
+            ))}
+          </div>
+          {(searchQuery || escalatedFilter || intentFilter) && (
+            <span style={{ fontSize: 12, color: "#0091ae" }}>• filtered</span>
+          )}
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <GmailPollButton />
