@@ -55,6 +55,9 @@ export async function checkBlacklist(
 
 /**
  * Create order record in database
+ *
+ * Handles race conditions gracefully - if a duplicate order is detected
+ * (unique constraint violation), returns the existing order instead of failing.
  */
 export async function createOrder(
   parsedOrder: ParsedOrder,
@@ -78,6 +81,25 @@ export async function createOrder(
     .single();
 
   if (error) {
+    // Handle unique constraint violation (race condition - another process created this order)
+    if (error.code === "23505") {
+      console.log(`[Orders] Duplicate detected for order #${parsedOrder.orderNumber}, returning existing record`);
+
+      // Fetch and return the existing order
+      const { data: existingOrder, error: fetchError } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("order_number", parsedOrder.orderNumber)
+        .eq("customer_email", parsedOrder.customerEmail.toLowerCase())
+        .single();
+
+      if (fetchError || !existingOrder) {
+        throw new Error(`Failed to fetch existing order after duplicate detection: ${fetchError?.message}`);
+      }
+
+      return existingOrder;
+    }
+
     throw new Error(`Failed to create order: ${error.message}`);
   }
 

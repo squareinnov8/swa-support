@@ -209,7 +209,6 @@ Common vendor requests include:
 - Color confirmation (piano black, matte black, carbon fiber, etc.)
 - Memory/storage confirmation (4GB+64GB, 8GB+128GB, etc.)
 - Address validation
-- Vehicle year/make/model confirmation
 
 Return a JSON object with this structure:
 {
@@ -219,7 +218,7 @@ Return a JSON object with this structure:
   "hasRequests": boolean,
   "requests": [
     {
-      "type": "dashboard_photo" | "color_confirmation" | "memory_confirmation" | "address_validation" | "vehicle_confirmation" | "other",
+      "type": "dashboard_photo" | "color_confirmation" | "memory_confirmation" | "address_validation" | "other",
       "description": "Human-readable description of what's needed",
       "options": ["option1", "option2"] | null,  // For confirmations, list the choices
       "required": boolean

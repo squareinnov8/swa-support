@@ -197,7 +197,6 @@ export type VendorRequestType =
   | "color_confirmation" // Confirm color choice (piano black, matte black, etc.)
   | "memory_confirmation" // Confirm memory/storage option (4-64, 8-128, etc.)
   | "address_validation" // Validate shipping address
-  | "vehicle_confirmation" // Confirm vehicle year/make/model
   | "other"; // Other custom request
 
 /**

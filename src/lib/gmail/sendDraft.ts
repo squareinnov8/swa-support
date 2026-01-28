@@ -522,19 +522,23 @@ export function isGmailSendConfigured(): boolean {
 /**
  * Send a new email to a customer (not a reply to existing thread)
  * Used for vendor request outreach, proactive notifications, etc.
+ *
+ * IMPORTANT: This function creates a message record with sent_by_agent: true
+ * so that intervention detection knows this was an agent-generated email.
  */
 export async function sendEmailToCustomer(params: {
   to: string;
   subject: string;
   body: string;
   replyTo?: string;
+  threadId?: string; // Optional: link to existing thread for tracking
 }): Promise<{
   success: boolean;
   gmailMessageId?: string;
   gmailThreadId?: string;
   error?: string;
 }> {
-  const { to, subject, body, replyTo } = params;
+  const { to, subject, body, replyTo, threadId } = params;
 
   try {
     const htmlBody = textToHtml(body);
@@ -562,6 +566,29 @@ export async function sendEmailToCustomer(params: {
 
     if (!gmailMessageId) {
       throw new Error("Gmail API did not return a message ID");
+    }
+
+    // Create a message record so intervention detection knows this was agent-generated
+    // This prevents the system from thinking a human sent this email
+    const { error: messageError } = await supabase.from("messages").insert({
+      thread_id: threadId || null,
+      direction: "outbound",
+      from_email: SUPPORT_EMAIL,
+      to_email: to,
+      body_text: body,
+      body_html: htmlBody,
+      channel: "email",
+      channel_metadata: {
+        gmail_thread_id: gmailThreadId,
+        gmail_message_id: gmailMessageId,
+        sent_by_agent: true, // Critical: marks this as agent-generated
+        purpose: "customer_outreach",
+      },
+    });
+
+    if (messageError) {
+      // Log but don't fail - email was sent successfully
+      console.error("[SendEmail] Failed to insert message record:", messageError);
     }
 
     console.log(`[SendEmail] Sent email to ${to}: ${subject}`);
