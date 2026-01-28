@@ -19,6 +19,7 @@ import { hybridSearch } from "@/lib/retrieval/search";
 import { LINA_ADMIN_TOOLS, TOOL_SYSTEM_PROMPT } from "@/lib/llm/linaTools";
 import { executeLinaTool, type ToolResult } from "@/lib/llm/linaToolExecutor";
 import { buildLinaContext, formatLinaContextForPrompt } from "@/lib/context";
+import { reprocessThread } from "@/lib/threads/reprocessThread";
 import type { Intent } from "@/lib/intents/taxonomy";
 
 /**
@@ -339,6 +340,26 @@ ${formatLinaContextForPrompt(linaContext)}`;
       outputTokens: response.usage?.completion_tokens || 0,
       toolsUsed: toolsUsed.length > 0 ? toolsUsed : undefined,
     });
+
+    // Auto-reprocess thread after admin chat
+    // This ensures Lina generates a draft if she now has enough info to proceed
+    // Skip if Lina already created a relay draft via tool call (toolsUsed includes draft_relay_response)
+    const createdRelayDraft = toolsUsed.some((t) => t.name === "draft_relay_response" && t.result.success);
+
+    if (!createdRelayDraft) {
+      // Non-blocking reprocess - don't wait for it to complete
+      reprocessThread(threadId, {
+        trigger: "admin_chat",
+        skipIfRelayDraft: true,
+        force: false,
+      }).then((result) => {
+        if (result.action === "draft_generated") {
+          console.log(`[ThreadChat] Auto-generated draft for thread ${threadId}`);
+        }
+      }).catch((err) => {
+        console.error(`[ThreadChat] Reprocess error for thread ${threadId}:`, err);
+      });
+    }
 
     return NextResponse.json({
       response: finalContent,

@@ -41,3 +41,9 @@ export {
   type ClarificationCategory,
   type ClarificationLoopResult,
 } from "./clarificationLoopDetector";
+
+export {
+  reprocessThread,
+  type ReprocessResult,
+  type ReprocessOptions,
+} from "./reprocessThread";
