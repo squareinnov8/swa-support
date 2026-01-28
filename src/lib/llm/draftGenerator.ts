@@ -12,6 +12,7 @@ import { hybridSearch, type SearchResult } from "@/lib/retrieval/search";
 import { policyGate } from "@/lib/responders/policyGate";
 import { detectVehicle, canDoProductLookup } from "@/lib/catalog/vehicleDetector";
 import { findProductsByVehicle } from "@/lib/catalog/lookup";
+import { isVendorEmail } from "@/lib/gmail/senderResolver";
 import type { ProductWithFitment } from "@/lib/catalog/types";
 import type { Intent } from "@/lib/intents/taxonomy";
 import type { Citation, DraftGeneration } from "@/lib/kb/types";
@@ -24,6 +25,7 @@ export type ConversationMessage = {
   direction: "inbound" | "outbound";
   body: string;
   created_at: string;
+  from_email?: string;
 };
 
 /**
@@ -160,13 +162,28 @@ export async function generateDraft(input: DraftInput): Promise<DraftResult> {
     // 3. Build prompts (load dynamic instructions from database)
     const systemPrompt = await buildSystemPromptAsync(intent);
 
-    // Format previous messages for context
-    const formattedHistory = previousMessages?.map((msg) => {
-      const role = msg.direction === "inbound" ? "Customer" : "Agent (Lina)";
-      // Truncate long messages to keep prompt manageable
-      const body = msg.body.length > 500 ? msg.body.slice(0, 500) + "..." : msg.body;
-      return `${role}: ${body}`;
-    });
+    // Format previous messages for context, detecting vendor emails
+    const formattedHistory = previousMessages ? await Promise.all(
+      previousMessages.map(async (msg) => {
+        let role: string;
+        if (msg.direction === "outbound") {
+          role = "Agent (Lina)";
+        } else if (msg.from_email) {
+          // Check if inbound message is from a vendor
+          const vendorCheck = await isVendorEmail(msg.from_email);
+          if (vendorCheck.isVendor) {
+            role = `Vendor (${vendorCheck.vendorName || "supplier"})`;
+          } else {
+            role = "Customer";
+          }
+        } else {
+          role = "Customer";
+        }
+        // Truncate long messages to keep prompt manageable
+        const body = msg.body.length > 500 ? msg.body.slice(0, 500) + "..." : msg.body;
+        return `${role}: ${body}`;
+      })
+    ) : undefined;
 
     let userPrompt = buildUserPrompt({
       customerMessage,
@@ -340,7 +357,7 @@ export async function getConversationHistory(
 ): Promise<ConversationMessage[]> {
   const { data, error } = await supabase
     .from("messages")
-    .select("direction, body_text, created_at")
+    .select("direction, body_text, created_at, from_email")
     .eq("thread_id", threadId)
     .order("created_at", { ascending: false })
     .limit(limit + 1); // Get one extra since we'll exclude the latest inbound
@@ -363,6 +380,7 @@ export async function getConversationHistory(
       direction: msg.direction as "inbound" | "outbound",
       body: msg.body_text || "",
       created_at: msg.created_at,
+      from_email: msg.from_email || undefined,
     }));
 }
 

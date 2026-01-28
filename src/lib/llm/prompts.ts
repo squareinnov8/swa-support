@@ -389,11 +389,19 @@ export function buildUserPrompt(params: {
 - NEVER ask the same question twice - if they answered partially, acknowledge what you got and only ask for what's missing
 - If a human agent (Rob) already handled something, continue from their message
 
+### VENDOR RESPONSES ARE AUTHORITATIVE:
+Messages from "Vendor (name)" are responses from our suppliers who manufacture the products.
+- When a vendor confirms something (e.g., "Yes, it supports X"), TREAT THIS AS A DEFINITIVE ANSWER
+- If a vendor says "Yes, support" or similar confirmation, you CAN CONFIDENTLY TELL THE CUSTOMER
+- DO NOT say "I need to confirm" or "I'm checking" if a vendor already confirmed in the conversation
+- Vendor answers ARE the confirmation - relay them to the customer
+
 ### INFORMATION ALREADY PROVIDED:
 Look at the conversation history above. If the customer already shared:
 - A photo → Acknowledge it, don't ask for another
 - A color preference → Use it, don't ask again
-- An answer to your question → Build on it, don't repeat the question\n\n`;
+- An answer to your question → Build on it, don't repeat the question
+- If a VENDOR answered a question → Use their answer as the definitive response\n\n`;
   }
 
   // Add attachment content if available
