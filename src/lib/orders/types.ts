@@ -149,6 +149,8 @@ export type OrderEventType =
   | "forwarded_to_vendor"
   | "vendor_replied"
   | "tracking_added"
+  | "shopify_fulfilled"
+  | "shopify_tracking_updated"
   | "customer_notified"
   | "customer_contacted"
   | "customer_responded"

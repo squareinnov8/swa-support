@@ -20,6 +20,7 @@ import {
 } from "./ingest";
 import { findVendorForProduct, findVendorsForProducts } from "@/lib/vendors";
 import { forwardOrderToVendor } from "@/lib/gmail/forwardOrder";
+import { getShopifyClient } from "@/lib/shopify/client";
 import type { Order, OrderLineItem, RiskAssessment } from "./types";
 
 const HIGH_VALUE_THRESHOLD = 3000; // Flag orders over $3,000
@@ -244,20 +245,51 @@ export async function processOrderEmail(params: {
     }
   }
 
-  // 7. Update order status
+  // 7. Update order status and create Shopify fulfillment
   if (vendorsForwarded.length > 0) {
-    await updateOrderStatus(order.id, "fulfilled", {
+    await updateOrderStatus(order.id, "processing", {
       vendors_forwarded: vendorsForwarded,
     });
 
-    // TODO: Mark as fulfilled in Shopify (without customer notification)
-    // await markShopifyOrderFulfilled(order.shopify_order_id, { notifyCustomer: false });
+    // Mark as fulfilled in Shopify (without customer notification)
+    // Customer will be notified when tracking is added
+    try {
+      const shopify = getShopifyClient();
+      const fulfillResult = await shopify.createFulfillment(parsed.orderNumber, {
+        notifyCustomer: false, // Don't notify until we have tracking
+      });
+
+      if (fulfillResult.success && fulfillResult.fulfillmentId) {
+        // Store fulfillment ID for later tracking updates
+        await supabase
+          .from("orders")
+          .update({ shopify_fulfillment_id: fulfillResult.fulfillmentId })
+          .eq("id", order.id);
+
+        await logOrderEvent(order.id, "shopify_fulfilled", {
+          fulfillment_id: fulfillResult.fulfillmentId,
+          notify_customer: false,
+        });
+
+        console.log(`[Orders] Created Shopify fulfillment ${fulfillResult.fulfillmentId} for order #${parsed.orderNumber}`);
+      } else if (fulfillResult.error && !fulfillResult.error.includes("already fulfilled")) {
+        console.error(`[Orders] Shopify fulfillment failed: ${fulfillResult.error}`);
+        await logOrderEvent(order.id, "error", {
+          error: `Shopify fulfillment failed: ${fulfillResult.error}`,
+        });
+      }
+    } catch (shopifyError) {
+      console.error(`[Orders] Shopify fulfillment error:`, shopifyError);
+      await logOrderEvent(order.id, "error", {
+        error: `Shopify fulfillment error: ${shopifyError instanceof Error ? shopifyError.message : "Unknown"}`,
+      });
+    }
 
     return {
       success: true,
       orderId: order.id,
       orderNumber: parsed.orderNumber,
-      status: "fulfilled",
+      status: "processing",
       vendorsForwarded,
     };
   }

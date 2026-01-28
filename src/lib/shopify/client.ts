@@ -17,6 +17,9 @@ import {
   GET_ORDER_BY_NUMBER,
   GET_CUSTOMER_ORDERS,
   GET_PRODUCTS,
+  GET_ORDER_FULFILLMENT_ORDERS,
+  FULFILLMENT_CREATE,
+  FULFILLMENT_TRACKING_INFO_UPDATE,
 } from "./queries";
 
 // Rate limiting: minimum delay between requests
@@ -388,6 +391,295 @@ export class ShopifyClient {
     }
 
     return allProducts;
+  }
+
+  /**
+   * Get fulfillment orders for an order (needed to create fulfillments)
+   * Shopify's modern fulfillment API requires fulfillment order IDs
+   */
+  async getFulfillmentOrders(orderNumber: string): Promise<{
+    orderId: string;
+    fulfillmentOrders: Array<{
+      id: string;
+      status: string;
+      lineItems: Array<{
+        id: string;
+        remainingQuantity: number;
+        totalQuantity: number;
+      }>;
+    }>;
+  } | null> {
+    const cleanNumber = orderNumber.replace(/^#/, "").trim();
+
+    type Response = {
+      orders: {
+        edges: Array<{
+          node: {
+            id: string;
+            name: string;
+            fulfillmentOrders: {
+              edges: Array<{
+                node: {
+                  id: string;
+                  status: string;
+                  lineItems: {
+                    edges: Array<{
+                      node: {
+                        id: string;
+                        remainingQuantity: number;
+                        totalQuantity: number;
+                      };
+                    }>;
+                  };
+                };
+              }>;
+            };
+          };
+        }>;
+      };
+    };
+
+    const data = await this.executeGraphQL<Response>(GET_ORDER_FULFILLMENT_ORDERS, {
+      query: `name:${cleanNumber}`,
+    });
+
+    const edge = data.orders.edges[0];
+    if (!edge) {
+      return null;
+    }
+
+    return {
+      orderId: edge.node.id,
+      fulfillmentOrders: edge.node.fulfillmentOrders.edges.map((fo) => ({
+        id: fo.node.id,
+        status: fo.node.status,
+        lineItems: fo.node.lineItems.edges.map((li) => ({
+          id: li.node.id,
+          remainingQuantity: li.node.remainingQuantity,
+          totalQuantity: li.node.totalQuantity,
+        })),
+      })),
+    };
+  }
+
+  /**
+   * Create a fulfillment for an order
+   * Used when forwarding to vendor - marks order as fulfilled without notifying customer
+   *
+   * @param orderNumber - The order number (e.g., "4094")
+   * @param options.notifyCustomer - Whether to send shipment email to customer (default: false)
+   * @param options.trackingInfo - Optional tracking info to include
+   */
+  async createFulfillment(
+    orderNumber: string,
+    options: {
+      notifyCustomer?: boolean;
+      trackingInfo?: {
+        company?: string;
+        number?: string;
+        url?: string;
+      };
+    } = {}
+  ): Promise<{
+    success: boolean;
+    fulfillmentId?: string;
+    error?: string;
+  }> {
+    const { notifyCustomer = false, trackingInfo } = options;
+
+    // Get fulfillment orders for this order
+    const fulfillmentData = await this.getFulfillmentOrders(orderNumber);
+    if (!fulfillmentData) {
+      return { success: false, error: `Order ${orderNumber} not found` };
+    }
+
+    // Find unfulfilled fulfillment orders (status: OPEN or SCHEDULED)
+    const unfulfilledOrders = fulfillmentData.fulfillmentOrders.filter(
+      (fo) => fo.status === "OPEN" || fo.status === "SCHEDULED"
+    );
+
+    if (unfulfilledOrders.length === 0) {
+      // Already fulfilled
+      return { success: true, fulfillmentId: undefined, error: "Order already fulfilled" };
+    }
+
+    // Build line items for fulfillment (all remaining quantities)
+    const lineItemsByFulfillmentOrder = unfulfilledOrders.map((fo) => ({
+      fulfillmentOrderId: fo.id,
+      fulfillmentOrderLineItems: fo.lineItems
+        .filter((li) => li.remainingQuantity > 0)
+        .map((li) => ({
+          id: li.id,
+          quantity: li.remainingQuantity,
+        })),
+    }));
+
+    // Build fulfillment input
+    const fulfillmentInput: Record<string, unknown> = {
+      notifyCustomer,
+      lineItemsByFulfillmentOrder,
+    };
+
+    // Add tracking info if provided
+    if (trackingInfo && (trackingInfo.company || trackingInfo.number)) {
+      fulfillmentInput.trackingInfo = {
+        company: trackingInfo.company || undefined,
+        number: trackingInfo.number || undefined,
+        url: trackingInfo.url || undefined,
+      };
+    }
+
+    type MutationResponse = {
+      fulfillmentCreate: {
+        fulfillment: {
+          id: string;
+          status: string;
+        } | null;
+        userErrors: Array<{ field: string[]; message: string }>;
+      };
+    };
+
+    try {
+      const data = await this.executeGraphQL<MutationResponse>(FULFILLMENT_CREATE, {
+        fulfillment: fulfillmentInput,
+      });
+
+      const { fulfillment, userErrors } = data.fulfillmentCreate;
+
+      if (userErrors && userErrors.length > 0) {
+        const errorMsg = userErrors.map((e) => e.message).join(", ");
+        console.error(`[Shopify] Fulfillment creation failed: ${errorMsg}`);
+        return { success: false, error: errorMsg };
+      }
+
+      if (!fulfillment) {
+        return { success: false, error: "No fulfillment created" };
+      }
+
+      console.log(`[Shopify] Created fulfillment ${fulfillment.id} for order #${orderNumber}`);
+      return { success: true, fulfillmentId: fulfillment.id };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "Unknown error";
+      console.error(`[Shopify] Fulfillment creation error: ${errorMsg}`);
+      return { success: false, error: errorMsg };
+    }
+  }
+
+  /**
+   * Update tracking information on an existing fulfillment
+   * Used when vendor provides tracking number
+   *
+   * @param fulfillmentId - Shopify fulfillment GID
+   * @param trackingInfo - Tracking details
+   * @param notifyCustomer - Whether to send tracking email to customer (default: true)
+   */
+  async updateFulfillmentTracking(
+    fulfillmentId: string,
+    trackingInfo: {
+      company?: string;
+      number: string;
+      url?: string;
+    },
+    notifyCustomer: boolean = true
+  ): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    type MutationResponse = {
+      fulfillmentTrackingInfoUpdate: {
+        fulfillment: {
+          id: string;
+          status: string;
+          trackingInfo: Array<{
+            company: string | null;
+            number: string | null;
+            url: string | null;
+          }>;
+        } | null;
+        userErrors: Array<{ field: string[]; message: string }>;
+      };
+    };
+
+    try {
+      const data = await this.executeGraphQL<MutationResponse>(FULFILLMENT_TRACKING_INFO_UPDATE, {
+        fulfillmentId,
+        trackingInfoInput: {
+          company: trackingInfo.company || undefined,
+          number: trackingInfo.number,
+          url: trackingInfo.url || undefined,
+        },
+        notifyCustomer,
+      });
+
+      const { fulfillment, userErrors } = data.fulfillmentTrackingInfoUpdate;
+
+      if (userErrors && userErrors.length > 0) {
+        const errorMsg = userErrors.map((e) => e.message).join(", ");
+        console.error(`[Shopify] Tracking update failed: ${errorMsg}`);
+        return { success: false, error: errorMsg };
+      }
+
+      if (!fulfillment) {
+        return { success: false, error: "No fulfillment returned" };
+      }
+
+      console.log(`[Shopify] Updated tracking for fulfillment ${fulfillmentId}: ${trackingInfo.number}`);
+      return { success: true };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "Unknown error";
+      console.error(`[Shopify] Tracking update error: ${errorMsg}`);
+      return { success: false, error: errorMsg };
+    }
+  }
+
+  /**
+   * Add tracking to an order by order number
+   * Finds the existing fulfillment and updates its tracking info
+   *
+   * @param orderNumber - The order number (e.g., "4094")
+   * @param trackingInfo - Tracking details
+   * @param notifyCustomer - Whether to send tracking email to customer (default: true)
+   */
+  async addTrackingToOrder(
+    orderNumber: string,
+    trackingInfo: {
+      company?: string;
+      number: string;
+      url?: string;
+    },
+    notifyCustomer: boolean = true
+  ): Promise<{
+    success: boolean;
+    fulfillmentId?: string;
+    error?: string;
+  }> {
+    // Get the order with fulfillments
+    const order = await this.getOrderByNumber(orderNumber);
+    if (!order) {
+      return { success: false, error: `Order ${orderNumber} not found` };
+    }
+
+    // Find fulfillment without tracking (or first fulfillment)
+    const fulfillments = order.fulfillments || [];
+    if (fulfillments.length === 0) {
+      return { success: false, error: "No fulfillments found for order" };
+    }
+
+    // Prefer fulfillment without tracking, otherwise use the first one
+    const targetFulfillment =
+      fulfillments.find((f) => !f.trackingInfo || f.trackingInfo.length === 0) ||
+      fulfillments[0];
+
+    const result = await this.updateFulfillmentTracking(
+      targetFulfillment.id,
+      trackingInfo,
+      notifyCustomer
+    );
+
+    return {
+      ...result,
+      fulfillmentId: targetFulfillment.id,
+    };
   }
 }
 

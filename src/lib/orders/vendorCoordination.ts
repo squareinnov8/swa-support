@@ -12,6 +12,7 @@
 import { supabase } from "@/lib/db";
 import { getClient, isLLMConfigured } from "@/lib/llm/client";
 import { replyToVendorThread } from "@/lib/gmail/forwardOrder";
+import { getShopifyClient } from "@/lib/shopify/client";
 import {
   generateContextualEmail,
   type CustomerOutreachContext,
@@ -1286,6 +1287,51 @@ export async function processVendorReply(params: {
     console.log(
       `[VendorCoordination] Tracking added for order #${order.order_number}: ${parsed.trackingNumber}`
     );
+
+    // Update Shopify fulfillment with tracking info
+    // This notifies the customer with the tracking number
+    try {
+      const shopify = getShopifyClient();
+      const trackingResult = await shopify.addTrackingToOrder(
+        order.order_number,
+        {
+          company: parsed.trackingCarrier || undefined,
+          number: parsed.trackingNumber,
+        },
+        true // notifyCustomer: send tracking email to customer
+      );
+
+      if (trackingResult.success) {
+        await logOrderEvent(orderId, "shopify_tracking_updated", {
+          fulfillment_id: trackingResult.fulfillmentId,
+          tracking_number: parsed.trackingNumber,
+          tracking_carrier: parsed.trackingCarrier,
+          customer_notified: true,
+        });
+
+        // Update order status to shipped
+        await supabase
+          .from("orders")
+          .update({ status: "shipped" })
+          .eq("id", orderId);
+
+        console.log(
+          `[VendorCoordination] Shopify tracking updated for order #${order.order_number}, customer notified`
+        );
+      } else {
+        console.error(
+          `[VendorCoordination] Shopify tracking update failed: ${trackingResult.error}`
+        );
+        await logOrderEvent(orderId, "error", {
+          error: `Shopify tracking update failed: ${trackingResult.error}`,
+        });
+      }
+    } catch (shopifyError) {
+      console.error(`[VendorCoordination] Shopify tracking error:`, shopifyError);
+      await logOrderEvent(orderId, "error", {
+        error: `Shopify tracking error: ${shopifyError instanceof Error ? shopifyError.message : "Unknown"}`,
+      });
+    }
   }
 
   // Handle vendor requests

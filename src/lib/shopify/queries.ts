@@ -315,3 +315,87 @@ export const GET_PRODUCTS = `
     }
   }
 `;
+
+/**
+ * Get order with fulfillment order details (needed for creating fulfillments)
+ * FulfillmentOrders are the modern way to manage fulfillments in Shopify
+ */
+export const GET_ORDER_FULFILLMENT_ORDERS = `
+  query GetOrderFulfillmentOrders($query: String!) {
+    orders(first: 1, query: $query) {
+      edges {
+        node {
+          id
+          name
+          fulfillmentOrders(first: 10) {
+            edges {
+              node {
+                id
+                status
+                assignedLocation {
+                  name
+                }
+                lineItems(first: 50) {
+                  edges {
+                    node {
+                      id
+                      remainingQuantity
+                      totalQuantity
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+/**
+ * Create fulfillment for a fulfillment order
+ * notifyCustomer: false prevents email to customer
+ */
+export const FULFILLMENT_CREATE = `
+  mutation FulfillmentCreate($fulfillment: FulfillmentInput!) {
+    fulfillmentCreate(fulfillment: $fulfillment) {
+      fulfillment {
+        id
+        status
+        trackingInfo {
+          company
+          number
+          url
+        }
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+`;
+
+/**
+ * Update tracking info on an existing fulfillment
+ */
+export const FULFILLMENT_TRACKING_INFO_UPDATE = `
+  mutation FulfillmentTrackingInfoUpdate($fulfillmentId: ID!, $trackingInfoInput: FulfillmentTrackingInput!, $notifyCustomer: Boolean) {
+    fulfillmentTrackingInfoUpdate(fulfillmentId: $fulfillmentId, trackingInfoInput: $trackingInfoInput, notifyCustomer: $notifyCustomer) {
+      fulfillment {
+        id
+        status
+        trackingInfo {
+          company
+          number
+          url
+        }
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+`;
