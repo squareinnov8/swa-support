@@ -8,6 +8,7 @@
 import { supabase } from "@/lib/db";
 import { createGmailClient, refreshTokenIfNeeded, type GmailTokens } from "@/lib/import/gmail/auth";
 import { markDraftAsSent } from "@/lib/llm/draftGenerator";
+import { addActivityNote, isHubSpotConfigured, updateTicketStage } from "@/lib/hubspot";
 
 const SUPPORT_EMAIL = "support@squarewheelsauto.com";
 
@@ -461,6 +462,24 @@ export async function sendApprovedDraft(params: {
 
     const attachmentNote = emailAttachments.length > 0 ? ` with ${emailAttachments.length} attachment(s)` : "";
     console.log(`[SendDraft] Sent draft for thread ${threadId} to ${toEmail}${attachmentNote}`);
+
+    // 11. Sync to HubSpot
+    if (isHubSpotConfigured()) {
+      // Add outbound message note
+      addActivityNote(threadId, {
+        type: "message",
+        direction: "outbound",
+        from: "lina@squarewheelsauto.com",
+        body: draftText.slice(0, 1000),
+      }).catch((err) => console.error("[HubSpot] Outbound note failed:", err));
+
+      // Update ticket stage to "Waiting on contact" if sending to customer (not vendor)
+      if (!recipientOverride) {
+        updateTicketStage(threadId, "AWAITING_INFO").catch((err) =>
+          console.error("[HubSpot] Stage update failed:", err)
+        );
+      }
+    }
 
     return {
       success: true,

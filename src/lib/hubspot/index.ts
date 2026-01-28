@@ -49,3 +49,13 @@ export {
   syncInteractionToHubSpot,
   getHubSpotCustomerContext,
 } from "./sync";
+
+// Ticket sync operations
+export {
+  createTicketForThread,
+  updateTicketStage,
+  addActivityNote,
+  syncExistingThread,
+  type TicketActivity,
+  type SyncResult,
+} from "./ticketSync";

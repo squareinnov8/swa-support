@@ -33,7 +33,13 @@ import {
   type VerificationResult,
 } from "@/lib/verification";
 import type { IngestRequest, IngestResult, MessageAttachment } from "./types";
-import { syncInteractionToHubSpot, isHubSpotConfigured } from "@/lib/hubspot";
+import {
+  syncInteractionToHubSpot,
+  isHubSpotConfigured,
+  createTicketForThread,
+  addActivityNote,
+  updateTicketStage,
+} from "@/lib/hubspot";
 import { recordObservation } from "@/lib/collaboration";
 import type { ExtractedAttachmentContent } from "@/lib/attachments";
 import { getOrderTimeline, buildOrderStatusSummary } from "@/lib/shopify/orderEvents";
@@ -156,6 +162,29 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
     .from("threads")
     .update({ last_message_at: messageTimestamp })
     .eq("id", threadId);
+
+  // 2.6. HubSpot ticket sync (async, non-blocking)
+  if (isHubSpotConfigured() && req.from_identifier) {
+    // Create ticket for new threads
+    if (!isFollowUp) {
+      createTicketForThread({
+        threadId,
+        subject: req.subject || "(no subject)",
+        customerEmail: req.from_identifier,
+        state: "NEW",
+        initialMessage: req.body_text.slice(0, 500),
+      }).catch((err) => console.error("[HubSpot] Ticket creation failed:", err));
+    }
+
+    // Add inbound message note
+    addActivityNote(threadId, {
+      type: "message",
+      direction: "inbound",
+      from: req.from_identifier,
+      body: req.body_text.slice(0, 1000),
+      timestamp: req.message_date,
+    }).catch((err) => console.error("[HubSpot] Message note failed:", err));
+  }
 
   // 2.5. Check if thread is in human handling mode (observation mode)
   // If so, record the observation and skip draft generation
@@ -936,7 +965,14 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
     })
     .eq("id", threadId);
 
-  // 10. Sync to HubSpot CRM (async, non-blocking)
+  // 10.1 Update HubSpot ticket stage if state changed
+  if (isHubSpotConfigured() && currentState !== nextState) {
+    updateTicketStage(threadId, nextState, stateChangeReason || undefined).catch((err) =>
+      console.error("[HubSpot] Stage update failed:", err)
+    );
+  }
+
+  // 10.2 Sync to HubSpot CRM (async, non-blocking)
   if (isHubSpotConfigured() && req.from_identifier) {
     // Map verification status to CRM-compatible values
     const crmVerificationStatus =

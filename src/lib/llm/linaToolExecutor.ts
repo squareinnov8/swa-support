@@ -19,6 +19,7 @@ import {
   createVendorResponseAction,
 } from "@/lib/context";
 import type { LinaContext } from "@/lib/context";
+import { addActivityNote, isHubSpotConfigured } from "@/lib/hubspot";
 
 /**
  * Result of a tool execution
@@ -827,8 +828,45 @@ async function logToolAction(
       result,
       admin_email: context.adminEmail,
     });
+
+    // Sync to HubSpot ticket
+    if (isHubSpotConfigured() && context.threadId && result.success) {
+      addActivityNote(context.threadId, {
+        type: "admin_decision",
+        tool: toolName,
+        summary: summarizeToolForHubSpot(toolName, toolInput),
+        admin: context.adminEmail,
+      }).catch((err) => console.error("[HubSpot] Decision note failed:", err));
+    }
   } catch (error) {
     // Log error but don't fail the tool execution
     console.error("[LinaTool] Failed to log tool action:", error);
+  }
+}
+
+/**
+ * Summarize a tool action for HubSpot display
+ */
+function summarizeToolForHubSpot(
+  toolName: string,
+  toolInput: Record<string, unknown>
+): string {
+  switch (toolName) {
+    case "draft_relay_response":
+      return "Drafted response to customer";
+    case "create_kb_article":
+      return `Created KB article: ${toolInput.title || "Untitled"}`;
+    case "update_instruction":
+      return `Updated ${toolInput.section || "agent"} instructions`;
+    case "lookup_order":
+      return `Looked up order #${toolInput.order_number}`;
+    case "associate_thread_customer":
+      return `Associated thread with customer ${toolInput.customer_email}`;
+    case "return_thread_to_agent":
+      return `Returned thread to agent: ${toolInput.reason || ""}`;
+    case "note_feedback":
+      return `Noted feedback: ${(toolInput.summary as string)?.slice(0, 100) || ""}`;
+    default:
+      return `Executed ${toolName}`;
   }
 }

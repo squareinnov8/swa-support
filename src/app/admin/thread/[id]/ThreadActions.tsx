@@ -968,6 +968,77 @@ export function ThreadActions({
         </div>
       )}
 
+      {/* Generate Draft Section - when no draft exists */}
+      {!latestDraft && !draftBlocked && !isArchived && (
+        <div style={{
+          backgroundColor: "#ffffff",
+          border: "1px solid #cbd6e2",
+          borderRadius: 4,
+          marginBottom: 24,
+          padding: 16,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <h3 style={{ fontSize: 14, fontWeight: 600, color: "#33475b", margin: 0, marginBottom: 4 }}>
+                No Draft Available
+              </h3>
+              <p style={{ fontSize: 13, color: "#7c98b6", margin: 0 }}>
+                Generate an AI draft response for this thread
+              </p>
+            </div>
+            <button
+              onClick={handleRegenerateDraft}
+              disabled={draftAction !== "idle"}
+              style={{
+                padding: "9px 16px",
+                backgroundColor: "#0091ae",
+                color: "#ffffff",
+                border: "none",
+                borderRadius: 4,
+                cursor: draftAction !== "idle" ? "not-allowed" : "pointer",
+                fontWeight: 500,
+                fontSize: 14,
+              }}
+            >
+              {draftAction === "regenerating" ? "Generating..." : "Generate Draft"}
+            </button>
+          </div>
+          {draftAction === "error" && draftError && (
+            <div
+              style={{
+                marginTop: 12,
+                padding: 12,
+                backgroundColor: "#fef0f0",
+                borderRadius: 4,
+                color: "#c93b41",
+                border: "1px solid #f5c6c6",
+                fontSize: 13,
+              }}
+            >
+              <strong>Error:</strong> {draftError}
+              <button
+                onClick={() => {
+                  setDraftAction("idle");
+                  setDraftError(null);
+                }}
+                style={{
+                  marginLeft: 12,
+                  padding: "4px 8px",
+                  backgroundColor: "#ffffff",
+                  color: "#c93b41",
+                  border: "1px solid #c93b41",
+                  borderRadius: 3,
+                  cursor: "pointer",
+                  fontSize: 12,
+                }}
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Reply Simulation */}
       <div
         style={{
