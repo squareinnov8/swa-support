@@ -377,15 +377,15 @@ export async function getConversationHistory(
     return [];
   }
 
-  // Filter out the specific message if provided, otherwise filter out the most recent inbound
+  // Filter out the specific message if provided, otherwise include all messages
+  // Note: We no longer exclude by default - the full conversation provides better context
+  // especially in multi-party threads with vendor replies
   let filteredData = data;
   if (excludeMessageId) {
-    // Exclude the specific message
+    // Exclude the specific message only if explicitly requested
     filteredData = data.filter((msg) => msg.id !== excludeMessageId);
-  } else {
-    // Legacy behavior: skip the most recent message (assumed to be the one being processed)
-    filteredData = data.slice(1);
   }
+  // If no excludeMessageId provided, include ALL messages for full context
 
   if (filteredData.length === 0) {
     return [];

@@ -219,9 +219,9 @@ export async function reprocessThread(
       messageLimit: 30,
     });
 
-    // Get conversation history - use higher limit to include vendor replies
-    // Pass the message ID being responded to so we exclude it specifically (not just the most recent)
-    const conversationHistory = await getConversationHistory(threadId, 20, latestMessage.id);
+    // Get conversation history - use higher limit to include vendor replies and full context
+    // Don't exclude any message - show full conversation so LLM understands the complete context
+    const conversationHistory = await getConversationHistory(threadId, 20);
 
     // Build customer context
     let orderContext: OrderContext | undefined;
