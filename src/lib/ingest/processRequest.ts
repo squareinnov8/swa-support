@@ -421,11 +421,30 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
   const isInternalEmail = INTERNAL_DOMAINS.includes(emailDomain || "");
   // Note: ADMIN_EMAILS and senderEmail already defined above in classification override
 
+  // Check if there's an existing pending/not_found verification that needs re-attempt
+  // This handles the case where customer replies with their order number to AWAITING_INFO
+  let existingVerificationNeedsRetry = false;
+  if (isFollowUp && !isAdminEmail && !isInternalEmail) {
+    const { data: existingVerification } = await supabase
+      .from("customer_verifications")
+      .select("status")
+      .eq("thread_id", threadId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingVerification?.status === "pending" || existingVerification?.status === "not_found") {
+      existingVerificationNeedsRetry = true;
+      console.log(`[Ingest] Existing verification is ${existingVerification.status}, will re-attempt with new message`);
+    }
+  }
+
   // Skip verification for admin/internal emails - they're the boss, not customers
+  // Re-attempt verification if existing verification is pending/not_found (customer may have provided order number)
   const needsVerification =
     !isAdminEmail &&
     !isInternalEmail &&
-    (classification?.requires_verification || false);
+    (classification?.requires_verification || existingVerificationNeedsRetry);
 
   let verification: VerificationResult | null = null;
   if (needsVerification) {
