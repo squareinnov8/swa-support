@@ -68,6 +68,9 @@ export function ThreadActions({
   const [archiveError, setArchiveError] = useState<string | null>(null);
   const [draftAction, setDraftAction] = useState<"idle" | "deleting" | "regenerating" | "error">("idle");
   const [draftError, setDraftError] = useState<string | null>(null);
+  const [composeText, setComposeText] = useState("");
+  const [composeAction, setComposeAction] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [composeError, setComposeError] = useState<string | null>(null);
 
   async function handleReply(e: React.FormEvent) {
     e.preventDefault();
@@ -360,6 +363,37 @@ export function ThreadActions({
     } catch (err) {
       setDraftAction("error");
       setDraftError(err instanceof Error ? err.message : "Unknown error");
+    }
+  }
+
+  async function handleSendComposedReply() {
+    if (!composeText.trim() || !canSendViaGmail) return;
+
+    setComposeAction("sending");
+    setComposeError(null);
+
+    try {
+      const res = await fetch("/api/admin/send-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          thread_id: threadId,
+          draft_text: composeText.trim(),
+          was_edited: false,
+        }),
+      });
+
+      if (res.ok) {
+        setComposeAction("sent");
+        setComposeText("");
+        router.refresh();
+      } else {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to send message");
+      }
+    } catch (err) {
+      setComposeAction("error");
+      setComposeError(err instanceof Error ? err.message : "Unknown error");
     }
   }
 
@@ -1036,6 +1070,137 @@ export function ThreadActions({
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Compose & Send Reply */}
+      {canSendViaGmail && !isArchived && (
+        <div
+          style={{
+            backgroundColor: "#ffffff",
+            border: "1px solid #cbd6e2",
+            borderRadius: 4,
+            marginBottom: 24,
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              padding: "12px 16px",
+              backgroundColor: "#f5f8fa",
+              borderBottom: "1px solid #cbd6e2",
+            }}
+          >
+            <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#33475b" }}>
+              Compose & Send Reply
+            </h3>
+            <p style={{ margin: "4px 0 0", fontSize: 12, color: "#7c98b6" }}>
+              Write and send a message directly to the customer
+            </p>
+          </div>
+          <div style={{ padding: 16 }}>
+            {composeAction === "sent" ? (
+              <div
+                style={{
+                  padding: 12,
+                  backgroundColor: "#e5f8f4",
+                  borderRadius: 4,
+                  color: "#00a182",
+                  border: "1px solid #a8e4d0",
+                }}
+              >
+                <strong>Message sent successfully!</strong>
+                <button
+                  onClick={() => setComposeAction("idle")}
+                  style={{
+                    marginLeft: 12,
+                    padding: "4px 8px",
+                    backgroundColor: "#ffffff",
+                    color: "#00a182",
+                    border: "1px solid #00a182",
+                    borderRadius: 3,
+                    cursor: "pointer",
+                    fontSize: 12,
+                  }}
+                >
+                  Compose Another
+                </button>
+              </div>
+            ) : composeAction === "error" ? (
+              <div
+                style={{
+                  padding: 12,
+                  backgroundColor: "#fef0f0",
+                  borderRadius: 4,
+                  color: "#c93b41",
+                  border: "1px solid #f5c6c6",
+                  marginBottom: 12,
+                }}
+              >
+                <strong>Failed to send:</strong> {composeError}
+                <button
+                  onClick={() => {
+                    setComposeAction("idle");
+                    setComposeError(null);
+                  }}
+                  style={{
+                    marginLeft: 12,
+                    padding: "4px 8px",
+                    backgroundColor: "#ffffff",
+                    color: "#c93b41",
+                    border: "1px solid #c93b41",
+                    borderRadius: 3,
+                    cursor: "pointer",
+                    fontSize: 12,
+                  }}
+                >
+                  Retry
+                </button>
+              </div>
+            ) : (
+              <>
+                <textarea
+                  placeholder="Write your reply to the customer..."
+                  value={composeText}
+                  onChange={(e) => setComposeText(e.target.value)}
+                  style={{
+                    width: "100%",
+                    minHeight: 120,
+                    padding: 12,
+                    border: "1px solid #cbd6e2",
+                    borderRadius: 4,
+                    fontFamily: "inherit",
+                    fontSize: 14,
+                    marginBottom: 12,
+                    color: "#33475b",
+                    resize: "vertical",
+                  }}
+                />
+                <button
+                  onClick={handleSendComposedReply}
+                  disabled={composeAction === "sending" || !composeText.trim()}
+                  style={{
+                    padding: "9px 16px",
+                    backgroundColor:
+                      composeAction === "sending" || !composeText.trim()
+                        ? "#9ca3af"
+                        : "#0091ae",
+                    color: "white",
+                    border: "none",
+                    borderRadius: 4,
+                    cursor:
+                      composeAction === "sending" || !composeText.trim()
+                        ? "not-allowed"
+                        : "pointer",
+                    fontWeight: 500,
+                    fontSize: 14,
+                  }}
+                >
+                  {composeAction === "sending" ? "Sending..." : "Send to Customer"}
+                </button>
+              </>
+            )}
+          </div>
         </div>
       )}
 
