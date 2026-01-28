@@ -43,7 +43,7 @@ export function DraftModule({
   isArchived,
   threadState,
 }: Props) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   return (
     <div
