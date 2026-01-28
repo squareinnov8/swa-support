@@ -55,7 +55,7 @@ export default async function AdminPage({
   // Build query with filters
   let query = supabase
     .from("threads")
-    .select("id,subject,state,last_intent,updated_at,created_at,last_message_at,human_handling_mode,human_handler,summary,verification_status,is_archived");
+    .select("id,subject,title,state,last_intent,updated_at,created_at,last_message_at,human_handling_mode,human_handler,summary,verification_status,is_archived");
 
   // Apply archived filter (default: hide archived)
   if (archivedFilter === "hide") {
@@ -82,9 +82,9 @@ export default async function AdminPage({
     query = query.ilike("last_intent", `%${intentFilter}%`);
   }
 
-  // Apply search filter (searches subject and summary)
+  // Apply search filter (searches title, subject, and summary)
   if (searchQuery) {
-    query = query.or(`subject.ilike.%${searchQuery}%,summary.ilike.%${searchQuery}%`);
+    query = query.or(`title.ilike.%${searchQuery}%,subject.ilike.%${searchQuery}%,summary.ilike.%${searchQuery}%`);
   }
 
   // Apply sorting
@@ -282,8 +282,14 @@ export default async function AdminPage({
                               lineHeight: 1.3,
                             }}
                           >
-                            {t.subject || "(no subject)"}
+                            {t.title || t.subject || "(no subject)"}
                           </a>
+                          {/* Show subject as secondary info if we have a different title */}
+                          {t.title && t.subject && t.title !== t.subject && (
+                            <div style={{ fontSize: 12, color: "#99acc2", marginTop: 2 }} title={t.subject}>
+                              {t.subject.length > 60 ? t.subject.substring(0, 60) + "…" : t.subject}
+                            </div>
+                          )}
                           {t.summary && (
                             <div style={{ fontSize: 13, color: "#7c98b6", marginTop: 3, lineHeight: 1.4 }}>
                               {t.summary.length > 100 ? t.summary.substring(0, 100) + "…" : t.summary}

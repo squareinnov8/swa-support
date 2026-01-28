@@ -9,12 +9,14 @@
 import { supabase } from "@/lib/db";
 import { checkAutomatedEmail } from "@/lib/intents/classify";
 import { classifyWithLLM, addIntentsToThread, reclassifyThread, generateMissingInfoPromptFromClassification, type ClassificationResult } from "@/lib/intents/llmClassify";
+import type { Intent } from "@/lib/intents/taxonomy";
 import { policyGate } from "@/lib/responders/policyGate";
 import { trackPromisedActions } from "@/lib/responders/promisedActions";
 import { macroDocsVideoMismatch, macroFirmwareAccessClarify } from "@/lib/responders/macros";
 import { generateDraft, getConversationHistory, type DraftResult } from "@/lib/llm/draftGenerator";
 import { calculateThreadAge, type CustomerContext, type ThreadAgeContext } from "@/lib/llm/prompts";
 import { isLLMConfigured } from "@/lib/llm/client";
+import { generateAndSaveThreadTitle } from "@/lib/llm/titleGenerator";
 import {
   generateContextualEmail,
   type EscalationContext,
@@ -329,6 +331,16 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
 
       // Add all detected intents to thread (handles UNKNOWN removal automatically)
       await addIntentsToThread(threadId, classification);
+
+      // Generate thread title for new threads (async, non-blocking)
+      if (!isFollowUp) {
+        generateAndSaveThreadTitle(
+          threadId,
+          req.subject || "",
+          req.body_text,
+          classification.primary_intent as Intent
+        ).catch((err) => console.error("[Ingest] Title generation failed:", err));
+      }
     }
 
     intent = classification.primary_intent;
