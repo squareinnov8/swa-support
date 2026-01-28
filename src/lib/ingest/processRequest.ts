@@ -45,6 +45,7 @@ import {
 import { recordObservation } from "@/lib/collaboration";
 import type { ExtractedAttachmentContent } from "@/lib/attachments";
 import { getOrderTimeline, buildOrderStatusSummary } from "@/lib/shopify/orderEvents";
+import { extractOrderNumber } from "@/lib/verification/extractors";
 
 /**
  * Process an ingest request from any channel.
@@ -73,51 +74,67 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
   let isFollowUp = false; // Track if this is a follow-up message on existing thread
   let threadCreatedAt: Date | null = null; // Track thread creation date for age calculation
 
+  // Extract order number early for thread deduplication
+  // This prevents multiple threads being created for the same order from different email threads
+  const fullTextForOrderExtraction = `${req.subject || ""}\n${req.body_text}`;
+  const detectedOrderNumber = extractOrderNumber(fullTextForOrderExtraction);
+
+  if (detectedOrderNumber) {
+    console.log(`[Ingest] Detected order number #${detectedOrderNumber} in message`);
+  }
+
+  // First, try to find existing thread by external_id (Gmail thread ID)
+  let existingThread: { id: string; state: string; human_handling_mode: boolean | null; created_at: string | null; order_number: string | null } | null = null;
+
   if (req.external_id) {
-    const { data: existing } = await supabase
+    const { data } = await supabase
       .from("threads")
-      .select("id, state, human_handling_mode, created_at")
+      .select("id, state, human_handling_mode, created_at, order_number")
       .eq("external_thread_id", req.external_id)
       .maybeSingle();
+    existingThread = data;
+  }
 
-    if (existing?.id) {
-      threadId = existing.id;
-      currentState = (existing.state as ThreadState) || "NEW";
-      isHumanHandling = existing.human_handling_mode === true;
-      isFollowUp = true; // This is a follow-up message
-      threadCreatedAt = existing.created_at ? new Date(existing.created_at) : null;
-    } else {
-      // Create new thread since external_id lookup found nothing
-      const threadData: Record<string, unknown> = {
-        external_thread_id: req.external_id,
-        subject: req.subject,
-        state: "NEW",
-        channel: req.channel,
-      };
-      // Use email date if provided for accurate thread timestamps
-      if (req.message_date) {
-        threadData.created_at = req.message_date.toISOString();
-      }
+  // If no thread found by external_id, try to find by order number
+  // This consolidates all emails about the same order into one thread
+  if (!existingThread && detectedOrderNumber) {
+    const { data: orderThread } = await supabase
+      .from("threads")
+      .select("id, state, human_handling_mode, created_at, order_number")
+      .eq("order_number", detectedOrderNumber)
+      .neq("state", "RESOLVED") // Don't reuse resolved threads
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-      const { data: created, error } = await supabase
+    if (orderThread) {
+      console.log(`[Ingest] Found existing thread ${orderThread.id} for order #${detectedOrderNumber} - consolidating`);
+      existingThread = orderThread;
+    }
+  }
+
+  if (existingThread?.id) {
+    threadId = existingThread.id;
+    currentState = (existingThread.state as ThreadState) || "NEW";
+    isHumanHandling = existingThread.human_handling_mode === true;
+    isFollowUp = true; // This is a follow-up message
+    threadCreatedAt = existingThread.created_at ? new Date(existingThread.created_at) : null;
+
+    // Update thread with order number if we detected one and thread doesn't have it yet
+    if (detectedOrderNumber && !existingThread.order_number) {
+      await supabase
         .from("threads")
-        .insert(threadData)
-        .select("id, created_at")
-        .single();
-
-      if (error) {
-        throw new Error(`Failed to create thread: ${error.message}`);
-      }
-      threadId = created.id;
-      threadCreatedAt = created.created_at ? new Date(created.created_at) : new Date();
+        .update({ order_number: detectedOrderNumber })
+        .eq("id", threadId);
     }
   } else {
-    // No external_id, create new thread
+    // Create new thread
     const threadData: Record<string, unknown> = {
-      external_thread_id: null,
+      external_thread_id: req.external_id || null,
       subject: req.subject,
       state: "NEW",
       channel: req.channel,
+      order_number: detectedOrderNumber, // Store order number for future deduplication
     };
     // Use email date if provided for accurate thread timestamps
     if (req.message_date) {
@@ -135,6 +152,10 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
     }
     threadId = created.id;
     threadCreatedAt = created.created_at ? new Date(created.created_at) : new Date();
+
+    if (detectedOrderNumber) {
+      console.log(`[Ingest] Created new thread ${threadId} for order #${detectedOrderNumber}`);
+    }
   }
 
   // 2. Insert message with channel info
@@ -580,6 +601,16 @@ export async function processIngestRequest(req: IngestRequest): Promise<IngestRe
     console.log(
       `Customer verified for thread ${threadId}: order ${verification.order?.number}`
     );
+
+    // Update thread's order_number if verification found one and we didn't already set it
+    // This ensures deduplication works even if early extraction missed the order number
+    if (verification.order?.number && !detectedOrderNumber) {
+      await supabase
+        .from("threads")
+        .update({ order_number: verification.order.number })
+        .eq("id", threadId);
+      console.log(`[Ingest] Updated thread ${threadId} with verified order number #${verification.order.number}`);
+    }
 
     // IMPORTANT: After successful verification, update classification to reflect
     // that we now have order context. The original classification was made WITHOUT
