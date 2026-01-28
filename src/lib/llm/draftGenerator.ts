@@ -362,9 +362,9 @@ export async function getConversationHistory(
 ): Promise<ConversationMessage[]> {
   const { data, error } = await supabase
     .from("messages")
-    .select("id, direction, body_text, created_at, from_email")
+    .select("id, direction, body_text, created_at, from_email, role")
     .eq("thread_id", threadId)
-    .neq("role", "draft") // Exclude draft messages from history
+    .or("role.is.null,role.neq.draft") // Exclude draft messages but include NULLs
     .order("created_at", { ascending: false })
     .limit(limit + 1); // Get one extra in case we need to exclude
 
