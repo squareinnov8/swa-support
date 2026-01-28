@@ -513,36 +513,39 @@ async function processGmailThread(
     return result;
   }
 
-  // Check if this is an order confirmation email - route to order pipeline
-  // Note: Shopify order emails come FROM support@squarewheelsauto.com, so they're NOT marked as "incoming"
-  // We need to check ALL messages in the thread for order emails, not just incoming ones
-  const orderMessage = [...thread.messages].reverse().find((m) => isOrderEmail(thread.subject, m.from));
-  if (orderMessage) {
-    console.log(`[Monitor] Detected order email: ${thread.subject}`);
+  // IMPORTANT: Check for vendor threads BEFORE order emails
+  // Vendor forward threads contain order email patterns but should be processed as vendor replies
 
-    const orderResult = await processOrderEmail({
-      subject: thread.subject,
-      body: orderMessage.body,
-      from: orderMessage.from,
-      date: orderMessage.date,
-      gmailMessageId: orderMessage.id,
-      gmailThreadId,
-    });
+  // Check if this thread is associated with a vendor forward thread first
+  // This handles the case where a vendor replies to a forwarded order
+  const orderVendorByThread = await findOrderVendorByThread(gmailThreadId);
+  if (orderVendorByThread) {
+    console.log(`[Monitor] Thread matches vendor forward thread for order ${orderVendorByThread.order_id}`);
 
-    result.orderProcessed = true;
-    if (orderResult.vendorsForwarded && orderResult.vendorsForwarded.length > 0) {
-      result.orderForwarded = true;
+    // Get the latest message from this thread
+    const latestMsg = thread.messages[thread.messages.length - 1];
+    if (latestMsg) {
+      const vendorResult = await processVendorReply({
+        gmailThreadId,
+        gmailMessageId: latestMsg.id,
+        fromEmail: latestMsg.from,
+        subject: thread.subject,
+        body: latestMsg.body,
+      });
+
+      result.vendorReplyProcessed = vendorResult.processed;
+      result.vendorRequestsCreated = vendorResult.requestCount;
+      result.customerContacted = vendorResult.customerContacted;
+
+      if (!vendorResult.processed && vendorResult.error) {
+        result.error = vendorResult.error;
+      }
+
+      return result;
     }
-    if (!orderResult.success) {
-      result.error = orderResult.error;
-    }
-
-    // Order emails are handled separately, don't process through support pipeline
-    return result;
   }
 
-  // Check if this is a vendor reply to an order thread
-  // Vendor replies should be processed through the vendor coordination pipeline
+  // Check if this is a vendor reply by email address
   const latestIncomingForVendor = [...thread.messages].reverse().find((m) => m.isIncoming);
   if (latestIncomingForVendor) {
     const vendorCheck = await isVendorEmail(latestIncomingForVendor.from);
@@ -570,33 +573,32 @@ async function processGmailThread(
     }
   }
 
-  // Also check if this thread is associated with a vendor forward thread
-  // (handles Rob's forwards of vendor emails)
-  const orderVendorByThread = await findOrderVendorByThread(gmailThreadId);
-  if (orderVendorByThread) {
-    console.log(`[Monitor] Thread matches vendor forward thread for order ${orderVendorByThread.order_id}`);
+  // Check if this is an order confirmation email - route to order pipeline
+  // Note: Shopify order emails come FROM support@squarewheelsauto.com, so they're NOT marked as "incoming"
+  // We need to check ALL messages in the thread for order emails, not just incoming ones
+  const orderMessage = [...thread.messages].reverse().find((m) => isOrderEmail(thread.subject, m.from));
+  if (orderMessage) {
+    console.log(`[Monitor] Detected order email: ${thread.subject}`);
 
-    // Get the latest message from this thread
-    const latestMsg = thread.messages[thread.messages.length - 1];
-    if (latestMsg) {
-      const vendorResult = await processVendorReply({
-        gmailThreadId,
-        gmailMessageId: latestMsg.id,
-        fromEmail: latestMsg.from,
-        subject: thread.subject,
-        body: latestMsg.body,
-      });
+    const orderResult = await processOrderEmail({
+      subject: thread.subject,
+      body: orderMessage.body,
+      from: orderMessage.from,
+      date: orderMessage.date,
+      gmailMessageId: orderMessage.id,
+      gmailThreadId,
+    });
 
-      result.vendorReplyProcessed = vendorResult.processed;
-      result.vendorRequestsCreated = vendorResult.requestCount;
-      result.customerContacted = vendorResult.customerContacted;
-
-      if (!vendorResult.processed && vendorResult.error) {
-        result.error = vendorResult.error;
-      }
-
-      return result;
+    result.orderProcessed = true;
+    if (orderResult.vendorsForwarded && orderResult.vendorsForwarded.length > 0) {
+      result.orderForwarded = true;
     }
+    if (!orderResult.success) {
+      result.error = orderResult.error;
+    }
+
+    // Order emails are handled separately, don't process through support pipeline
+    return result;
   }
 
   // Check if this is a customer response to a vendor request outreach
